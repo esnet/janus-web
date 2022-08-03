@@ -59,7 +59,7 @@ ROOT_URLCONF = 'webapp.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(os.path.dirname(BASE_DIR),'webapp','static','templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -120,7 +120,13 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.0/howto/static-files/
 
-STATIC_URL = 'static/'
+# Static Files
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(os.path.dirname(BASE_DIR), "webapp", "static", "static-only")
+STATICFILES_DIRS = (
+    os.path.join(os.path.dirname(BASE_DIR),'webapp','static','static'),
+)
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
@@ -164,10 +170,13 @@ LOGGING = {
     },
 }
 
+SECURE_CROSS_ORIGIN_OPENER_POLICY = None
 CTRL_HOST = os.getenv("JANUS_WEB_CTRL_HOST", "localhost")
 CTRL_PORT = os.getenv("JANUS_WEB_CTRL_PORT", "5000")
-CTRL_HTTP_PROTOCOL = os.getenv("CTRL_HTTP_PROTOCOL", "http")
+CTRL_HTTP_PROTOCOL = os.getenv("CTRL_HTTP_PROTOCOL", "https")
+CTRL_SSL_VERIFY = False if os.getenv("CTRL_SSL_VERIFY", "False") == "False" else True
+JANUS_CONTROLLER_URL = "{}://{}:{}/".format(CTRL_HTTP_PROTOCOL, CTRL_HOST, CTRL_PORT)
 
-AGENT_HOST = os.getenv("JANUS_WEB_AGENT_HOST", "localhost")
-AGENT_PORT = os.getenv("JANUS_WEB_AGENT_PORT", "5050")
-AGENT_HTTP_PROTOCOL = os.getenv("AGENT_HTTP_PROTOCOL", "http")
+JANUS_USER = os.getenv("JANUS_USER", "admin")
+JANUS_PASSWORD = os.getenv("JANUS_PASSWORD", "admin")
+JANUS_CONTROLLER_AUTH = (JANUS_USER, JANUS_PASSWORD)

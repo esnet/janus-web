@@ -1,5 +1,5 @@
-from django.http import HttpResponse
+from django.shortcuts import HttpResponseRedirect
 
 
 def index(request):
-    return HttpResponse("Welcome to the Janus Web User Portal!")
+    return HttpResponseRedirect('/session/')
