@@ -1,7 +1,4 @@
 import logging
-from urllib import response
-
-from requests import session
 from . import services
 from django.shortcuts import render, HttpResponseRedirect
 from django.http import HttpResponseServerError
@@ -40,7 +37,6 @@ def list_sessions(request):
 
 
 def view_session(request, session_id):
-    logger.debug(services.get_session_info())
     logger.debug('view_session called with session_id: %s', session_id)
     content = {
         'session_id': session_id
@@ -50,8 +46,51 @@ def view_session(request, session_id):
 
 
 def create_session(request):
-    logger.debug('create_session called')
-    return HttpResponseRedirect('/')
+    if request.method == 'POST':
+        data = {}
+        node = request.POST.get('node', None)
+        if node is not None:
+            data['instances'] = [node]
+        else:
+            return HttpResponseRedirect('/session/create/')
+
+        image = request.POST.get('image', None)
+        if image is not None:
+            data['image'] = image
+        else:
+            return HttpResponseRedirect('/session/create/')
+
+        profile = request.POST.get('profile', "default")
+        if profile is not None:
+            data['profile'] = profile
+
+        data['kwargs'] = {}
+        ssh_user_name = request.POST.get('ssh_user_name', None)
+        if ssh_user_name is not None:
+            data['kwargs']['USER_NAME'] = ssh_user_name
+
+        ssh_public_key = request.POST.get('ssh_public_key', None)
+        if ssh_public_key is not None:
+            data['kwargs']['PUBLIC_KEY'] = ssh_public_key
+
+        status, _ = services.create_session(data)
+        if status:
+            return HttpResponseRedirect('/session/')
+        else:
+            return HttpResponseRedirect('/session/create/')
+
+    _, nodes = services.get_nodes()
+    _, profiles = services.get_profiles()
+    _, images = services.get_images(nodes[0])
+    content = {
+        'nodes': nodes,
+        'profiles': profiles,
+        'images': images
+    }
+
+    logger.debug(content)
+    return render(request, 'create_session.html', content)
+    # return HttpResponseRedirect('/')
 
 
 def start_session(request, session_id):
