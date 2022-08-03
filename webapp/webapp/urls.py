@@ -21,7 +21,7 @@ from . import views
 
 urlpatterns = [
     path('session/', include('session_manager.urls')),
-    path('', views.index, name='index'),
+    path('', views.index, name='home'),
     # path('admin/', admin.site.urls),
 ]
 

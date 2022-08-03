@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block content %}
+    <p>
+        {% if sessions|length %}
+        <table class="table">
+            <thead>
+            <tr>
+                <th>session id</th>
+                <th>created by</th>
+                <th>state</th>
+                <th>action</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for data in sessions %}
+            <tr>
+                <td> {{ data.id }} </td>
+                <td> {{ data.user }} </td>
+                <td> {{ data.state }} </td>
+                {% if data.state == 'INITIALIZED' %}
+                    <td><a href= "{% url 'start_session' session_id=data.id %}">start</a></td>
+                {% elif data.state == 'STOPPED' %}
+                    <td>
+                        <a href= "{% url 'start_session' session_id=data.id %}">start</a>
+                        ,
+                        <a href= "{% url 'delete_session' session_id=data.id %}">delete</a>
+                    </td>
+                {% else %}
+                    <td><a href= "{% url 'stop_session' session_id=data.id %}">stop</a></td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </p>
+{% endblock content %}
