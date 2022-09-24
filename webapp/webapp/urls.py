@@ -21,8 +21,9 @@ from . import views
 
 urlpatterns = [
     path('session/', include('session_manager.urls')),
+    path('authentication/', include('authentication.urls')),
     path('', views.index, name='home'),
-    # path('admin/', admin.site.urls),
+    path('admin/', admin.site.urls),
 ]
 
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
