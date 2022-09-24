@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block content %}
+    {% if login %}
+    <div class="container">
+        <a href="{% url 'create_session' %}"><h4>New Profiles</h4></a>
+    </div>
+    {% endif %}
+
+    <div class="container">
+        {% if sessions|length %}
+        <table class="table">
+            <thead>
+            <tr>
+                <th>Name</th>
+                <th>CPU Cores</th>
+                <th>Memory (Bytes)</th>
+                <th>Affinity</th>
+                <th>Network</th>
+                <th>QoS</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for data in profiles %}
+            <tr>
+                <td> {{ data.pname }} </td>
+                <td> {{ data.cpu }} </td>
+                <td> {{ data.mem }} </td>
+                <td> {{ data.affinity }} </td>
+                <td> {{ data.mgmt_net }} </td>
+                <td> {{ data.qos }} </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+{% endblock content %}

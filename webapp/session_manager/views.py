@@ -1,15 +1,14 @@
 import logging
 from . import services
 from django.shortcuts import render, HttpResponseRedirect
-from django.http import HttpResponseServerError
+from django.http import HttpResponseServerError, HttpResponseNotFound
 
 logger = logging.getLogger(__name__)
 
 
 def list_sessions_by_user(request):
-    login = False
     if "name" in request.session:
-        name = request.session["name"]
+        name = request.user
         login = True
         sessions = services.get_sessions_by_user(name)
 
@@ -28,7 +27,8 @@ def list_sessions(request):
     status, sessions = services.get_session_info()
     if status:
         content = {
-            'sessions': sessions
+            'sessions': sessions,
+            'login': request.user.is_authenticated
         }
 
         return render(request, 'home.html', content)
@@ -36,16 +36,43 @@ def list_sessions(request):
         return HttpResponseServerError()
 
 
-def view_session(request, session_id):
-    logger.debug('view_session called with session_id: %s', session_id)
-    content = {
-        'session_id': session_id
-    }
+def list_profiles(request):
+    status, sessions = services.get_session_info()
+    _, profiles = services.get_profiles(verbose=True)
+    # logger.info(profiles)
+    if status:
+        content = {
+            'sessions': sessions,
+            "profiles": profiles,
+            'login': request.user.is_authenticated
+        }
 
-    return render(request, 'session_view.html', content)
+        return render(request, 'profile.html', content)
+    else:
+        return HttpResponseServerError()
+
+
+def view_session(request, session_id):
+    status, sessions = services.get_session_info(session_id=session_id)
+    if status and len(sessions) > 0:
+        for key in sessions[0]:
+            session_id = key
+        content = {
+            "session_d": key,
+            'session': sessions[0][key],
+            'login': request.user.is_authenticated
+        }
+
+        # logger.debug(content)
+        return render(request, 'session_view.html', content)
+    else:
+        return HttpResponseNotFound()
 
 
 def create_session(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect('/')
+
     if request.method == 'POST':
         data = {}
         node = request.POST.get('node', None)
@@ -85,12 +112,12 @@ def create_session(request):
     content = {
         'nodes': nodes,
         'profiles': profiles,
-        'images': images
+        'images': images,
+        'login': request.user.is_authenticated
     }
 
-    logger.debug(content)
+    # logger.debug(content)
     return render(request, 'create_session.html', content)
-    # return HttpResponseRedirect('/')
 
 
 def start_session(request, session_id):
