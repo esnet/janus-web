@@ -1,8 +1,10 @@
 {% extends 'base.html' %}
 {% block content %}
+    {% if login %}
     <div class="container">
         <a href="{% url 'create_session' %}"><h4>New Session</h4></a>
     </div>
+    {% endif %}
 
     <div class="container">
         {% if sessions|length %}
@@ -21,21 +23,23 @@
                 <td> {{ data.id }} </td>
                 <td> {{ data.user }} </td>
                 <td> {{ data.state }} </td>
-                {% if data.state == 'INITIALIZED' %}
-                    <td>
-                        <a href= "{% url 'start_session' session_id=data.id %}">start</a>
-                        ,
-                        <a href= "{% url 'delete_session' session_id=data.id %}">delete</a>
-                    </td>
-                {% elif data.state == 'STOPPED' %}
-                    <td>
-                        <a href= "{% url 'start_session' session_id=data.id %}">start</a>
-                        ,
-                        <a href= "{% url 'delete_session' session_id=data.id %}">delete</a>
-                    </td>
-                {% else %}
-                    <td><a href= "{% url 'stop_session' session_id=data.id %}">stop</a></td>
-                {% endif %}
+                {% if login %}
+                    {% if data.state == 'INITIALIZED' %}
+                        <td>
+                            <a href= "{% url 'start_session' session_id=data.id %}">start</a>
+                            ,
+                            <a href= "{% url 'delete_session' session_id=data.id %}">delete</a>
+                        </td>
+                    {% elif data.state == 'STOPPED' %}
+                        <td>
+                            <a href= "{% url 'start_session' session_id=data.id %}">start</a>
+                            ,
+                            <a href= "{% url 'delete_session' session_id=data.id %}">delete</a>
+                        </td>
+                    {% else %}
+                        <td><a href= "{% url 'stop_session' session_id=data.id %}">stop</a></td>
+                    {% endif %}
+                {% endif%}
             </tr>
             {% endfor %}
             </tbody>

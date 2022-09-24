@@ -1,4 +1,23 @@
 {% extends 'base.html' %}
 {% block content %}
-    <p>view session details of session id {{ session_id }} </p>
+    <div class="container">
+        {% for id in session %}
+            <table class="table">
+                <thead>
+                <tr>
+                    <th>Key</th>
+                    <th>Value</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for value in session.id %}
+                <tr>
+                    <td> {{ value }} </td>
+                    <td> {{ session.id.value }} </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% endfor %}
+    </div>
 {% endblock content %}

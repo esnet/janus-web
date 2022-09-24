@@ -29,14 +29,17 @@ def get_session_info(name=None, session_id=None):
     status, data = False, []
     if res.status_code == 200:
         status = True
-        for entry in res.json():
-            for key in entry:
-                temp = {
-                    "id": key,
-                    "user": entry[key]["user"],
-                    "state": entry[key]["state"]
-                }
-                data.append(temp)
+        if session_id is not None:
+            data = res.json()
+        else:
+            for entry in res.json():
+                for key in entry:
+                    temp = {
+                        "id": key,
+                        "user": entry[key]["user"],
+                        "state": entry[key]["state"]
+                    }
+                    data.append(temp)
 
     return status, data
 
@@ -114,13 +117,17 @@ def delete_session(session_id):
         return False, {}
 
 
-def get_profiles():
+def get_profiles(verbose=False, pname=None):
     """
     Get profiles list from Janus Controller
     :return:
     """
+    profile_url = base_url + "profiles"
+    if pname:
+        profile_url += "?pname=" + pname
+
     res = requests.get(
-        url = base_url + "profiles",
+        url = profile_url,
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY
     )
@@ -128,8 +135,16 @@ def get_profiles():
     status, profiles = False, []
     if res.status_code == 200:
         status = True
-        for entry in res.json():
-            profiles.append(entry)
+        if pname:
+            profiles = res.json()
+        else:
+            for entry in res.json():
+                if verbose:
+                    temp = res.json()[entry]
+                    temp["pname"] = entry
+                    profiles.append(temp)
+                else:
+                    profiles.append(entry)
 
     return (status, profiles)
 
