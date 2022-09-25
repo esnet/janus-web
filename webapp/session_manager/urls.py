@@ -10,4 +10,6 @@ urlpatterns = [
     path('<int:session_id>/', views.view_session, name='view_session'),
     path('', views.list_sessions, name='list_sessions'),
     path('profiles/', views.list_profiles, name='list_profiles'),
+    path('profiles/delete/<str:pname>/', views.delete_profile, name='delete_profile'),
+    path('nodes/', views.list_nodes, name='list_nodes'),
 ]

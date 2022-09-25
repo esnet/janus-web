@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block content %}
+    <div class="container">
+        {% if nodes|length %}
+        <table class="table">
+            <thead>
+            <tr>
+                <th>Name</th>
+                <th>Docker Endpoint</th>
+                <th>CPU Model</th>
+                <th>CPU #Core</th>
+                <th>Memory (Bytes)</th>
+                <!-- <th>Available Images</th> -->
+            </tr>
+            </thead>
+            <tbody>
+            {% for data in nodes %}
+            <tr>
+                <td> {{ data.name }} </td>
+                <td> {{ data.url }} </td>
+                <td> {{ data.cpu_model }} </td>
+                <td> {{ data.cpu_core }} </td>
+                <td> {{ data.memory }} </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+            <div class="container">
+                <h5>No node has been registered yet!</h5>
+            </div>
+
+        {% endif %}
+
+    </div>
+{% endblock content %}

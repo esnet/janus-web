@@ -2,7 +2,7 @@
 {% block content %}
     {% if login %}
     <div class="container">
-        <a href="{% url 'create_session' %}"><h4>New Session</h4></a>
+        <a href="{% url 'create_session' %}"><h4>Create New Controller Session</h4></a>
     </div>
     {% endif %}
 
@@ -44,6 +44,12 @@
             {% endfor %}
             </tbody>
         </table>
+
+        {% else %}
+            <div class="container">
+                <h5>No controller sessions found!</h5>
+            </div>
+
         {% endif %}
     </div>
 {% endblock content %}

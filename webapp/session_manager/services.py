@@ -149,13 +149,50 @@ def get_profiles(verbose=False, pname=None):
     return (status, profiles)
 
 
-def get_nodes():
+def delete_profile(pname):
+    """ Delete profile from Janus Controller """
+    res = requests.delete(
+        url=base_url + "profiles",
+        json={"name": pname},
+        auth=settings.JANUS_CONTROLLER_AUTH,
+        verify=settings.CTRL_SSL_VERIFY
+    )
+
+    if res.status_code == 204:
+        return True, {}
+    else:
+        return False, {}
+
+
+def process_nodes(nodes):
+    """
+    Process nodes list to get only the name of the nodes
+    :param nodes list:
+    :return:
+    """
+    nodes_list = []
+    for node in nodes:
+        temp = {}
+        temp["name"] = node["name"] if "name" in node else None
+        temp["url"] = node["url"] if "url" in node else None
+        temp["cpu_model"] = node["host"]["cpu"]["brand_raw"] if "host" in node else None
+        temp["cpu_core"] = node["host"]["cpu"]["count"] if "host" in node else None
+        temp["memory"] = node["host"]["mem"]["total"] if "host" in node else None
+        temp["image"] = len(node["images"]) if "images" in node else 0
+        temp["networks"] = len(node["networks"]) if "networks" in node else 0
+        nodes_list.append(temp)
+
+    return nodes_list
+
+
+def get_nodes(verbose=False, nname=None):
     """
     Get nodes list from Janus Controller
     :return:
     """
+    url = "nodes" if nname is None else "nodes/" + nname
     res = requests.get(
-        url = base_url + "nodes",
+        url = base_url+url,
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY
     )
@@ -164,8 +201,11 @@ def get_nodes():
 
     if res.status_code == 200:
         status = True
-        for entry in res.json():
-            nodes.append(entry['name'])
+        if verbose:
+            nodes = process_nodes(res.json())
+        else:
+            for entry in res.json():
+                nodes.append(entry['name'])
 
     return (status, nodes)
 
