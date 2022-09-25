@@ -1,4 +1,5 @@
 import logging
+import profile
 from . import services
 from django.shortcuts import render, HttpResponseRedirect
 from django.http import HttpResponseServerError, HttpResponseNotFound
@@ -129,6 +130,60 @@ def create_session(request):
 
     logger.debug(content)
     return render(request, 'create_session.html', content)
+
+
+def create_profile(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect('/')
+
+    if request.method == 'POST':
+        name = request.POST.get('name', None)
+        if not name:
+            return HttpResponseRedirect('/session/profiles/create/')
+
+        data = {}
+        data['cpu'] = request.POST.get('cpu', 0)
+        if not data['cpu']:
+            data["cpu"] = 0
+        data["cpu"] = int(data["cpu"])
+
+        data['mem'] = request.POST.get('memory', 0)
+        if not data['mem']:
+            data['mem'] = 0
+        data['mem'] = int(data['mem'])
+
+        data['affinity'] = request.POST.get('affinity', "network")
+        data['mgmt_net'] = request.POST.get('mgmt_net', "bridge")
+
+        data['internal_port'] = request.POST.get('internal_port', None)
+        if not data['internal_port']:
+            data['internal_port'] = None
+
+        data['internal_port'] = int(data['internal_port']) if data['internal_port'] else None
+        data['qos'] = request.POST.get('qos', None)
+        if not data['qos']:
+            data["qos"] = None
+
+        profile = {
+            'name': name,
+            'settings': data
+        }
+
+        status, _ = services.create_profile(profile)
+        if status:
+            return HttpResponseRedirect('/session/profiles/')
+        else:
+            return HttpResponseRedirect('/session/profiles/create/')
+
+    _, qos = services.get_qos()
+    content = {
+        'qos': qos,
+        'login': request.user.is_authenticated
+    }
+
+    logger.debug(content)
+    return render(request, 'create_profile.html', content)
+
 
 
 def start_session(request, session_id):
