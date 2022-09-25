@@ -2,21 +2,22 @@
 {% block content %}
     {% if login %}
     <div class="container">
-        <a href="{% url 'create_session' %}"><h4>New Profiles</h4></a>
+        <a href="{% url 'create_session' %}"><h4>Create New Container Profiles</h4></a>
     </div>
     {% endif %}
 
     <div class="container">
-        {% if sessions|length %}
+        {% if profiles|length %}
         <table class="table">
             <thead>
             <tr>
                 <th>Name</th>
-                <th>CPU Cores</th>
+                <th>CPU #Core</th>
                 <th>Memory (Bytes)</th>
                 <th>Affinity</th>
                 <th>Network</th>
-                <th>QoS</th>
+                <th>QoS Profile</th>
+                <th>Delete?</th>
             </tr>
             </thead>
             <tbody>
@@ -28,10 +29,19 @@
                 <td> {{ data.affinity }} </td>
                 <td> {{ data.mgmt_net }} </td>
                 <td> {{ data.qos }} </td>
+                {% if login %}
+                    <td><a href= "{% url 'delete_profile' pname=data.pname %}" class="text-danger">YES!</a></td>
+                {% endif%}
             </tr>
             {% endfor %}
             </tbody>
         </table>
+
+        {% else %}
+            <div class="container">
+                <h5>No container profiles found!</h5>
+            </div>
+
         {% endif %}
     </div>
 {% endblock content %}
