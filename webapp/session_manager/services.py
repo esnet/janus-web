@@ -149,6 +149,25 @@ def get_profiles(verbose=False, pname=None):
     return (status, profiles)
 
 
+def create_profile(data):
+    """
+    Create profile on Janus Controller
+    :param data dict:
+    :return:
+    """
+    res = requests.post(
+        url=base_url + "profiles",
+        json=data,
+        auth=settings.JANUS_CONTROLLER_AUTH,
+        verify=settings.CTRL_SSL_VERIFY
+    )
+
+    if res.status_code == 200:
+        return True, res.json()
+    else:
+        return False, {}
+
+
 def delete_profile(pname):
     """ Delete profile from Janus Controller """
     res = requests.delete(
@@ -226,3 +245,21 @@ def get_images(nname):
         images = res.json()[0]["images"]
 
     return (status, images)
+
+def get_qos():
+    """
+    Get QoS list from Janus Controller
+    :return:
+    """
+    res = requests.get(
+        url = base_url + "qos",
+        auth=settings.JANUS_CONTROLLER_AUTH,
+        verify=settings.CTRL_SSL_VERIFY
+    )
+
+    status, qos = False, []
+    if res.status_code == 200:
+        status = True
+        qos = list(res.json().keys())
+
+    return (status, qos)
