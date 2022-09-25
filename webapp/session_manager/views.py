@@ -36,13 +36,24 @@ def list_sessions(request):
         return HttpResponseServerError()
 
 
+def list_nodes(request):
+    status, nodes = services.get_nodes(verbose=True)
+    if status:
+        content = {
+            'nodes': nodes,
+            'login': request.user.is_authenticated
+        }
+
+        return render(request, 'node.html', content)
+    else:
+        return HttpResponseServerError()
+
+
 def list_profiles(request):
-    status, sessions = services.get_session_info()
-    _, profiles = services.get_profiles(verbose=True)
+    status, profiles = services.get_profiles(verbose=True)
     # logger.info(profiles)
     if status:
         content = {
-            'sessions': sessions,
             "profiles": profiles,
             'login': request.user.is_authenticated
         }
@@ -116,30 +127,50 @@ def create_session(request):
         'login': request.user.is_authenticated
     }
 
-    # logger.debug(content)
+    logger.debug(content)
     return render(request, 'create_session.html', content)
 
 
 def start_session(request, session_id):
-    status, _ = services.start_session(session_id)
-    if status:
-        return HttpResponseRedirect('/session/')
+    if request.user.is_authenticated:
+        status, _ = services.start_session(session_id)
+        if status:
+            return HttpResponseRedirect('/session/')
+        else:
+            return HttpResponseServerError()
     else:
-        return HttpResponseServerError()
+        return HttpResponseRedirect('/')
 
 
 def stop_session(request, session_id):
-    status, _ = services.stop_session(session_id)
-    if status:
-        return HttpResponseRedirect('/session/')
+    if request.user.is_authenticated:
+        status, _ = services.stop_session(session_id)
+        if status:
+            return HttpResponseRedirect('/session/')
+        else:
+            return HttpResponseServerError()
     else:
-        return HttpResponseServerError()
+        return HttpResponseRedirect('/')
 
 
 def delete_session(request, session_id):
-    status, _ = services.delete_session(session_id)
-    if status:
-        return HttpResponseRedirect('/session/')
+    if request.user.is_authenticated:
+        status, _ = services.delete_session(session_id)
+        if status:
+            return HttpResponseRedirect('/session/')
+        else:
+            return HttpResponseServerError()
     else:
-        return HttpResponseServerError()
+        return HttpResponseRedirect('/')
+
+
+def delete_profile(request, pname):
+    if request.user.is_authenticated:
+        status, _ = services.delete_profile(pname)
+        if status:
+            return HttpResponseRedirect('/session/profiles/')
+        else:
+            return HttpResponseServerError()
+    else:
+        return HttpResponseRedirect('/')
 
