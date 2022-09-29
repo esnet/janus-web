@@ -1,5 +1,4 @@
 import logging
-import profile
 from . import services
 from django.shortcuts import render, HttpResponseRedirect
 from django.http import HttpResponseServerError, HttpResponseNotFound
@@ -26,12 +25,18 @@ def list_sessions_by_user(request):
 
 def list_sessions(request):
     status, sessions = services.get_session_info()
-    if status:
-        content = {
-            'sessions': sessions,
-            'login': request.user.is_authenticated
-        }
+    login = request.user.is_authenticated
+    content = {
+        'login': login
+    }
 
+    if status:
+        if login:
+            content['sessions'] = sessions
+        else:
+            content['sessions'] = [session for session in sessions if session['profile'] == 'public']
+
+        logger.info(content)
         return render(request, 'home.html', content)
     else:
         return HttpResponseServerError()
@@ -82,8 +87,9 @@ def view_session(request, session_id):
 
 
 def create_session(request):
-    if not request.user.is_authenticated:
-        return HttpResponseRedirect('/')
+    login = request.user.is_authenticated
+    # if not login:
+    #     return HttpResponseRedirect('/')
 
     if request.method == 'POST':
         data = {}
@@ -119,8 +125,13 @@ def create_session(request):
             return HttpResponseRedirect('/session/create/')
 
     _, nodes = services.get_nodes()
-    _, profiles = services.get_profiles()
-    _, images = services.get_images(nodes[0])
+    if login:
+        _, profiles = services.get_profiles()
+        _, images = services.get_images(nodes[0])
+    else:
+        profiles = ["public"]
+        images = ["dtnaas/tools:latest"]
+
     content = {
         'nodes': nodes,
         'profiles': profiles,
