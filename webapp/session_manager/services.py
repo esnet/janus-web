@@ -37,7 +37,9 @@ def get_session_info(name=None, session_id=None):
                     temp = {
                         "id": key,
                         "user": entry[key]["user"],
-                        "state": entry[key]["state"]
+                        "state": entry[key]["state"],
+                        "image": entry[key]["request"][0]["image"],
+                        "profile": entry[key]["request"][0]["profile"],
                     }
                     data.append(temp)
 
