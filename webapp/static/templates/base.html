@@ -29,13 +29,13 @@
                 <a class="nav-link text-info" href="{% url 'home' %}"><h3><strong><em>Janus Web</em></strong></h3></a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" href="{% url 'list_sessions' %}"><h3><strong><em>Sessions</em></strong></h3></a>
+              <a class="nav-link" href="{% url 'janus:list_sessions' %}"><h3><strong><em>Sessions</em></strong></h3></a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" href="{% url 'list_nodes' %}"><h3><strong><em>Nodes</em></strong></h3></a>
+              <a class="nav-link" href="{% url 'janus:list_profiles' %}"><h3><strong><em>Profiles</em></strong></h3></a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" href="{% url 'list_profiles' %}"><h3><strong><em>Profiles</em></strong></h3></a>
+              <a class="nav-link" href="{% url 'janus:list_nodes' %}"><h3><strong><em>Nodes</em></strong></h3></a>
             </li>
           </ul>
           {% if login %}
