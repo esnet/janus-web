@@ -5,6 +5,26 @@ from django.conf import settings
 
 base_url = settings.JANUS_CONTROLLER_URL + "api/janus/controller/"
 
+def get_node_types():
+    ntypes = {1: "1: Portainer Agent",
+              2: "2: Docker",
+              3: "3: Kubernetes"}
+    return ntypes
+
+def add_node(data):
+    res = requests.post(
+        url=base_url + "nodes",
+        json=data,
+        auth=settings.JANUS_CONTROLLER_AUTH,
+        verify=settings.CTRL_SSL_VERIFY
+    )
+    status, data = False, []
+    if res.status_code in [200, 204]:
+        status = True
+    else:
+        status = False
+        data = res.json()
+    return status, data
 
 def get_session_info(name=None, session_id=None):
     """
@@ -62,7 +82,7 @@ def create_session(data):
     if res.status_code == 200:
         return True, res.json()
     else:
-        return False, {}
+        return False, res.json()
 
 
 def start_session(session_id):
@@ -167,7 +187,7 @@ def create_profile(data):
     if res.status_code == 200:
         return True, res.json()
     else:
-        return False, {}
+        return False, res.json()
 
 
 def delete_profile(pname):
