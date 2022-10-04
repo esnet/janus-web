@@ -2,7 +2,7 @@
 {% block content %}
     {% if login %}
     <div class="container">
-        <a href="{% url 'create_profile' %}"><h4>Create New Container Profiles</h4></a>
+        <a class="btn btn-primary btn-lg" role="button" href="{% url 'janus:create_profile' %}">Create</a>
     </div>
     {% endif %}
 
@@ -27,10 +27,20 @@
                 <td> {{ data.cpu }} </td>
                 <td> {{ data.mem }} </td>
                 <td> {{ data.affinity }} </td>
-                <td> {{ data.mgmt_net }} </td>
+                <td>
+                    {% if 'name' in data.mgmt_net %}
+                    <div>
+                        {{ data.mgmt_net.name }}<br/>
+                        <b>ipv4_addr</b>: {{ data.mgmt_net.ipv4_addr|default:''}}</br>
+                        <b>ipv6_addr</b>: {{ data.mgmt_net.ipv6_addr|default:''}}
+                    </div>
+                    {% else %}
+                    {{ data.mgmt_net }}
+                    {% endif %}
+                </td>
                 <td> {{ data.qos }} </td>
                 {% if login %}
-                    <td><a href= "{% url 'delete_profile' pname=data.pname %}" class="text-danger">YES!</a></td>
+                    <td><a href= "{% url 'janus:delete_profile' pname=data.pname %}" class="text-danger">YES!</a></td>
                 {% endif%}
             </tr>
             {% endfor %}

@@ -20,7 +20,7 @@ from django.conf.urls.static import static
 from . import views
 
 urlpatterns = [
-    path('session/', include('session_manager.urls')),
+    path('janus/', include('janus.urls')),
     path('authentication/', include('authentication.urls')),
     path('', views.index, name='home'),
     path('admin/', admin.site.urls),

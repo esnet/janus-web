@@ -1,6 +1,10 @@
 {% extends 'base.html' %}
 {% block content %}
     <div class="container">
+      <a class="btn btn-primary btn-lg" role="button" href="{% url 'janus:add_node' %}">Add</a>
+    </div>
+
+    <div class="container">
         {% if nodes|length %}
         <table class="table">
             <thead>

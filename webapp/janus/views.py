@@ -2,9 +2,10 @@ import logging
 from . import services
 from django.shortcuts import render, HttpResponseRedirect
 from django.http import HttpResponseServerError, HttpResponseNotFound
+from django.urls import reverse
+
 
 logger = logging.getLogger(__name__)
-
 
 def list_sessions_by_user(request):
     if "name" in request.session:
@@ -85,25 +86,54 @@ def view_session(request, session_id):
     else:
         return HttpResponseNotFound()
 
+def add_node(request):
+    login = request.user.is_authenticated
+    data = {"errors": list()}
+    if request.method == 'POST':
+        name = request.POST.get('name', None)
+        if name is not None and len(name):
+            data['name'] = name
+        else:
+            data['errors'].append("Invalid name")
+        url = request.POST.get('url', None)
+        if url is not None and len(name):
+            data['url'] = url
+        else:
+            data['errors'].append("Invalid URL")
+        ntype = request.POST.get('ntype', None)
+        if ntype is not None:
+            data['type'] = int(ntype)
+
+        # XXX use django Forms...
+        if not len(data['errors']):
+            data['kwargs'] = {}
+            status, res = services.add_node(data)
+            if status:
+                return HttpResponseRedirect(reverse('janus:list_nodes'))
+            else:
+                data['errors'].append(res)
+
+    content = {
+        'data': data,
+        'ntypes': services.get_node_types(),
+        'login': request.user.is_authenticated
+    }
+    return render(request, 'add_node.html', content)
 
 def create_session(request):
     login = request.user.is_authenticated
     # if not login:
     #     return HttpResponseRedirect('/')
 
+    data = {"errors": list()}
     if request.method == 'POST':
-        data = {}
         node = request.POST.get('node', None)
         if node is not None:
             data['instances'] = [node]
-        else:
-            return HttpResponseRedirect('/session/create/')
 
         image = request.POST.get('image', None)
         if image is not None:
             data['image'] = image
-        else:
-            return HttpResponseRedirect('/session/create/')
 
         profile = request.POST.get('profile', "default")
         if profile is not None:
@@ -118,11 +148,13 @@ def create_session(request):
         if ssh_public_key is not None:
             data['kwargs']['PUBLIC_KEY'] = ssh_public_key
 
-        status, _ = services.create_session(data)
-        if status:
-            return HttpResponseRedirect('/session/')
-        else:
-            return HttpResponseRedirect('/session/create/')
+        # XXX use django Forms...
+        if not len(data['errors']):
+            status, res = services.create_session(data)
+            if status:
+                return HttpResponseRedirect(reverse('janus:list_sessions'))
+            else:
+                data["errors"].append(res)
 
     _, nodes = services.get_nodes()
     if login:
@@ -133,6 +165,7 @@ def create_session(request):
         images = ["dtnaas/tools:latest"]
 
     content = {
+        'data': data,
         'nodes': nodes,
         'profiles': profiles,
         'images': images,
@@ -147,12 +180,11 @@ def create_profile(request):
     if not request.user.is_authenticated:
         return HttpResponseRedirect('/')
 
+    data = {"errors": list()}
     if request.method == 'POST':
         name = request.POST.get('name', None)
         if not name:
-            return HttpResponseRedirect('/session/profiles/create/')
-
-        data = {}
+            data["errors"].append("Invalid name")
         data['cpu'] = request.POST.get('cpu', 0)
         if not data['cpu']:
             data["cpu"] = 0
@@ -180,14 +212,17 @@ def create_profile(request):
             'settings': data
         }
 
-        status, _ = services.create_profile(profile)
-        if status:
-            return HttpResponseRedirect('/session/profiles/')
-        else:
-            return HttpResponseRedirect('/session/profiles/create/')
+        # XXX use django Forms...
+        if not len(data['errors']):        
+            status, res = services.create_profile(profile)
+            if status:
+                return HttpResponseRedirect(reverse('janus:list_profiles'))
+            else:
+                data["errors"].append(res)
 
     _, qos = services.get_qos()
     content = {
+        'data': data,
         'qos': qos,
         'login': request.user.is_authenticated
     }
@@ -201,7 +236,7 @@ def start_session(request, session_id):
     if request.user.is_authenticated:
         status, _ = services.start_session(session_id)
         if status:
-            return HttpResponseRedirect('/session/')
+            return HttpResponseRedirect(reverse('janus:list_sessions'))
         else:
             return HttpResponseServerError()
     else:
@@ -212,7 +247,7 @@ def stop_session(request, session_id):
     if request.user.is_authenticated:
         status, _ = services.stop_session(session_id)
         if status:
-            return HttpResponseRedirect('/session/')
+            return HttpResponseRedirect(reverse('janus:list_sessions'))
         else:
             return HttpResponseServerError()
     else:
@@ -223,7 +258,7 @@ def delete_session(request, session_id):
     if request.user.is_authenticated:
         status, _ = services.delete_session(session_id)
         if status:
-            return HttpResponseRedirect('/session/')
+            return HttpResponseRedirect(reverse('janus:list_sessions'))
         else:
             return HttpResponseServerError()
     else:
@@ -234,7 +269,7 @@ def delete_profile(request, pname):
     if request.user.is_authenticated:
         status, _ = services.delete_profile(pname)
         if status:
-            return HttpResponseRedirect('/session/profiles/')
+            return HttpResponseRedirect(reverse('janus:list_profiles'))
         else:
             return HttpResponseServerError()
     else:
