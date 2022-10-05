@@ -120,6 +120,18 @@ def add_node(request):
     }
     return render(request, 'add_node.html', content)
 
+
+def remove_node(request, nname):
+    if request.user.is_authenticated:
+        status, res = services.remove_node(nname)
+        if status:
+            return HttpResponseRedirect(reverse('janus:list_nodes'))
+        else:
+            return HttpResponseServerError()
+    else:
+        return HttpResponseRedirect('/')
+
+
 def create_session(request):
     login = request.user.is_authenticated
     # if not login:
