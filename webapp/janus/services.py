@@ -26,6 +26,20 @@ def add_node(data):
         data = res.json()
     return status, data
 
+def remove_node(nname):
+    res = requests.delete(
+        url=base_url + f"nodes/{nname}",
+        auth=settings.JANUS_CONTROLLER_AUTH,
+        verify=settings.CTRL_SSL_VERIFY
+    )
+    status, data = False, []
+    if res.status_code in [200, 204]:
+        status = True
+    else:
+        status = False
+        data = res.json()
+    return status, data
+
 def get_session_info(name=None, session_id=None):
     """
     Get session info from Janus Controller
