@@ -11,6 +11,7 @@
                 <tr>
                     <th>Session ID</th>
                     <th>Created By</th>
+		    <th>Service Nodes</th>
                     <th>Container Image</th>
                     <th>Container Profile</th>
                     <th>State</th>
@@ -22,6 +23,11 @@
                 <tr>
                     <td> {{ data.id }} </td>
                     <td> {{ data.user }} </td>
+		    <td>
+		      {% for n in data.nodes %}
+		      <i>{{ n }}</i><br/>
+		      {% endfor %}
+		    </td>
                     <td> {{ data.image }} </td>
                     <td> {{ data.profile }} </td>
                     <td> {{ data.state }} </td>
