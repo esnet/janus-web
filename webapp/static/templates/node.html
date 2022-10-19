@@ -13,7 +13,7 @@
                 <th>Docker Endpoint</th>
                 <th>CPU Model</th>
                 <th>CPU #Core</th>
-                <th>Memory (Bytes)</th>
+                <th>Memory</th>
                 <th>Delete?</th>
                 <!-- <th>Available Images</th> -->
             </tr>
@@ -25,7 +25,7 @@
                 <td> {{ data.url }} </td>
                 <td> {{ data.cpu_model }} </td>
                 <td> {{ data.cpu_core }} </td>
-                <td> {{ data.memory }} </td>
+                <td> {{ data.memory_str }} </td>
                 {% if login %}
                   <td><a href= "{% url 'janus:remove_node' nname=data.name %}" class="text-danger">YES!</a></td>
                 {% endif%}

@@ -1,9 +1,20 @@
 # Session management API call to Janus Controller
 
+import math
 import requests
 from django.conf import settings
 
 base_url = settings.JANUS_CONTROLLER_URL + "api/janus/controller/"
+
+
+def convert_size(size_bytes):
+    if size_bytes == 0:
+        return "0B"
+    size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+    i = int(math.floor(math.log(size_bytes, 1024)))
+    p = math.pow(1024, i)
+    s = round(size_bytes / p)
+    return "%s %s" % (s, size_name[i])
 
 def get_node_types():
     ntypes = {1: "1: Portainer Agent",
@@ -74,11 +85,11 @@ def get_session_info(name=None, session_id=None):
                         "state": entry[key]["state"],
                         "image": entry[key]["request"][0]["image"],
                         "profile": entry[key]["request"][0]["profile"],
+                        "nodes": [s for s in entry[key]["services"].keys()]
                     }
                     data.append(temp)
 
     return status, data
-
 
 def create_session(data):
     """
@@ -142,7 +153,7 @@ def delete_session(session_id):
     :return:
     """
     res = requests.delete(
-        url=base_url + "active/" + str(session_id),
+        url=base_url + "active/" + str(session_id) + "?force=true",
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY
     )
@@ -233,6 +244,7 @@ def process_nodes(nodes):
         temp["cpu_model"] = node["host"]["cpu"]["brand_raw"] if "host" in node else None
         temp["cpu_core"] = node["host"]["cpu"]["count"] if "host" in node else None
         temp["memory"] = node["host"]["mem"]["total"] if "host" in node else None
+        temp["memory_str"] = convert_size(temp['memory'])
         temp["image"] = len(node["images"]) if "images" in node else 0
         temp["networks"] = len(node["networks"]) if "networks" in node else 0
         nodes_list.append(temp)
