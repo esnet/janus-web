@@ -1,5 +1,18 @@
 {% extends 'base.html' %}
 {% block content %}
+
+<style>
+  .status-ok {
+      color: green;
+  }
+  .status-nok {
+      color: red;
+  }
+  .status-na {
+      color: grey;
+  }
+</style>
+
     <div class="container">
       <a class="btn btn-primary btn-lg" role="button" href="{% url 'janus:add_node' %}">Add</a>
     </div>
@@ -8,7 +21,8 @@
         {% if nodes|length %}
         <table class="table">
             <thead>
-            <tr>
+              <tr>
+		<th></th>
                 <th>Name</th>
                 <th>Docker Endpoint</th>
                 <th>CPU Model</th>
@@ -21,7 +35,16 @@
             <tbody>
             {% for data in nodes %}
             <tr>
-                <td> {{ data.name }} </td>
+	      <td>
+		{% if not data.status %}
+		<span class="status-na">●</span>
+		{% elif data.status == 1 %}
+		<span class="status-ok">●</span>
+		{% else %}
+		<span class="status-nok">●</span>		
+		{% endif %}
+	      </td>
+		<td> {{ data.name }} </td>
                 <td> {{ data.url }} </td>
                 <td> {{ data.cpu_model }} </td>
                 <td> {{ data.cpu_core }} </td>

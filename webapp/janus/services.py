@@ -239,6 +239,7 @@ def process_nodes(nodes):
     nodes_list = []
     for node in nodes:
         temp = {}
+        temp["status"] = node["endpoint_status"] if "endpoint_status" in node else None
         temp["name"] = node["name"] if "name" in node else None
         temp["url"] = node["url"] if "url" in node else None
         temp["cpu_model"] = node["host"]["cpu"]["brand_raw"] if "host" in node else None
