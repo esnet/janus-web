@@ -4,13 +4,13 @@
       <a class="btn btn-primary btn-lg" role="button" href="{% url 'janus:create_session' %}">Create</a>
     </div>
 
-    <div class="container">
+    <div class="container" style="padding-top: 2%">
         {% if sessions|length %}
             <table class="table">
                 <thead>
                 <tr>
                     <th>Session ID</th>
-                    <!-- <th>created by</th> -->
+                    <th>Created By</th>
                     <th>Container Image</th>
                     <th>Container Profile</th>
                     <th>State</th>
@@ -21,7 +21,7 @@
                 {% for data in sessions %}
                 <tr>
                     <td> {{ data.id }} </td>
-                    <!-- <td> {{ data.user }} </td> -->
+                    <td> {{ data.user }} </td>
                     <td> {{ data.image }} </td>
                     <td> {{ data.profile }} </td>
                     <td> {{ data.state }} </td>
@@ -48,7 +48,7 @@
             </table>
 
         {% else %}
-            <div class="container">
+            <div class="container" style="padding-top: 5%">
                 <h5>No controller sessions found!</h5>
             </div>
 
