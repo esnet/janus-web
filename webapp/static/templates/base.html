@@ -32,15 +32,13 @@
             <li class="nav-item">
               <a class="nav-link" href="{% url 'janus:list_sessions' %}"><h3><strong><em>Sessions</em></strong></h3></a>
             </li>
-            {% endif %}
-            {% if is_admin %}
             <li class="nav-item">
               <a class="nav-link" href="{% url 'janus:list_profiles' %}"><h3><strong><em>Profiles</em></strong></h3></a>
             </li>
             <li class="nav-item">
               <a class="nav-link" href="{% url 'janus:list_nodes' %}"><h3><strong><em>Nodes</em></strong></h3></a>
             </li>
-            {% endif %}
+	    {% endif %}
           </ul>
           {% if login %}
             <form class="form-inline my-2 my-lg-0" action="{% url 'logout' %}" method="get">
