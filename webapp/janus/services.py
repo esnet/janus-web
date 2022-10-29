@@ -78,16 +78,17 @@ def get_session_info(name=None, session_id=None):
             data = res.json()
         else:
             for entry in res.json():
-                for key in entry:
-                    temp = {
-                        "id": key,
-                        "user": entry[key]["user"],
-                        "state": entry[key]["state"],
-                        "image": entry[key]["request"][0]["image"],
-                        "profile": entry[key]["request"][0]["profile"],
-                        "nodes": [s for s in entry[key]["services"].keys()]
-                    }
-                    data.append(temp)
+                if not entry:
+                    continue
+                temp = {
+                    "id": entry["id"],
+                    "user": entry["user"],
+                    "state": entry["state"],
+                    "image": entry["request"][0]["image"],
+                    "profile": entry["request"][0]["profile"],
+                    "nodes": [s for s in entry["services"].keys()]
+                }
+                data.append(temp)
 
     return status, data
 
@@ -169,9 +170,9 @@ def get_profiles(verbose=False, pname=None):
     Get profiles list from Janus Controller
     :return:
     """
-    profile_url = base_url + "profiles"
+    profile_url = base_url + f"profiles"
     if pname:
-        profile_url += "?pname=" + pname
+        profile_url += f"/{pname}"
 
     res = requests.get(
         url = profile_url,
@@ -187,11 +188,9 @@ def get_profiles(verbose=False, pname=None):
         else:
             for entry in res.json():
                 if verbose:
-                    temp = res.json()[entry]
-                    temp["pname"] = entry
-                    profiles.append(temp)
-                else:
                     profiles.append(entry)
+                else:
+                    profiles.append(entry["name"])
 
     return (status, profiles)
 
@@ -218,8 +217,7 @@ def create_profile(data):
 def delete_profile(pname):
     """ Delete profile from Janus Controller """
     res = requests.delete(
-        url=base_url + "profiles",
-        json={"name": pname},
+        url=base_url + f"profiles/{pname}",
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY
     )
@@ -238,6 +236,7 @@ def process_nodes(nodes):
     """
     nodes_list = []
     for node in nodes:
+        print (node)
         temp = {}
         temp["status"] = node["endpoint_status"] if "endpoint_status" in node else None
         temp["name"] = node["name"] if "name" in node else None
@@ -245,9 +244,9 @@ def process_nodes(nodes):
         temp["cpu_model"] = node["host"]["cpu"]["brand_raw"] if "host" in node else None
         temp["cpu_core"] = node["host"]["cpu"]["count"] if "host" in node else None
         temp["memory"] = node["host"]["mem"]["total"] if "host" in node else None
-        temp["memory_str"] = convert_size(temp['memory'])
-        temp["image"] = len(node["images"]) if "images" in node else 0
-        temp["networks"] = len(node["networks"]) if "networks" in node else 0
+        temp["memory_str"] = convert_size(temp['memory']) if "memory" in node else None
+        temp["image"] = len(node["images"]) if "images" in node else None
+        temp["networks"] = len(node["networks"]) if "networks" in node else None
         nodes_list.append(temp)
 
     return nodes_list
@@ -291,7 +290,7 @@ def get_images(nname):
 
     status, images = False, []
     if res.status_code == 200:
-        images = res.json()[0]["images"]
+        images = res.json()["images"]
 
     return (status, images)
 
