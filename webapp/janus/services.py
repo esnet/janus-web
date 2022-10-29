@@ -60,10 +60,9 @@ def get_session_info(name=None, session_id=None):
     """
     url = base_url + "active"
     if session_id is not None:
-        url += "/" + str(session_id)
-
+        url += f"/{session_id}"
     elif name is not None:
-        url += "/" + name
+        url += f"?user={name}"
 
     res = requests.get(
         url = url,
@@ -92,12 +91,15 @@ def get_session_info(name=None, session_id=None):
 
     return status, data
 
-def create_session(data):
+def create_session(data, user=None):
     """
     Create session on Janus Controller
     :param data dict:
     :return:
     """
+    url = bae_url + "create"
+    if user:
+        url += f"?user={name}"
     res = requests.post(
         url=base_url + "create",
         json=data,
@@ -252,12 +254,14 @@ def process_nodes(nodes):
     return nodes_list
 
 
-def get_nodes(verbose=False, nname=None):
+def get_nodes(user=None, groups=None, verbose=False, nname=None):
     """
     Get nodes list from Janus Controller
     :return:
     """
     url = "nodes" if nname is None else "nodes/" + nname
+    if user:
+        url += f"?user={user}"
     res = requests.get(
         url = base_url+url,
         auth=settings.JANUS_CONTROLLER_AUTH,

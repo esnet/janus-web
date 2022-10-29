@@ -54,22 +54,22 @@ def list_nodes(request):
     if not request.user.is_authenticated:
         return HttpResponseRedirect('/')
 
-    is_admin = User.objects.get(username=request.user).is_staff
+    user = User.objects.get(username=request.user)
+    groups = list(user.groups.all())
+    is_admin = user.is_staff
     if is_admin:
         status, nodes = services.get_nodes(verbose=True)
-        if status:
-            content = {
-                'nodes': nodes,
-                'login': request.user.is_authenticated,
-                'is_admin': is_admin
-            }
-
-            return render(request, 'node.html', content)
-        else:
-            return HttpResponseServerError()
     else:
-        return HttpResponseRedirect('/')
-
+        status, nodes = services.get_nodes(user, groups, verbose=True)
+    if status:
+        content = {
+            'nodes': nodes,
+            'login': request.user.is_authenticated,
+            'is_admin': is_admin
+        }
+        return render(request, 'node.html', content)
+    else:
+        return HttpResponseServerError()
 
 def list_profiles(request):
     if not request.user.is_authenticated:
@@ -185,7 +185,6 @@ def create_session(request):
 
     data = {"errors": list()}
     if request.method == 'POST':
-        data["user"] = "admin" if is_admin else request.user.username
         node = request.POST.get('node', None)
         if node is not None:
             data['instances'] = [node]
@@ -209,7 +208,7 @@ def create_session(request):
 
         # XXX use django Forms...
         if not len(data['errors']):
-            status, res = services.create_session(data)
+            status, res = services.create_session(data, request.user.username)
             if status:
                 return HttpResponseRedirect(reverse('janus:list_sessions'))
             else:
