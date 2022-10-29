@@ -23,24 +23,24 @@
             <tbody>
             {% for data in profiles %}
             <tr>
-                <td> {{ data.pname }} </td>
-                <td> {{ data.cpu }} </td>
-                <td> {{ data.mem }} </td>
-                <td> {{ data.affinity }} </td>
+                <td> {{ data.name }} </td>
+                <td> {{ data.settings.cpu }} </td>
+                <td> {{ data.settings.mem }} </td>
+                <td> {{ data.settings.affinity }} </td>
                 <td>
-                    {% if 'name' in data.mgmt_net %}
+                    {% if 'name' in data.settings.mgmt_net %}
                     <div>
-                        {{ data.mgmt_net.name }}<br/>
-                        <b>ipv4_addr</b>: {{ data.mgmt_net.ipv4_addr|default:''}}</br>
-                        <b>ipv6_addr</b>: {{ data.mgmt_net.ipv6_addr|default:''}}
+                        {{ data.settings.mgmt_net.name }}<br/>
+                        <b>ipv4_addr</b>: {{ data.settings.mgmt_net.ipv4_addr|default:''}}</br>
+                        <b>ipv6_addr</b>: {{ data.settings.mgmt_net.ipv6_addr|default:''}}
                     </div>
                     {% else %}
-                    {{ data.mgmt_net }}
+                    {{ data.settings.mgmt_net }}
                     {% endif %}
                 </td>
                 <td> {{ data.qos }} </td>
                 {% if login %}
-                    <td><a href= "{% url 'janus:delete_profile' pname=data.pname %}" class="text-danger">YES!</a></td>
+                    <td><a href= "{% url 'janus:delete_profile' pname=data.name %}" class="text-danger">YES!</a></td>
                 {% endif%}
             </tr>
             {% endfor %}
