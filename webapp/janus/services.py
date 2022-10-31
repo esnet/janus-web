@@ -196,7 +196,6 @@ def get_profiles(user=None, groups=None, verbose=False, pname=None):
                 else:
                     profiles.append(entry["name"])
 
-    print(profiles)
     return (status, profiles)
 
 
@@ -242,7 +241,6 @@ def process_nodes(nodes):
     """
     nodes_list = []
     for node in nodes:
-        print (node)
         temp = {}
         temp["status"] = node["endpoint_status"] if "endpoint_status" in node else None
         temp["name"] = node["name"] if "name" in node else None
