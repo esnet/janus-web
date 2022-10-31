@@ -22,7 +22,7 @@ def get_node_types():
               3: "3: Kubernetes"}
     return ntypes
 
-def add_node(data):
+def add_node(data, user=None, groups=None):
     res = requests.post(
         url=base_url + "nodes",
         json=data,
@@ -37,7 +37,7 @@ def add_node(data):
         data = res.json()
     return status, data
 
-def remove_node(nname):
+def remove_node(nname, user=None, groups=None):
     res = requests.delete(
         url=base_url + f"nodes/{nname}",
         auth=settings.JANUS_CONTROLLER_AUTH,
@@ -51,7 +51,7 @@ def remove_node(nname):
         data = res.json()
     return status, data
 
-def get_session_info(name=None, session_id=None):
+def get_session_info(user=None, groups=None, session_id=None):
     """
     Get session info from Janus Controller
     :param session_id int:
@@ -61,8 +61,8 @@ def get_session_info(name=None, session_id=None):
     url = base_url + "active"
     if session_id is not None:
         url += f"/{session_id}"
-    elif name is not None:
-        url += f"?user={name}"
+    elif user is not None:
+        url += f"?user={user}"
 
     res = requests.get(
         url = url,
@@ -91,15 +91,15 @@ def get_session_info(name=None, session_id=None):
 
     return status, data
 
-def create_session(data, user=None):
+def create_session(data, user=None, groups=None):
     """
     Create session on Janus Controller
     :param data dict:
     :return:
     """
-    url = bae_url + "create"
+    url = base_url + "create"
     if user:
-        url += f"?user={name}"
+        url += f"?user={user}"
     res = requests.post(
         url=base_url + "create",
         json=data,
@@ -113,7 +113,7 @@ def create_session(data, user=None):
         return False, res.json()
 
 
-def start_session(session_id):
+def start_session(session_id, user=None, groups=None):
     """
     Start session on Janus Controller
     :param session_id int:
@@ -131,7 +131,7 @@ def start_session(session_id):
         return False, {}
 
 
-def stop_session(session_id):
+def stop_session(session_id, user=None, groups=None):
     """
     Stop session on Janus Controller
     :param session_id int:
@@ -149,7 +149,7 @@ def stop_session(session_id):
         return False, {}
 
 
-def delete_session(session_id):
+def delete_session(session_id, user=None, groups=None):
     """
     Delete session on Janus Controller
     :param session_id int:
@@ -167,7 +167,7 @@ def delete_session(session_id):
         return False, {}
 
 
-def get_profiles(verbose=False, pname=None):
+def get_profiles(user=None, groups=None, verbose=False, pname=None):
     """
     Get profiles list from Janus Controller
     :return:
@@ -175,6 +175,8 @@ def get_profiles(verbose=False, pname=None):
     profile_url = base_url + f"profiles"
     if pname:
         profile_url += f"/{pname}"
+    if user:
+        profile_url += f"?user={user}"
 
     res = requests.get(
         url = profile_url,
@@ -194,17 +196,19 @@ def get_profiles(verbose=False, pname=None):
                 else:
                     profiles.append(entry["name"])
 
+    print(profiles)
     return (status, profiles)
 
 
-def create_profile(data):
+def create_profile(data, user=None, groups=None):
     """
     Create profile on Janus Controller
     :param data dict:
     :return:
     """
+    name = data["name"]
     res = requests.post(
-        url=base_url + "profiles",
+        url=base_url + f"profiles/{name}",
         json=data,
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY
@@ -216,7 +220,7 @@ def create_profile(data):
         return False, res.json()
 
 
-def delete_profile(pname):
+def delete_profile(pname, user=None, groups=None):
     """ Delete profile from Janus Controller """
     res = requests.delete(
         url=base_url + f"profiles/{pname}",
@@ -281,7 +285,7 @@ def get_nodes(user=None, groups=None, verbose=False, nname=None):
     return (status, nodes)
 
 
-def get_images(nname):
+def get_images(nname, user=None, groups=None):
     """
     Get nodes list from Janus Controller
     :return:
