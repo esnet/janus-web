@@ -8,38 +8,28 @@ from django.urls import reverse
 
 logger = logging.getLogger(__name__)
 
-# def list_sessions_by_user(request):
-#     if request.user.is_authenticated:
-#         name = request.user
-#         login = True
-#         sessions = services.get_sessions_by_user(name)
 
-#         content = {
-#             "name": name,
-#             "login": login,
-#             "sessions": sessions
-#         }
-
-#         return render(request, 'home.html', content)
-#     else:
-#         return HttpResponseRedirect('/')
+def _get_user(request):
+    user = User.objects.get(username=request.user)
+    groups = list(user.groups.all())
+    quser = user.username
+    qgroups = None
+    if user.is_staff:
+        quser = None
+        qgroups = None
+    return (user, groups, quser, qgroups)
 
 
 def list_sessions(request):
     if not request.user.is_authenticated:
         return HttpResponseRedirect('/')
 
-    is_admin = User.objects.get(username=request.user).is_staff
-    if is_admin:
-        name = None
-    else:
-        name = request.user.username
-
-    status, sessions = services.get_session_info(name=name)
+    (user,_,quser,qgroups) = _get_user(request)
+    status, sessions = services.get_session_info(quser, qgroups)
     login = request.user.is_authenticated
     content = {
         'login': login,
-        'is_admin': is_admin,
+        'is_admin': user.is_staff,
     }
 
     if status:
@@ -54,18 +44,13 @@ def list_nodes(request):
     if not request.user.is_authenticated:
         return HttpResponseRedirect('/')
 
-    user = User.objects.get(username=request.user)
-    groups = list(user.groups.all())
-    is_admin = user.is_staff
-    if is_admin:
-        status, nodes = services.get_nodes(verbose=True)
-    else:
-        status, nodes = services.get_nodes(user, groups, verbose=True)
+    (user,_,quser,qgroups) = _get_user(request)
+    status, nodes = services.get_nodes(quser, qgroups, verbose=True)
     if status:
         content = {
             'nodes': nodes,
             'login': request.user.is_authenticated,
-            'is_admin': is_admin
+            'is_admin': user.is_staff
         }
         return render(request, 'node.html', content)
     else:
@@ -75,33 +60,23 @@ def list_profiles(request):
     if not request.user.is_authenticated:
         return HttpResponseRedirect('/')
 
-    is_admin = User.objects.get(username=request.user).is_staff
-    if is_admin:
-        status, profiles = services.get_profiles(verbose=True)
-        # logger.info(profiles)
-        if status:
-            content = {
-                "profiles": profiles,
-                'login': request.user.is_authenticated,
-                'is_admin': is_admin
-            }
-
-            return render(request, 'profile.html', content)
-        else:
-            return HttpResponseServerError()
+    (user,_,quser,qgroups) = _get_user(request)
+    status, profiles = services.get_profiles(quser, qgroups, verbose=True)
+    if status:
+        content = {
+            "profiles": profiles,
+            'login': request.user.is_authenticated,
+            'is_admin': user.is_staff
+        }
+        return render(request, 'profile.html', content)
     else:
-        return HttpResponseRedirect('/')
+        return HttpResponseServerError()
 
 
 def view_session(request, session_id):
     if request.user.is_authenticated:
-        is_admin = User.objects.get(username=request.user).is_staff
-        if is_admin:
-            name = "admin"
-        else:
-            name = request.user.username
-
-        status, sessions = services.get_session_info(name=name, session_id=session_id)
+        (user,_,quser,qgroups) = _get_user(request)
+        status, sessions = services.get_session_info(quser, qgroups, session_id=session_id)
         if status and len(sessions) > 0:
             for key in sessions[0]:
                 session_id = key
@@ -109,7 +84,7 @@ def view_session(request, session_id):
                 "session_d": key,
                 'session': sessions[0][key],
                 'login': request.user.is_authenticated,
-                'is_admin': is_admin
+                'is_admin': user.is_staff
             }
 
             # logger.debug(content)
@@ -124,8 +99,8 @@ def add_node(request):
     if not request.user.is_authenticated:
         return HttpResponseRedirect('/')
 
-    is_admin = User.objects.get(username=request.user).is_staff
-    if is_admin:
+    (user,_,quser,qgroups) = _get_user(request)
+    if user.is_staff:
         data = {"errors": list()}
         if request.method == 'POST':
             name = request.POST.get('name', None)
@@ -145,7 +120,7 @@ def add_node(request):
             # XXX use django Forms...
             if not len(data['errors']):
                 data['kwargs'] = {}
-                status, res = services.add_node(data)
+                status, res = services.add_node(data, quser, qgroups)
                 if status:
                     return HttpResponseRedirect(reverse('janus:list_nodes'))
                 else:
@@ -155,7 +130,7 @@ def add_node(request):
             'data': data,
             'ntypes': services.get_node_types(),
             'login': request.user.is_authenticated,
-            'is_admin': is_admin
+            'is_admin': user.is_staff
         }
         return render(request, 'add_node.html', content)
     else:
@@ -166,23 +141,19 @@ def remove_node(request, nname):
     if not request.user.is_authenticated:
         return HttpResponseRedirect('/')
 
-    is_admin = User.objects.get(username=request.user).is_staff
-    if is_admin:
-        status, _ = services.remove_node(nname)
-        if status:
-            return HttpResponseRedirect(reverse('janus:list_nodes'))
-        else:
-            return HttpResponseServerError()
+    (user,_,quser,qgroups) = _get_user(request)
+    status, _ = services.remove_node(nname, quser, qgroups)
+    if status:
+        return HttpResponseRedirect(reverse('janus:list_nodes'))
     else:
-        return HttpResponseRedirect('/')
+        return HttpResponseServerError()
 
 
 def create_session(request):
     if not request.user.is_authenticated:
         return HttpResponseRedirect('/')
 
-    is_admin = User.objects.get(username=request.user).is_staff
-
+    (user,_,quser,qgroups) = _get_user(request)
     data = {"errors": list()}
     if request.method == 'POST':
         node = request.POST.get('node', None)
@@ -208,16 +179,16 @@ def create_session(request):
 
         # XXX use django Forms...
         if not len(data['errors']):
-            status, res = services.create_session(data, request.user.username)
+            status, res = services.create_session(data, quser, qgroups)
             if status:
                 return HttpResponseRedirect(reverse('janus:list_sessions'))
             else:
                 data["errors"].append(res)
 
-    _, nodes = services.get_nodes()
-    if is_admin:
-        _, profiles = services.get_profiles()
-        _, images = services.get_images(nodes[0])
+    _, nodes = services.get_nodes(quser, qgroups)
+    if user.is_staff:
+        _, profiles = services.get_profiles(quser, qgroups)
+        _, images = services.get_images(nodes[0], quser, qgroups)
     else:
         profiles = ["public"]
         images = ["dtnaas/tools:latest"]
@@ -228,7 +199,7 @@ def create_session(request):
         'profiles': profiles,
         'images': images,
         'login': request.user.is_authenticated,
-        'is_admin': is_admin
+        'is_admin': user.is_staff
     }
 
     logger.debug(content)
@@ -239,8 +210,8 @@ def create_profile(request):
     if not request.user.is_authenticated:
         return HttpResponseRedirect('/')
 
-    is_admin = User.objects.get(username=request.user).is_staff
-    if is_admin:
+    (user,_,quser,qgroups) = _get_user(request)
+    if user.is_staff:
         data = {"errors": list()}
         if request.method == 'POST':
             name = request.POST.get('name', None)
@@ -275,7 +246,7 @@ def create_profile(request):
 
             # XXX use django Forms...
             if not len(data['errors']):
-                status, res = services.create_profile(profile)
+                status, res = services.create_profile(profile, quser, qgroups)
                 if status:
                     return HttpResponseRedirect(reverse('janus:list_profiles'))
                 else:
@@ -286,7 +257,7 @@ def create_profile(request):
             'data': data,
             'qos': qos,
             'login': request.user.is_authenticated,
-            'is_admin': is_admin
+            'is_admin': user.is_staff
         }
 
         logger.debug(content)
@@ -298,7 +269,8 @@ def create_profile(request):
 
 def start_session(request, session_id):
     if request.user.is_authenticated:
-        status, _ = services.start_session(session_id)
+        (user,_,quser,qgroups) = _get_user(request)
+        status, _ = services.start_session(session_id, quser, qgroups)
         if status:
             return HttpResponseRedirect(reverse('janus:list_sessions'))
         else:
@@ -309,7 +281,8 @@ def start_session(request, session_id):
 
 def stop_session(request, session_id):
     if request.user.is_authenticated:
-        status, _ = services.stop_session(session_id)
+        (user,_,quser,qgroups) = _get_user(request)
+        status, _ = services.stop_session(session_id, quser, qgroups)
         if status:
             return HttpResponseRedirect(reverse('janus:list_sessions'))
         else:
@@ -320,7 +293,8 @@ def stop_session(request, session_id):
 
 def delete_session(request, session_id):
     if request.user.is_authenticated:
-        status, _ = services.delete_session(session_id)
+        (user,_,quser,qgroups) = _get_user(request)
+        status, _ = services.delete_session(session_id, quser, qgroups)
         if status:
             return HttpResponseRedirect(reverse('janus:list_sessions'))
         else:
@@ -331,7 +305,8 @@ def delete_session(request, session_id):
 
 def delete_profile(request, pname):
     if request.user.is_authenticated:
-        status, _ = services.delete_profile(pname)
+        (user,_,quser,qgroups) = _get_user(request)
+        status, _ = services.delete_profile(pname, quser, qgroups)
         if status:
             return HttpResponseRedirect(reverse('janus:list_profiles'))
         else:
