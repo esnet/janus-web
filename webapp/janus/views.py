@@ -156,9 +156,9 @@ def create_session(request):
     (user,_,quser,qgroups) = _get_user(request)
     data = {"errors": list()}
     if request.method == 'POST':
-        node = request.POST.get('node', None)
+        node = request.POST.getlist('node', None)
         if node is not None:
-            data['instances'] = [node]
+            data['instances'] = node
 
         image = request.POST.get('image', None)
         if image is not None:
@@ -185,10 +185,10 @@ def create_session(request):
             else:
                 data["errors"].append(res)
 
-    _, nodes = services.get_nodes(quser, qgroups)
+    _, nodes = services.get_nodes(quser, qgroups, verbose=True)
     if user.is_staff:
         _, profiles = services.get_profiles(quser, qgroups)
-        _, images = services.get_images(nodes[0], quser, qgroups)
+        _, images = services.get_images(nodes[0]["name"], quser, qgroups)
     else:
         profiles = ["public"]
         images = ["dtnaas/tools:latest"]
