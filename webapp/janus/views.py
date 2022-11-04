@@ -186,12 +186,8 @@ def create_session(request):
                 data["errors"].append(res)
 
     _, nodes = services.get_nodes(quser, qgroups, verbose=True)
-    if user.is_staff:
-        _, profiles = services.get_profiles(quser, qgroups)
-        _, images = services.get_images(nodes[0]["name"], quser, qgroups)
-    else:
-        profiles = ["public"]
-        images = ["dtnaas/tools:latest"]
+    _, profiles = services.get_profiles(quser, qgroups)
+    _, images = services.get_images(quser, qgroups)
 
     content = {
         'data': data,
