@@ -1,20 +1,11 @@
 # Session management API call to Janus Controller
 
-import math
 import requests
 from django.conf import settings
+from .utils import convert_size
+
 
 base_url = settings.JANUS_CONTROLLER_URL + "api/janus/controller/"
-
-
-def convert_size(size_bytes):
-    if size_bytes == 0:
-        return "0B"
-    size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
-    i = int(math.floor(math.log(size_bytes, 1024)))
-    p = math.pow(1024, i)
-    s = round(size_bytes / p)
-    return "%s %s" % (s, size_name[i])
 
 def get_node_types():
     ntypes = {1: "1: Portainer Agent",
@@ -85,7 +76,8 @@ def get_session_info(user=None, groups=None, session_id=None):
                     "state": entry["state"],
                     "image": entry["request"][0]["image"],
                     "profile": entry["request"][0]["profile"],
-                    "nodes": [s for s in entry["services"].keys()]
+                    "nodes": [s for s in entry["services"].keys()],
+                    "data": entry
                 }
                 data.append(temp)
 
@@ -192,6 +184,15 @@ def get_profiles(user=None, groups=None, verbose=False, pname=None):
         else:
             for entry in res.json():
                 if verbose:
+                    ps = dict()
+                    for k,v in entry["settings"].items():
+                        if v == False:
+                            ps[k] = "default"
+                        elif k == "mem":
+                            ps[k] = convert_size(v)
+                        else:
+                            ps[k] = v
+                    entry["settings"] = ps
                     profiles.append(entry)
                 else:
                     profiles.append(entry["name"])
@@ -249,9 +250,10 @@ def process_nodes(nodes):
         temp["cpu_model"] = node["host"]["cpu"]["brand_raw"] if "host" in node else None
         temp["cpu_core"] = node["host"]["cpu"]["count"] if "host" in node else None
         temp["memory"] = node["host"]["mem"]["total"] if "host" in node else None
-        temp["memory_str"] = convert_size(temp['memory']) if "memory" in node else None
+        temp["memory_str"] = convert_size(temp['memory']) if "host" in node else None
         temp["image"] = len(node["images"]) if "images" in node else None
         temp["networks"] = len(node["networks"]) if "networks" in node else None
+        temp["data"] = node
         nodes_list.append(temp)
 
     return nodes_list
