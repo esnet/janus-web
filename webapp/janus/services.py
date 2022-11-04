@@ -101,7 +101,7 @@ def create_session(data, user=None, groups=None):
     if user:
         url += f"?user={user}"
     res = requests.post(
-        url=base_url + "create",
+        url=url,
         json=data,
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY
@@ -284,20 +284,25 @@ def get_nodes(user=None, groups=None, verbose=False, nname=None):
     return (status, nodes)
 
 
-def get_images(nname, user=None, groups=None):
+def get_images(user=None, groups=None, iname=None):
     """
     Get nodes list from Janus Controller
     :return:
     """
+    url = f"{base_url}/images"
+    if iname:
+        url += f"/{iname}"
+    if user:
+        url += f"?user={user}"
     res = requests.get(
-        url = base_url + "nodes/" + nname,
+        url = url,
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY
     )
 
     status, images = False, []
     if res.status_code == 200:
-        images = res.json()["images"]
+        images = res.json()
 
     return (status, images)
 
