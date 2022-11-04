@@ -1,28 +1,33 @@
 {% extends 'base.html' %}
 {% block content %}
-    {% if login %}
-    <div class="container">
-        <a class="btn btn-primary btn-lg" role="button" href="{% url 'janus:create_profile' %}">Create</a>
-    </div>
-    {% endif %}
 
     <div class="container" style="padding-top: 2%" >
-        {% if profiles|length %}
-        <table class="table">
+      {% if profiles|length %}
+      <div class="card bg-light mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+	  <b>Available Profiles</b>
+          <a class="btn btn-primary btn-md" role="button" href="{% url 'janus:create_profile' %}">Create</a>
+	</div>
+        <div class="card-body">
+	  <table class="table table-condensed table-striped table-hover">
             <thead>
-            <tr>
+              <tr>
+                <th></th>
                 <th>Name</th>
                 <th>CPU #Core</th>
                 <th>Memory (Bytes)</th>
                 <th>Affinity</th>
                 <th>Network</th>
                 <th>QoS Profile</th>
+                {% if is_admin %}
                 <th>Delete?</th>
+                {% endif %}
             </tr>
             </thead>
             <tbody>
-            {% for data in profiles %}
-            <tr>
+              {% for data in profiles %}
+              <tr data-toggle="collapse" data-target="#row-{{ data.name }}" class="accordion-toggle">
+                <td><span class="fa-solid fa-chevron-down"></span></td>
                 <td> {{ data.name }} </td>
                 <td> {{ data.settings.cpu }} </td>
                 <td> {{ data.settings.mem }} </td>
@@ -31,7 +36,7 @@
                     {% if 'name' in data.settings.mgmt_net %}
                     <div>
                         {{ data.settings.mgmt_net.name }}<br/>
-                        <b>ipv4_addr</b>: {{ data.settings.mgmt_net.ipv4_addr|default:''}}</br>
+                        <b>ipv4_addr</b>: {{ data.settings.mgmt_net.ipv4_addr|default:''}}<br/>
                         <b>ipv6_addr</b>: {{ data.settings.mgmt_net.ipv6_addr|default:''}}
                     </div>
                     {% else %}
@@ -39,19 +44,31 @@
                     {% endif %}
                 </td>
                 <td> {{ data.qos }} </td>
-                {% if login %}
-                    <td><a href= "{% url 'janus:delete_profile' pname=data.name %}" class="text-danger">YES!</a></td>
+                {% if is_admin %}
+                <td class="d-flex justify-content-center">
+                  <a href= "{% url 'janus:remove_node' nname=data.name %}" class="btn btn-sm btn-danger">
+                    <span class="fa-solid fa-xmark"></span>
+                  </a>
+                </td>
                 {% endif%}
-            </tr>
+              </tr>
+              <tr>
+                <td colspan="12" class="hiddenRow">
+                  <div class="accordian-body collapse" id="row-{{ data.name }}">
+                    <div class="janus-pre">{{ data |pprint }}</div>
+                  </div>
+                </td>
+              </tr>
             {% endfor %}
             </tbody>
-        </table>
-
-        {% else %}
-            <div class="container">
-                <h5>No container profiles found!</h5>
-            </div>
-
-        {% endif %}
+          </table>
+        </div>
+      </div>
+      {% else %}
+        <div class="container">
+          <h5>No container profiles found!</h5>
+        </div>
+      {% endif %}
     </div>
+
 {% endblock content %}

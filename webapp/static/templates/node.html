@@ -1,67 +1,71 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<style>
-  .status-ok {
-      color: green;
-  }
-  .status-nok {
-      color: red;
-  }
-  .status-na {
-      color: grey;
-  }
-</style>
-
-    <div class="container">
-      <a class="btn btn-primary btn-lg" role="button" href="{% url 'janus:add_node' %}">Add</a>
-    </div>
-
     <div class="container" style="padding-top: 2%">
-        {% if nodes|length %}
-        <table class="table">
+      {% if nodes|length %}
+      <div class="card bg-light mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+	  <b>Available Nodes</b>
+          <a class="btn btn-primary btn-md" role="button" href="{% url 'janus:add_node' %}">Add</a>
+	</div>
+        <div class="card-body">
+	  <table class="table table-condensed table-striped table-hover">
             <thead>
               <tr>
+                <th></th>
 		<th></th>
                 <th>Name</th>
                 <th>Docker Endpoint</th>
                 <th>CPU Model</th>
                 <th>CPU #Core</th>
                 <th>Memory</th>
-                <th>Delete?</th>
+                {% if is_admin %}
+                <th>Delete</th>
+                {% endif %}
                 <!-- <th>Available Images</th> -->
             </tr>
             </thead>
             <tbody>
-            {% for data in nodes %}
-            <tr>
-	      <td>
-		{% if not data.status %}
-		<span class="status-na">●</span>
-		{% elif data.status == 1 %}
-		<span class="status-ok">●</span>
-		{% else %}
-		<span class="status-nok">●</span>		
-		{% endif %}
-	      </td>
+              {% for data in nodes %}
+              <tr data-toggle="collapse" data-target="#row-{{ data.id }}" class="accordion-toggle">
+                <td><span class="fa-solid fa-chevron-down"></span></td>
+	        <td>
+		  {% if not data.status %}
+		    <span class="status-na">●</span>
+		  {% elif data.status == 1 %}
+		    <span class="status-ok">●</span>
+		  {% else %}
+		    <span class="status-nok">●</span>
+		  {% endif %}
+	        </td>
 		<td> {{ data.name }} </td>
                 <td> {{ data.url }} </td>
                 <td> {{ data.cpu_model }} </td>
                 <td> {{ data.cpu_core }} </td>
                 <td> {{ data.memory_str }} </td>
-                {% if login %}
-                  <td><a href= "{% url 'janus:remove_node' nname=data.name %}" class="text-danger">YES!</a></td>
+                {% if is_admin %}
+                <td class="d-flex justify-content-center">
+                  <a href= "{% url 'janus:remove_node' nname=data.name %}" class="btn btn-sm btn-danger">
+                    <span class="fa-solid fa-xmark"></span>
+                  </a>
+                </td>
                 {% endif%}
-            </tr>
-            {% endfor %}
+              <tr>
+                <td colspan="12" class="hiddenRow">
+                  <div class="accordian-body collapse" id="row-{{ data.id }}">
+                    <div class="janus-pre">{{ data.data |pprint }}</div>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
             </tbody>
-        </table>
-        {% else %}
-            <div class="container">
-                <h5>No node has been registered yet!</h5>
-            </div>
-
-        {% endif %}
-
+          </table>
+        </div>
+      </div>
+      {% else %}
+        <div class="container">
+          <h5>No node has been registered yet!</h5>
+        </div>
+      {% endif %}
     </div>
 {% endblock content %}
