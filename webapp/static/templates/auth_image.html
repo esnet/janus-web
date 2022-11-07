@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block title %} Access Control - Images {% endblock title %}
+{% block content %}
+
+<div class="panel panel-default">
+  {% if data.errors|length %}
+  <div class="alert alert-danger" role="alert">
+    {% for err in data.errors %}
+    <b>{{ err }}</b><br/>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="panel-heading">
+    <h1 class="text-center"><strong><i>Provides Access for Images to Users/Groups </i></strong></h1>
+  </div>
+  <div class="panel-body">
+    <div align="center">
+      <form class="form-group" action="{% url 'auth_images' %}" method="post" id="auth_image_post_form" style="width:60%">
+	{% csrf_token %}
+        <div class="rows" style="padding-top: 2%">
+	    	<div>
+	      		<label>Select Image:</label>
+	      		<select class="form-control" name="image">
+	        		{% for item in images %}
+						<option value="{{ item.name }}" label="{{ item.name }}"></option>
+	        		{% endfor %}
+	      		</select>
+	    	</div>
+
+			<div style="padding-top: 2%">
+				<label>Select Users:</label>
+				<select class="form-control" name="user" id="user" size="5" multiple="multiple"  >
+				  <option disabled selected value> -- make selections -- </option>
+				  {% for item in users %}
+					<option value="{{ item }}" label="{{ item }}"></option>
+				  {% endfor %}
+				</select>
+			  </div>
+
+			  <div style="padding-top: 2%">
+				<label>Select Groups:</label>
+				<select class="form-control" name="group" id="group" size="5" multiple="multiple">
+				  <option disabled selected value> -- make selections -- </option>
+				  {% for item in groups %}
+					<option value="{{ item }}" label="{{ item }}"></option>
+				  {% endfor %}
+				</select>
+			  </div>
+
+        </div>
+
+        <div class="row" style="padding-left:10%; padding-right:10%; padding-top: 2%">
+            <div class="col-sm-6">
+              <button class="btn btn-lg btn-block btn-success" type="submit"><i class="glyphicon glyphicon-ok-sign"></i>Create</button>
+            </div>
+            <div class="col-sm-6">
+              <button class="btn btn-lg btn-block btn-warning" type="reset"><i class="glyphicon glyphicon-repeat"></i>Reset</button>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock content %}

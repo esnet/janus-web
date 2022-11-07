@@ -74,7 +74,21 @@
             <li class="nav-item">
               <a class="nav-link" href="{% url 'janus:list_nodes' %}"><h3><strong><em>Nodes</em></strong></h3></a>
             </li>
-	    {% endif %}
+	          {% endif %}
+            {% if login and is_admin %}
+            <li class="nav-item">
+              <div class="dropdown">
+                <a class="nav-link" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" >
+                  <h3><strong><em>Access Control</em></strong></h3>
+                </a>
+                <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                  <a class="dropdown-item" href="{% url 'auth_nodes' %}"><h5><strong><em>Nodes</em></strong></h5></a>
+                  <a class="dropdown-item" href="{% url 'auth_images' %}"><h5><strong><em>Images</em></strong></h5></a>
+                  <a class="dropdown-item" href="{% url 'auth_profiles' %}"><h5><strong><em>Profiles</em></strong></h5></a>
+                </div>
+              </div>
+            </li>
+            {% endif %}
           </ul>
           {% if login %}
             <form class="form-inline my-2 my-lg-0" action="{% url 'logout' %}" method="get">

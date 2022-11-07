@@ -34,7 +34,7 @@ def list_sessions(request):
 
     if status:
         content['sessions'] = sessions
-        logger.info(content)
+        # logger.info(content)
         return render(request, 'home.html', content)
     else:
         return HttpResponseServerError()
