@@ -1,8 +1,11 @@
-from asyncio.log import logger
+import logging
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import HttpResponseRedirect, render
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
+from janus.services import get_nodes, get_profiles, get_images
+from .services import set_access
 
+logger = logging.getLogger(__name__)
 
 def login_view(request):
     if request.method == 'POST':
@@ -62,3 +65,152 @@ def signup_view(request):
     }
 
     return render(request, 'signup.html', content)
+
+
+def image_access_control(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect('/')
+
+    user = User.objects.get(username=request.user)
+    if user.is_staff:
+        quser = None
+        qgroups = None
+
+        status, images = get_images(quser, qgroups)
+        # print(status, images)
+        users = User.objects.filter(is_active=True).values_list('username', flat=True)
+        groups = Group.objects.all().values_list('name', flat=True)
+        data = {"errors": list()}
+
+        if request.method == 'POST':
+            image = request.POST.get('image', None)
+            if image is None:
+                data['errors'].append('Image not found!')
+
+            data['image'] = image
+
+            selected_users = request.POST.getlist('user', [])
+            data['users'] = selected_users
+
+            selected_groups = request.POST.getlist('group', [])
+            data['groups'] = selected_groups
+
+            # print(data)
+            if not len(data['errors']):
+                status, res = set_access("images", data)
+                if status:
+                    return HttpResponseRedirect("/")
+                else:
+                    data["errors"].append(res)
+
+        if status:
+            content = {
+                "data": data,
+                'images': images,
+                'login': request.user.is_authenticated,
+                'is_admin': user.is_staff,
+                'users': users,
+                'groups': groups
+            }
+            return render(request, 'auth_image.html', content)
+
+    return HttpResponseRedirect('/')
+
+
+def node_access_control(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect('/')
+
+    user = User.objects.get(username=request.user)
+    if user.is_staff:
+        quser = None
+        qgroups = None
+
+        status, nodes = get_nodes(quser, qgroups, verbose=True)
+        users = User.objects.filter(is_active=True).values_list('username', flat=True)
+        groups = Group.objects.all().values_list('name', flat=True)
+
+        # print(f'users: {users}\ngroups: {groups}')
+        data = {"errors": list()}
+
+        if request.method == 'POST':
+            node = request.POST.get('node', None)
+            if node is None:
+                data['errors'].append('Node not found!')
+
+            data['node'] = node
+            selected_users = request.POST.getlist('user', [])
+            data['users'] = selected_users
+
+            selected_groups = request.POST.getlist('group', [])
+            data['groups'] = selected_groups
+
+            # print(data)
+            if not len(data['errors']):
+                status, res = set_access("nodes", data)
+                if status:
+                    return HttpResponseRedirect("/")
+                else:
+                    data["errors"].append(res)
+
+        if status:
+            content = {
+                "data": data,
+                'nodes': nodes,
+                'login': request.user.is_authenticated,
+                'is_admin': user.is_staff,
+                'users': users,
+                'groups': groups
+            }
+            return render(request, 'auth_node.html', content)
+
+    return HttpResponseRedirect('/')
+
+
+def profile_access_control(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect('/')
+
+    user = User.objects.get(username=request.user)
+    if user.is_staff:
+        quser = None
+        qgroups = None
+
+        status, profiles = get_profiles(quser, qgroups, verbose=True)
+        users = User.objects.filter(is_active=True).values_list('username', flat=True)
+        groups = Group.objects.all().values_list('name', flat=True)
+        data = {"errors": list()}
+
+        if request.method == 'POST':
+            profile = request.POST.get('profile', None)
+            if profile is None:
+                data['errors'].append('Profile not found!')
+
+            data['profile'] = profile
+
+            selected_users = request.POST.getlist('user', [])
+            data['users'] = selected_users
+
+            selected_groups = request.POST.getlist('group', [])
+            data['groups'] = selected_groups
+
+            # print(data)
+            if not len(data['errors']):
+                status, res = set_access("profiles", data)
+                if status:
+                    return HttpResponseRedirect("/")
+                else:
+                    data["errors"].append(res)
+
+        if status:
+            content = {
+                "data": data,
+                'profiles': profiles,
+                'login': request.user.is_authenticated,
+                'is_admin': user.is_staff,
+                'users': users,
+                'groups': groups
+            }
+            return render(request, 'auth_profile.html', content)
+
+    return HttpResponseRedirect('/')
