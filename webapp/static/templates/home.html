@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 {% block content %}
-    <a class="btn btn-primary btn-md" role="button" href="{% url 'janus:create_session' %}">Create</a>
     <div class="container" style="padding-top: 2%">
       {% if sessions|length %}
       <div class="card bg-light mb-3">
         <div class="card-header d-flex justify-content-between align-items-center">
 	  <b>Active Sessions</b>
+          <a class="btn btn-primary btn-md" role="button" href="{% url 'janus:create_session' %}">Create</a>
 	</div>
         <div class="card-body">
 	  <table class="table table-condensed table-striped table-hover">
@@ -35,22 +35,20 @@
                 <td> {{ data.image }} </td>
                 <td> {{ data.profile }} </td>
                 <td> {{ data.state }} </td>
-                {% if login %}
-                  {% if data.state == 'INITIALIZED' %}
-                    <td>
-                      <a href= "{% url 'janus:start_session' session_id=data.id %}">start</a>
-                      ,
-                      <a href= "{% url 'janus:delete_session' session_id=data.id %}">delete</a>
-                    </td>
-                  {% elif data.state == 'STOPPED' %}
-                     <td>
-                       <a href= "{% url 'janus:start_session' session_id=data.id %}">start</a>
-                       ,
-                       <a href= "{% url 'janus:delete_session' session_id=data.id %}">delete</a>
-                     </td>
-                  {% else %}
-                    <td><a href= "{% url 'janus:stop_session' session_id=data.id %}">stop</a></td>
-                  {% endif %}
+                {% if data.state == 'INITIALIZED' or data.state == 'STOPPED' %}
+                  <td>
+                    <a title="start" href="{% url 'janus:start_session' session_id=data.id %}" class="btn btn-sm btn-success">
+                      <span class="fa-solid fa-play"></span>
+                    </a>
+                    <a title="delete" href="{% url 'janus:delete_session' session_id=data.id %}" class="btn btn-sm btn-danger">
+                      <span class="fa-solid fa-xmark"></span>
+                    </a>
+                  </td>
+                {% else %}
+                  <td>
+                    <a title="stop" href="{% url 'janus:stop_session' session_id=data.id %}" class="btn btn-sm btn-secondary">
+                      <span class="fa-solid fa-stop"></span>
+                    </a>
                 {% endif%}
               </tr>
               <tr>
@@ -66,7 +64,7 @@
         </div>
       </div>
       {% else %}
-        <div class="container" style="padding-top: 5%">
+        <div class="container">
           <h5>No controller sessions found!</h5>
         </div>
       {% endif %}
