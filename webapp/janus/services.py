@@ -305,6 +305,7 @@ def get_images(user=None, groups=None, iname=None):
     status, images = False, []
     if res.status_code == 200:
         images = res.json()
+        status = True
 
     return (status, images)
 
