@@ -36,6 +36,8 @@ ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
     'authentication',
+    'bootstrap4',
+    'crispy_forms',
     'janus',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -56,6 +58,7 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'webapp.urls'
+CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
 TEMPLATES = [
     {

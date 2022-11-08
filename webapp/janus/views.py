@@ -4,9 +4,22 @@ from django.contrib.auth.models import User
 from django.shortcuts import render, HttpResponseRedirect
 from django.http import HttpResponseServerError, HttpResponseNotFound
 from django.urls import reverse
-
+from django import forms
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Div, Layout, MultiField
 
 logger = logging.getLogger(__name__)
+
+class ProfileForm(forms.Form):
+    def __init__(self, *args, **kwargs):
+        pfields = kwargs.pop('pfields')
+        print (pfields)
+        super(ProfileForm, self).__init__(*args, **kwargs)
+        for key, value in pfields["settings"].items():
+            self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'class': 'special'}))
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+        )
 
 
 def _get_user(request):
@@ -66,7 +79,8 @@ def list_profiles(request):
         content = {
             "profiles": profiles,
             'login': request.user.is_authenticated,
-            'is_admin': user.is_staff
+            'is_admin': user.is_staff,
+            'form': ProfileForm(pfields=profiles[0])
         }
         return render(request, 'profile.html', content)
     else:

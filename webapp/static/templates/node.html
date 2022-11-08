@@ -2,7 +2,6 @@
 {% block content %}
 
     <div class="container" style="padding-top: 2%">
-      {% if nodes|length %}
       <div class="card bg-light mb-3">
         <div class="card-header d-flex justify-content-between align-items-center">
 	  <b>Available Nodes</b>
@@ -62,10 +61,5 @@
           </table>
         </div>
       </div>
-      {% else %}
-        <div class="container">
-          <h5>No node has been registered yet!</h5>
-        </div>
-      {% endif %}
     </div>
 {% endblock content %}

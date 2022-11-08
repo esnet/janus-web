@@ -1,15 +1,18 @@
 {% extends 'base.html' %}
+{% load bootstrap4 %}
+{% bootstrap_css %}
+{% bootstrap_javascript jquery='full' %}
+{% load crispy_forms_tags %}
 {% block content %}
 
     <div class="container" style="padding-top: 2%" >
-      {% if profiles|length %}
       <div class="card bg-light mb-3">
         <div class="card-header d-flex justify-content-between align-items-center">
 	  <b>Available Profiles</b>
           <a class="btn btn-primary btn-md" role="button" href="{% url 'janus:create_profile' %}">Create</a>
 	</div>
         <div class="card-body">
-	  <table class="table table-condensed table-striped table-hover">
+	  <table class="table table-condensed table-striped">
             <thead>
               <tr>
                 <th></th>
@@ -55,7 +58,15 @@
               <tr>
                 <td colspan="12" class="hiddenRow">
                   <div class="accordian-body collapse" id="row-{{ data.name }}">
-                    <div class="janus-pre">{{ data |pprint }}</div>
+                    <form action="/your-name/" method="post" class="form">
+                      {% csrf_token %}
+                      {% crispy form %}
+                      {% buttons %}
+                      <button type="submit" class="btn btn-primary">
+                        Save
+                      </button>
+                      {% endbuttons %}
+                    </form>
                   </div>
                 </td>
               </tr>
@@ -64,11 +75,6 @@
           </table>
         </div>
       </div>
-      {% else %}
-        <div class="container">
-          <h5>No container profiles found!</h5>
-        </div>
-      {% endif %}
     </div>
 
 {% endblock content %}
