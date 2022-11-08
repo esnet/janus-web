@@ -3,7 +3,8 @@ backports.zoneinfo==0.2.1;python_version<"3.9"
 certifi==2022.6.15
 charset-normalizer==2.1.0
 Django==4.0.6
-hurry
+django-bootstrap4
+django-crispy-forms
 idna==3.3
 requests==2.28.1
 sqlparse==0.4.2
