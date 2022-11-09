@@ -53,6 +53,13 @@
               <tr>
                 <td colspan="12" class="hiddenRow">
                   <div class="accordian-body collapse" id="row-{{ data.id }}">
+                    <div class="janus-pre"><b>SSH Commands</b></div>
+                    {% for k,v in data.data.services.items %}
+                      {% for srv in v %}
+                         <div class="janus-pre"><b>{{k}}</b>: ssh {{ srv.container_user }}@{{ srv.ctrl_host }} -p {{ srv.ctrl_port }}</div>
+                      {% endfor %}
+                    {% endfor %}
+                    <div class="janus-pre"><br/><b>Raw JSON</b></div>
                     <div class="janus-pre">{{ data.data |pprint }}</div>
                   </div>
                 </td>
