@@ -8,11 +8,13 @@ base_url = settings.JANUS_CONTROLLER_URL + "api/janus/controller/"
 def set_access(resource, data):
     logger.debug(f"set_access: {resource} {data}")
     if resource == "nodes":
-        rname = data["node"]
+        identifier = data["node"]
     elif resource == "images":
-        rname = data["image"]
+        identifier = data["image"]
     elif resource == "profiles":
-        rname = data["profile"]
+        identifier = data["profile"]
+    elif resource == "active":
+        identifier = data["session_id"]
     else:
         return False, "Invalid resource"
 
@@ -21,7 +23,7 @@ def set_access(resource, data):
         "groups": data["groups"]
     }
     res = requests.post(
-        url=base_url + f"auth/{resource}/{rname}",
+        url=base_url + f"auth/{resource}/{identifier}",
         json=post_body,
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY

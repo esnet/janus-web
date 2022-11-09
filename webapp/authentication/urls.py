@@ -9,4 +9,5 @@ urlpatterns = [
     path('container/', views.image_access_control, name='auth_images'),
     path('profiles/', views.profile_access_control, name='auth_profiles'),
     path('nodes/', views.node_access_control, name='auth_nodes'),
+    path('sessions/', views.sessions_access_control, name='auth_sessions'),
 ]
