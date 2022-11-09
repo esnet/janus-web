@@ -12,18 +12,18 @@
   {% endif %}
 
   <div class="panel-heading">
-    <h1 class="text-center"><strong><i>Provides Access for Profiles to Users/Groups </i></strong></h1>
+    <h1 class="text-center"><strong><i>Provides Access for Sessions to Users/Groups </i></strong></h1>
   </div>
   <div class="panel-body">
     <div align="center">
-      <form class="form-group" action="{% url 'auth_profiles' %}" method="post" id="auth_profiles_post_form" style="width:60%">
+      <form class="form-group" action="{% url 'auth_sessions' %}" method="post" id="auth_sessions_post_form" style="width:60%">
 	{% csrf_token %}
         <div class="rows" style="padding-top: 2%">
 	    	<div>
-	      		<label>Select Profile:</label>
-	      		<select class="form-control" name="profile" id="profile">
-	        		{% for item in profiles %}
-                <option value="{{ item.name }}" label="{{ item.name }}"></option>
+	      		<label>Select a Session:</label>
+	      		<select class="form-control" name="id" id="id">
+	        		{% for item in sessions %}
+                <option value="{{ item.id }}" label="{{item.id}} - ({{item.user}}, {{item.nodes}})"></option>
               {% endfor %}
 	      		</select>
 	    	</div>

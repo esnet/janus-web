@@ -2,7 +2,7 @@ import logging
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import HttpResponseRedirect, render
 from django.contrib.auth.models import User, Group
-from janus.services import get_nodes, get_profiles, get_images
+from janus.services import get_nodes, get_profiles, get_images, get_session_info
 from .services import set_access
 
 logger = logging.getLogger(__name__)
@@ -212,5 +212,55 @@ def profile_access_control(request):
                 'groups': groups
             }
             return render(request, 'auth_profile.html', content)
+
+    return HttpResponseRedirect('/')
+
+
+def sessions_access_control(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect('/')
+
+    user = User.objects.get(username=request.user)
+    if user.is_staff:
+        quser = None
+        qgroups = None
+
+        status, sessions = get_session_info(quser, qgroups)
+        users = User.objects.filter(is_active=True).values_list('username', flat=True)
+        groups = Group.objects.all().values_list('name', flat=True)
+        data = {"errors": list()}
+
+        if request.method == 'POST':
+            session_id = request.POST.get('id', None)
+            if session_id is None:
+                data['errors'].append('Active Session not found!')
+
+            data['session_id'] = session_id
+
+            selected_users = request.POST.getlist('user', [])
+            data['users'] = selected_users
+
+            selected_groups = request.POST.getlist('group', [])
+            data['groups'] = selected_groups
+
+            print(data)
+            if not len(data['errors']):
+                status, res = set_access("active", data)
+                if status:
+                    return HttpResponseRedirect("/")
+                else:
+                    data["errors"].append(res)
+
+        if status:
+            content = {
+                "data": data,
+                'sessions': sessions,
+                'login': request.user.is_authenticated,
+                'is_admin': user.is_staff,
+                'users': users,
+                'groups': groups
+            }
+
+            return render(request, 'auth_session.html', content)
 
     return HttpResponseRedirect('/')
