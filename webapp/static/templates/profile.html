@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load bootstrap4 %}
+{% load janus_filters %}
 {% bootstrap_css %}
 {% bootstrap_javascript jquery='full' %}
 {% load crispy_forms_tags %}
@@ -58,15 +59,19 @@
               <tr>
                 <td colspan="12" class="hiddenRow">
                   <div class="accordian-body collapse" id="row-{{ data.name }}">
-                    <form action="/your-name/" method="post" class="form">
-                      {% csrf_token %}
-                      {% crispy form %}
-                      {% buttons %}
-                      <button type="submit" class="btn btn-primary">
-                        Save
-                      </button>
-                      {% endbuttons %}
-                    </form>
+                    <div class="container">
+                      <form action="/your-name/" method="post" class="form">
+                        {% csrf_token %}
+                        {% with form=forms|get_form:data.name %}
+                        {% crispy form %}
+                        {% endwith %}
+                        {% buttons %}
+                        <button type="submit" class="btn btn-primary">
+                          Save
+                        </button>
+                        {% endbuttons %}
+                      </form>
+                    </div>
                   </div>
                 </td>
               </tr>
