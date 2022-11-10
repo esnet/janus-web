@@ -13,12 +13,67 @@ logger = logging.getLogger(__name__)
 class ProfileForm(forms.Form):
     def __init__(self, *args, **kwargs):
         pfields = kwargs.pop('pfields')
-        print (pfields)
         super(ProfileForm, self).__init__(*args, **kwargs)
+        bools = ['privileged', 'systemd']
+        selects = ['cpu', 'mem']
+        textareas = ['environment']
+
+        cpu_choices = (
+            ('0', 'default'),
+            ('1', '1'),
+            ('2', '2'),
+            ('4', '4'),
+            ('8', '8'),
+            ('16', '16'),
+            ('32', '32'),
+            ('64', '64'),
+            ('128', '128')
+        )
+        mem_choices = (
+            ('0', 'default'),
+            ('1', '1 GB'),
+            ('2', '2 GB'),
+            ('4', '4 GB'),
+            ('8', '8 GB'),
+            ('16', '16 GB'),
+            ('32', '32 GB')
+        )
+
         for key, value in pfields["settings"].items():
-            self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'class': 'special'}))
+            if key in bools:
+                self.fields[key] = forms.BooleanField(required=False, initial=False if value=="default" else value)
+            elif key in selects:
+                try:
+                    parts = value.split(" ")
+                    if len(parts):
+                        value = parts[0]
+                except:
+                    pass
+                self.fields[key] = forms.ChoiceField(choices=locals().get(f"{key}_choices", tuple()),
+                                                     initial=0 if value=="default" else value,
+                                                     required=False)
+            elif key in textareas:
+                self.fields[key] = forms.CharField(widget=forms.Textarea(attrs={'rows': 4}), initial=value, required=False)
+            else:
+                self.fields[key] = forms.CharField(widget=forms.TextInput(), initial=value, required=False)
         self.helper = FormHelper()
         self.helper.layout = Layout(
+            Div(
+                Div('privileged', 'systemd', css_class='col-12'),
+                Div('cpu', css_class='col-sm-6'),
+                Div('mem', css_class='col-sm-6'),
+                Div('mgmt_net', css_class='col-sm-6'),
+                Div('data_net', css_class='col-sm-6'),
+                Div('ctrl_port_range', css_class='col-sm-6'),
+                Div('data_port_range', css_class='col-sm-6'),
+                Div('serv_port_range', css_class='col-sm-6'),
+                Div('affinity', css_class='col-sm-6'),
+                #Div('features', css_class='col-sm-6'),
+                #Div('volumes', css_class='col-sm-6'),
+                Div('qos', css_class='col-sm-6'),
+                Div('environment', css_class='col-sm-6'),
+                css_class='row'
+            )
         )
 
 
@@ -75,12 +130,15 @@ def list_profiles(request):
 
     (user,_,quser,qgroups) = _get_user(request)
     status, profiles = services.get_profiles(quser, qgroups, verbose=True)
+    forms = dict()
+    for p in profiles:
+        forms.update({p['name']: ProfileForm(pfields=p)})
     if status:
         content = {
             "profiles": profiles,
             'login': request.user.is_authenticated,
             'is_admin': user.is_staff,
-            'form': ProfileForm(pfields=profiles[0])
+            'forms': forms
         }
         return render(request, 'profile.html', content)
     else:
