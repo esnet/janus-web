@@ -13,14 +13,15 @@ logger = logging.getLogger(__name__)
 class ProfileForm(forms.Form):
     def __init__(self, *args, **kwargs):
         pfields = kwargs.pop('pfields')
-        qos_choices = kwargs.pop('qos')
+        qos_choices = kwargs.pop('qos').copy()
         super(ProfileForm, self).__init__(*args, **kwargs)
 
         bools = {'privileged': 'Privileged Container',
-                 'systemd': 'Systemd Container'}
+                 'systemd': 'Systemd Container',
+                 'pull_image': 'Pull Image on Create'}
         selects = {'cpu': 'Cores',
-                   'mem': 'Memory',
-                   'qos': 'Quality of Service'}
+                   'mem': 'Memory'}
+        selects_none = {'qos': 'Quality of Service'}
         textareas = {'environment': 'Environment Variables'}
         ranges = {'ctrl_port_range': 'Control Port Range',
                   'serv_port_range': 'Service Port Range',
@@ -47,10 +48,18 @@ class ProfileForm(forms.Form):
             ('32', '32 GB')
         )
 
+        qos_choices.append('None')
+        qos_choices = tuple(zip(qos_choices, qos_choices))
+
         for key, value in pfields["settings"].items():
             if key in bools:
-                self.fields[key] = forms.BooleanField(required=False, label=bools[key],
+                self.fields[key] = forms.BooleanField(widget=forms.CheckboxInput(attrs={'id': f"{pfields['name']}-{key}"}),
+                                                      required=False, label=bools[key],
                                                       initial=False if value=="default" else value)
+            elif key in selects_none.keys():
+                self.fields[key] = forms.ChoiceField(choices=locals().get(f"{key}_choices", tuple()),
+                                                     initial='None' if not value else value,
+                                                     required=False, label=selects_none[key])
             elif key in selects.keys():
                 try:
                     parts = value.split(" ")
@@ -78,8 +87,9 @@ class ProfileForm(forms.Form):
         self.helper.layout = Layout(
             Hidden('name', value=pfields["name"]),
             Div(
-                Div('privileged', css_class='col-6'),
-                Div('systemd', css_class='col-6'),
+                Div('privileged', css_class='col-4 border d-flex justify-content-center'),
+                Div('systemd', css_class='col-4 border d-flex justify-content-center'),
+                Div('pull_image', css_class='col-4 border d-flex justify-content-center'),
                 Div('cpu', css_class='col-sm-6'),
                 Div('mem', css_class='col-sm-6'),
                 Div('mgmt_net', css_class='col-sm-6'),
@@ -324,15 +334,16 @@ def update_profile(request):
         s = dict()
         s['privileged'] = True if request.POST.get('privileged') else False
         s['systemd'] = True if request.POST.get('systemd') else False
-        s['cpu'] = None if not int(request.POST.get('cpu')) else int(request.POST.get('cpu'))
-        s['mem'] = None if not int(request.POST.get('mem'))*1024*1024*1024 else int(request.POST.get('mem'))*1024*1024*1024
+        s['pull_image'] = True if request.POST.get('pull_image') else False
+        s['cpu'] = False if not int(request.POST.get('cpu')) else int(request.POST.get('cpu'))
+        s['mem'] = False if not int(request.POST.get('mem'))*1024*1024*1024 else int(request.POST.get('mem'))*1024*1024*1024
         s['mgmt_net'] = None if not len(request.POST.get('mgmt_net')) else request.POST.get('mgmt_net')
         s['data_net'] = None if not len(request.POST.get('data_net')) else request.POST.get('data_net')
         s['ctrl_port_range'] = get_range(request.POST, 'ctrl_port_range')
         s['serv_port_range'] = get_range(request.POST, 'serv_port_range')
         s['data_port_range'] = get_range(request.POST, 'data_port_range')
         s['affinity'] = None if not len(request.POST.get('affinity')) else request.POST.get('affinity')
-        s['qos'] = request.POST.get('qos', None)
+        s['qos'] = None if request.POST.get('qos') == 'None' else request.POST.get('qos')
         #s['environment'] = list() if not len(request.POST.get('environment')) else request.POST.get('environment')
         pfields['settings'] = s
 
