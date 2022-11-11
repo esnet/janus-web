@@ -1,6 +1,7 @@
 import logging
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import HttpResponseRedirect, render
+from django.urls import reverse
 from django.contrib.auth.models import User, Group
 from janus.services import get_nodes, get_profiles, get_images, get_session_info
 from .services import set_access
@@ -95,11 +96,10 @@ def image_access_control(request):
             selected_groups = request.POST.getlist('group', [])
             data['groups'] = selected_groups
 
-            # print(data)
             if not len(data['errors']):
                 status, res = set_access("images", data)
                 if status:
-                    return HttpResponseRedirect("/")
+                    return HttpResponseRedirect(reverse("auth_images"))
                 else:
                     data["errors"].append(res)
 
@@ -149,7 +149,7 @@ def node_access_control(request):
             if not len(data['errors']):
                 status, res = set_access("nodes", data)
                 if status:
-                    return HttpResponseRedirect("/")
+                    return HttpResponseRedirect(reverse('auth_nodes'))
                 else:
                     data["errors"].append(res)
 
@@ -198,7 +198,7 @@ def profile_access_control(request):
             if not len(data['errors']):
                 status, res = set_access("profiles", data)
                 if status:
-                    return HttpResponseRedirect("/")
+                    return HttpResponseRedirect(reverse("auth_profiles"))
                 else:
                     data["errors"].append(res)
 
@@ -247,7 +247,7 @@ def sessions_access_control(request):
             if not len(data['errors']):
                 status, res = set_access("active", data)
                 if status:
-                    return HttpResponseRedirect("/")
+                    return HttpResponseRedirect(reverse("auth_sessions"))
                 else:
                     data["errors"].append(res)
 
