@@ -65,3 +65,28 @@
 </div>
 
 {% endblock content %}
+
+{% block footer_scripts %}
+{{ block.super }}
+{{ sessions|json_script:"sessions" }}
+<script>
+  $(function () {
+    $('#id').change();
+  });
+  $('#id').on('change', function() {
+    var sessions = JSON.parse(document.getElementById('sessions').textContent);
+    var session = sessions.filter(({id}) => (id == this.value))
+    var users = session[0].data.users
+    var groups = session[0].data.groups
+
+    $('#user').find('option').prop("selected", false)
+    $.each(users, function(i,e){
+      $("#user option[value='" + e + "']").prop("selected", true);
+    });
+    $('#group').find('option').prop("selected", false)
+    $.each(groups, function(i,e){
+      $("#group option[value='" + e + "']").prop("selected", true);
+    });
+  });
+</script>
+{% endblock footer_scripts %}

@@ -21,7 +21,7 @@
         <div class="rows" style="padding-top: 2%">
 	    	<div>
 	      		<label>Select Image:</label>
-	      		<select class="form-control" name="image">
+	      		<select class="form-control" name="image" id="image">
 	        		{% for item in images %}
 						<option value="{{ item.name }}" label="{{ item.name }}"></option>
 	        		{% endfor %}
@@ -63,5 +63,29 @@
     </div>
   </div>
 </div>
-
 {% endblock content %}
+
+{% block footer_scripts %}
+{{ block.super }}
+{{ images|json_script:"images" }}
+<script>
+  $(function () {
+    $('#image').change();
+  });
+  $('#image').on('change', function() {
+    var images = JSON.parse(document.getElementById('images').textContent);
+    var image = images.filter(({name}) => (name == this.value))
+    var users = image[0].users
+    var groups = image[0].groups
+
+    $('#user').find('option').prop("selected", false)
+    $.each(users, function(i,e){
+      $("#user option[value='" + e + "']").prop("selected", true);
+    });
+    $('#group').find('option').prop("selected", false)
+    $.each(groups, function(i,e){
+      $("#group option[value='" + e + "']").prop("selected", true);
+    });
+  });
+</script>
+{% endblock footer_scripts %}

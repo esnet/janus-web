@@ -63,5 +63,29 @@
     </div>
   </div>
 </div>
-
 {% endblock content %}
+
+{% block footer_scripts %}
+{{ block.super }}
+{{ profiles|json_script:"profiles" }}
+<script>
+  $(function () {
+    $('#profile').change();
+  });
+  $('#profile').on('change', function() {
+    var profiles = JSON.parse(document.getElementById('profiles').textContent);
+    var profile = profiles.filter(({name}) => (name == this.value))
+    var users = profile[0].users
+    var groups = profile[0].groups
+
+    $('#user').find('option').prop("selected", false)
+    $.each(users, function(i,e){
+      $("#user option[value='" + e + "']").prop("selected", true);
+    });
+    $('#group').find('option').prop("selected", false)
+    $.each(groups, function(i,e){
+      $("#group option[value='" + e + "']").prop("selected", true);
+    });
+  });
+</script>
+{% endblock footer_scripts %}
