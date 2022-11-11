@@ -63,3 +63,28 @@
 </div>
 
 {% endblock content %}
+
+{% block footer_scripts %}
+{{ block.super }}
+{{ nodes|json_script:"nodes" }}
+<script>
+  $(function () {
+    $('#node').change();
+  });
+  $('#node').on('change', function() {
+    var nodes = JSON.parse(document.getElementById('nodes').textContent);
+    var node = nodes.filter(({name}) => (name == this.value))
+    var users = node[0].data.users
+    var groups = node[0].data.groups
+
+    $('#user').find('option').prop("selected", false)
+    $.each(users, function(i,e){
+      $("#user option[value='" + e + "']").prop("selected", true);
+    });
+    $('#group').find('option').prop("selected", false)
+    $.each(groups, function(i,e){
+      $("#group option[value='" + e + "']").prop("selected", true);
+    });
+  });
+</script>
+{% endblock footer_scripts %}
