@@ -12,6 +12,7 @@ urlpatterns = [
     path('session/<int:session_id>/', views.view_session, name='view_session'),
     path('profiles/', views.list_profiles, name='list_profiles'),
     path('profiles/create/', views.create_profile, name='create_profile'),
+    path('profiles/update/', views.update_profile, name='update_profile'),
     path('profiles/delete/<str:pname>/', views.delete_profile, name='delete_profile'),
     path('nodes/', views.list_nodes, name='list_nodes'),
     path('nodes/add/', views.add_node, name='add_node'),
