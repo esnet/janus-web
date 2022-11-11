@@ -219,6 +219,25 @@ def create_profile(data, user=None, groups=None):
     else:
         return False, res.json()
 
+def update_profile(data, user=None, groups=None):
+    """
+    Update profile on Janus Controller
+    :param data dict:
+    :return:
+    """
+    name = data["name"]
+    res = requests.put(
+        url=base_url + f"profiles/{name}",
+        json=data,
+        auth=settings.JANUS_CONTROLLER_AUTH,
+        verify=settings.CTRL_SSL_VERIFY
+    )
+
+    if res.status_code == 200:
+        return True, res.json()
+    else:
+        return False, res.json()
+
 
 def delete_profile(pname, user=None, groups=None):
     """ Delete profile from Janus Controller """
