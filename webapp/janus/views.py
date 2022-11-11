@@ -6,17 +6,25 @@ from django.http import HttpResponseServerError, HttpResponseNotFound
 from django.urls import reverse
 from django import forms
 from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Div, Layout, MultiField
+from crispy_forms.layout import Hidden, Div, Layout, Submit
 
 logger = logging.getLogger(__name__)
 
 class ProfileForm(forms.Form):
     def __init__(self, *args, **kwargs):
         pfields = kwargs.pop('pfields')
+        qos_choices = kwargs.pop('qos')
         super(ProfileForm, self).__init__(*args, **kwargs)
-        bools = ['privileged', 'systemd']
-        selects = ['cpu', 'mem']
-        textareas = ['environment']
+
+        bools = {'privileged': 'Privileged Container',
+                 'systemd': 'Systemd Container'}
+        selects = {'cpu': 'Cores',
+                   'mem': 'Memory',
+                   'qos': 'Quality of Service'}
+        textareas = {'environment': 'Environment Variables'}
+        ranges = {'ctrl_port_range': 'Control Port Range',
+                  'serv_port_range': 'Service Port Range',
+                  'data_port_range': 'Data Port Range'}
 
         cpu_choices = (
             ('0', 'default'),
@@ -41,8 +49,9 @@ class ProfileForm(forms.Form):
 
         for key, value in pfields["settings"].items():
             if key in bools:
-                self.fields[key] = forms.BooleanField(required=False, initial=False if value=="default" else value)
-            elif key in selects:
+                self.fields[key] = forms.BooleanField(required=False, label=bools[key],
+                                                      initial=False if value=="default" else value)
+            elif key in selects.keys():
                 try:
                     parts = value.split(" ")
                     if len(parts):
@@ -51,22 +60,36 @@ class ProfileForm(forms.Form):
                     pass
                 self.fields[key] = forms.ChoiceField(choices=locals().get(f"{key}_choices", tuple()),
                                                      initial=0 if value=="default" else value,
-                                                     required=False)
-            elif key in textareas:
-                self.fields[key] = forms.CharField(widget=forms.Textarea(attrs={'rows': 4}), initial=value, required=False)
+                                                     required=False, label=selects[key])
+            elif key in textareas.keys():
+                self.fields[key] = forms.CharField(widget=forms.Textarea(attrs={'rows': 4, 'readonly':'readonly'}),
+                                                   initial=value, required=False, label=textareas[key])
+            elif key in ranges.keys():
+                self.fields[f"{key}_start"] = forms.CharField(widget=forms.TextInput(attrs={'type': 'number'}),
+                                                              initial=value[0] if value else "",
+                                                              required=False, label = f"{ranges[key]} Start")
+                self.fields[f"{key}_end"] = forms.CharField(widget=forms.TextInput(attrs={'type': 'number'}),
+                                                            initial=value[1] if value else "",
+                                                            required=False, label = f"{ranges[key]} End")
             else:
-                self.fields[key] = forms.CharField(widget=forms.TextInput(), initial=value, required=False)
+                self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'pattern': '[a-zA-Z0-9]+'}),
+                                                   initial=value, required=False)
         self.helper = FormHelper()
         self.helper.layout = Layout(
+            Hidden('name', value=pfields["name"]),
             Div(
-                Div('privileged', 'systemd', css_class='col-12'),
+                Div('privileged', css_class='col-6'),
+                Div('systemd', css_class='col-6'),
                 Div('cpu', css_class='col-sm-6'),
                 Div('mem', css_class='col-sm-6'),
                 Div('mgmt_net', css_class='col-sm-6'),
                 Div('data_net', css_class='col-sm-6'),
-                Div('ctrl_port_range', css_class='col-sm-6'),
-                Div('data_port_range', css_class='col-sm-6'),
-                Div('serv_port_range', css_class='col-sm-6'),
+                Div('ctrl_port_range_start', css_class='col-sm-3'),
+                Div('ctrl_port_range_end', css_class='col-sm-3'),
+                Div('data_port_range_start', css_class='col-sm-3'),
+                Div('data_port_range_end', css_class='col-sm-3'),
+                Div('serv_port_range_start', css_class='col-sm-3'),
+                Div('serv_port_range_end', css_class='col-sm-3'),
                 Div('affinity', css_class='col-sm-6'),
                 #Div('features', css_class='col-sm-6'),
                 #Div('volumes', css_class='col-sm-6'),
@@ -75,6 +98,9 @@ class ProfileForm(forms.Form):
                 css_class='row'
             )
         )
+        self.helper.add_input(Submit('submit', 'Save', css_class='btn btn-primary'))
+        self.helper.form_method = 'POST'
+        self.helper.form_action = reverse('janus:update_profile')
 
 
 def _get_user(request):
@@ -124,15 +150,17 @@ def list_nodes(request):
     else:
         return HttpResponseServerError()
 
-def list_profiles(request):
+def list_profiles(request, extra_content=dict()):
     if not request.user.is_authenticated:
         return HttpResponseRedirect('/')
 
     (user,_,quser,qgroups) = _get_user(request)
     status, profiles = services.get_profiles(quser, qgroups, verbose=True)
+    _, qos_choices = services.get_qos()
+    kwargs = {"qos": qos_choices}
     forms = dict()
     for p in profiles:
-        forms.update({p['name']: ProfileForm(pfields=p)})
+        forms.update({p['name']: ProfileForm(pfields=p, **kwargs)})
     if status:
         content = {
             "profiles": profiles,
@@ -140,6 +168,7 @@ def list_profiles(request):
             'is_admin': user.is_staff,
             'forms': forms
         }
+        content.update(extra_content)
         return render(request, 'profile.html', content)
     else:
         return HttpResponseServerError()
@@ -272,6 +301,50 @@ def create_session(request):
 
     logger.debug(content)
     return render(request, 'create_session.html', content)
+
+
+def update_profile(request):
+    def get_range(r, key):
+        start = r.get(f"{key}_start")
+        end = r.get(f"{key}_end")
+        if not len(start) or not len(end):
+            return None
+        else:
+            return [int(start), int(end)]
+
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect('/')
+
+    (user,_,quser,qgroups) = _get_user(request)
+
+    if request.method == 'POST':
+        data = {"errors": list()}
+        pfields = dict()
+        pfields['name'] = request.POST.get('name')
+        s = dict()
+        s['privileged'] = True if request.POST.get('privileged') else False
+        s['systemd'] = True if request.POST.get('systemd') else False
+        s['cpu'] = None if not int(request.POST.get('cpu')) else int(request.POST.get('cpu'))
+        s['mem'] = None if not int(request.POST.get('mem'))*1024*1024*1024 else int(request.POST.get('mem'))*1024*1024*1024
+        s['mgmt_net'] = None if not len(request.POST.get('mgmt_net')) else request.POST.get('mgmt_net')
+        s['data_net'] = None if not len(request.POST.get('data_net')) else request.POST.get('data_net')
+        s['ctrl_port_range'] = get_range(request.POST, 'ctrl_port_range')
+        s['serv_port_range'] = get_range(request.POST, 'serv_port_range')
+        s['data_port_range'] = get_range(request.POST, 'data_port_range')
+        s['affinity'] = None if not len(request.POST.get('affinity')) else request.POST.get('affinity')
+        s['qos'] = request.POST.get('qos', None)
+        #s['environment'] = list() if not len(request.POST.get('environment')) else request.POST.get('environment')
+        pfields['settings'] = s
+
+        content = {
+            'data': data
+        }
+        status, res = services.update_profile(pfields, quser, qgroups)
+        if status:
+            return HttpResponseRedirect(reverse('janus:list_profiles'))
+        else:
+            data["errors"].append(res)
+        return list_profiles(request, content) 
 
 
 def create_profile(request):

@@ -6,7 +6,14 @@
 {% load crispy_forms_tags %}
 {% block content %}
 
-    <div class="container" style="padding-top: 2%" >
+  <div class="container" style="padding-top: 2%" >
+    {% if data.errors|length %}
+    <div class="alert alert-danger" role="alert">
+      {% for err in data.errors %}
+      <b>{{ err }}</b><br/>
+      {% endfor %}
+    </div>
+    {% endif %}
       <div class="card bg-light mb-3">
         <div class="card-header d-flex justify-content-between align-items-center">
 	  <b>Available Profiles</b>
@@ -60,17 +67,10 @@
                 <td colspan="12" class="hiddenRow">
                   <div class="accordian-body collapse" id="row-{{ data.name }}">
                     <div class="container">
-                      <form action="/your-name/" method="post" class="form">
-                        {% csrf_token %}
-                        {% with form=forms|get_form:data.name %}
-                        {% crispy form %}
-                        {% endwith %}
-                        {% buttons %}
-                        <button type="submit" class="btn btn-primary">
-                          Save
-                        </button>
-                        {% endbuttons %}
-                      </form>
+                      {% csrf_token %}
+                      {% with form=forms|get_form:data.name %}
+                      {% crispy form %}
+                      {% endwith %}
                     </div>
                   </div>
                 </td>
