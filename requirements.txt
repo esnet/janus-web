@@ -1,7 +1,9 @@
 asgiref==3.5.2
 backports.zoneinfo==0.2.1;python_version<"3.9"
 certifi==2022.6.15
+channels
 charset-normalizer==2.1.0
+daphne
 Django==4.0.6
 django-bootstrap4
 django-crispy-forms

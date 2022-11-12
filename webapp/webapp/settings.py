@@ -35,6 +35,7 @@ ALLOWED_HOSTS = ["*"]
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'authentication',
     'bootstrap4',
     'crispy_forms',
@@ -58,6 +59,7 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'webapp.urls'
+ASGI_APPLICATION = "webapp.asgi.application"
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
 TEMPLATES = [
