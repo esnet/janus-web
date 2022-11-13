@@ -175,6 +175,7 @@ LOGGING = {
 }
 
 SECURE_CROSS_ORIGIN_OPENER_POLICY = None
+PORTAINER_WS = os.getenv("PORTAINER_WS", "ws://localhost:9000")
 CTRL_HOST = os.getenv("JANUS_WEB_CTRL_HOST", "localhost")
 CTRL_PORT = os.getenv("JANUS_WEB_CTRL_PORT", "5000")
 CTRL_HTTP_PROTOCOL = os.getenv("CTRL_HTTP_PROTOCOL", "https")
