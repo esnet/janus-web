@@ -42,6 +42,37 @@ def remove_node(nname, user=None, groups=None):
         data = res.json()
     return status, data
 
+def get_auth_jwt():
+    res = requests.get(
+        url = f"{base_url}auth/jwt",
+        auth=settings.JANUS_CONTROLLER_AUTH,
+        verify=settings.CTRL_SSL_VERIFY
+    )
+
+    status, data = False, []
+    if res.status_code == 200:
+        status = True
+        data = res.json().get("jwt", None)
+    return status, data
+
+def create_exec(nid, cid, cmd):
+    data = {"node": nid,
+            "container": cid,
+            "Cmd": cmd.split(" "),
+            "start": False}
+    print (data)
+    res = requests.post(
+        url=f"{base_url}exec",
+        json=data,
+        auth=settings.JANUS_CONTROLLER_AUTH,
+        verify=settings.CTRL_SSL_VERIFY
+    )
+    status, data = False, []
+    if res.status_code in [200, 204]:
+        status = True
+        data = res.json().get("Id", None)
+    return status, data
+
 def get_session_info(user=None, groups=None, session_id=None):
     """
     Get session info from Janus Controller

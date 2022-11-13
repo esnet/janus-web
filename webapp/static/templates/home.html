@@ -108,12 +108,15 @@
       + '/ws/perf/'
   );
   sock.onmessage = function(e) {
+    console.log(e.data);
     const data = JSON.parse(e.data);
     const sid = data.message['sid']
-    if (data.message['command'] == 'done') {
+    if (data.message['done']) {
       $('#perfrow-'+sid).removeClass('table-warning').addClass('table-success')
     }
-    $('#testlog-'+sid).val($('#testlog-'+sid).val() + (JSON.stringify(data.message) + '\n'));
+    if (data.message["data"]) {
+      $('#testlog-'+sid).val($('#testlog-'+sid).val() + (data.message["data"]));
+    }
   };
   sock.onclose = function(e) {
     console.error('Exec socket closed unexpectedly');
@@ -121,10 +124,10 @@
   $(":button").click(function (e) {
     const sid = this.value
     const host = $('#'+sid+'-testinput').val();
-    const data = {'node': sessions.find(({ id }) => id == sid),
+    const data = {'sess': sessions.find(({ id }) => id == sid),
                   'sid': sid,
                   'hostname': host,
-                  'command': 'iperf3'
+                  'command': 'iperf3 -c 192.168.1.20 -i 2 -t 20'
                  }
     $('#perfrow-'+sid).removeClass('table-success').addClass('table-warning')
     sock.send(JSON.stringify({
