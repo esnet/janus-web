@@ -1,6 +1,7 @@
 # Session management API call to Janus Controller
 
 import requests
+import shlex
 from django.conf import settings
 from .utils import convert_size
 
@@ -55,11 +56,11 @@ def get_auth_jwt():
         data = res.json().get("jwt", None)
     return status, data
 
-def create_exec(nid, cid, cmd):
+def create_exec(nid, cid, cmd, start=False):
     data = {"node": nid,
             "container": cid,
-            "Cmd": cmd.split(" "),
-            "start": False}
+            "Cmd": shlex.split(cmd),
+            "start": start}
     res = requests.post(
         url=f"{base_url}exec",
         json=data,
