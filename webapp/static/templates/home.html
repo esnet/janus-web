@@ -60,17 +60,25 @@
                     <div class="janus-pre"><b>SSH Commands</b></div>
                     {% for k,v in data.data.services.items %}
                     {% for srv in v %}
-                    <div class="janus-pre"><b>{{k}}</b>: ssh {{ srv.container_user }}@{{ srv.ctrl_host }} -p {{ srv.ctrl_port }}</div>
+                    <div class="janus-pre"><b>{{k}}</b>: ssh {{ srv.container_user | default:"&lt;user>" }}@{{ srv.ctrl_host }} -p {{ srv.ctrl_port }}</div>
                     {% endfor %}
                     {% endfor %}
                     <div><br/></div>
                     <div align="center">
-                      <table class="table table-condensed w-75 p-3">
+                      <table class="table table-condensed" style="width: 1024px;">
                         <tr data-toggle="collapse" id="perfrow-{{data.id}}" data-target="#testrow-{{ data.id }}" class="accordion-toggle table-success">
                           <td class="col-sm-1"><span class="fa-solid fa-chevron-down"></span></td>
-                          <td class="col-sm-5" align="right"><b>Performance Test</b></td>
-                          <td class="col-sm-4">
-                            <input id="{{data.id}}-testinput" class="form-control form-control-sm" type="text" placeholder="host override..."/>
+                          <td class="col-sm-3 align-right align-middle"><b>Performance Test</b></td>
+                          <td class="col-sm-2">
+                            <select class="custom-select custom-select-sm" id="{{data.id}}-testtool">
+                              <option disabled selected value>-- tool --</option>
+                              {% for item in data.tools %}
+                              <option value="{{ item }}" label="{{ item }}"></option>
+                              {% endfor %}
+                            </select>
+                          </td>
+                          <td class="col-sm-3">
+                            <input id="{{data.id}}-testinput" class="form-control form-control-sm" type="text" placeholder="destination override..."/>
                           </td>
                           <td class="col-sm-2" align="right">
                             <button type="button" id="{{data.id}}-testbtn" value="{{data.id}}">Run</button>
@@ -79,7 +87,7 @@
                         <tr>
                           <td colspan="12" class="hiddenRow">
                             <div class="accordian-body collapse" id="testrow-{{ data.id }}">
-                              <textarea style="font-family:monospace" id="testlog-{{data.id}}" cols="100" rows="20"></textarea>
+                              <textarea readonly style="font-family:monospace" id="testlog-{{data.id}}" cols="100" rows="20"></textarea>
                             </div>
                           </td>
                         </tr>
@@ -108,14 +116,14 @@
       + '/ws/perf/'
   );
   sock.onmessage = function(e) {
-    console.log(e.data);
+    //console.log(e.data);
     const data = JSON.parse(e.data);
-    const sid = data.message['sid']
-    if (data.message['done']) {
+    const sid = data['sid'];
+    if (data['done']) {
       $('#perfrow-'+sid).removeClass('table-warning').addClass('table-success')
     }
-    if (data.message["data"]) {
-      $('#testlog-'+sid).val($('#testlog-'+sid).val() + (data.message["data"]));
+    if (data["data"]) {
+      $('#testlog-'+sid).val($('#testlog-'+sid).val() + (data["data"]));
     }
   };
   sock.onclose = function(e) {
@@ -124,15 +132,14 @@
   $(":button").click(function (e) {
     const sid = this.value
     const host = $('#'+sid+'-testinput').val();
+    const tool = $('#'+sid+'-testtool').val();
     const data = {'sess': sessions.find(({ id }) => id == sid),
                   'sid': sid,
                   'hostname': host,
-                  'command': 'iperf3 -c 192.168.1.20 -i 2 -t 20'
+                  'tool': tool
                  }
     $('#perfrow-'+sid).removeClass('table-success').addClass('table-warning')
-    sock.send(JSON.stringify({
-      'message': data
-    }));
+    sock.send(JSON.stringify(data));
   });
 </script>
 {% endblock footer_scripts %}

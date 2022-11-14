@@ -60,7 +60,6 @@ def create_exec(nid, cid, cmd):
             "container": cid,
             "Cmd": cmd.split(" "),
             "start": False}
-    print (data)
     res = requests.post(
         url=f"{base_url}exec",
         json=data,
@@ -86,6 +85,20 @@ def get_session_info(user=None, groups=None, session_id=None):
     elif user is not None:
         url += f"?user={user}"
 
+    # also get profile info
+    res = requests.get(
+        url = f"{base_url}profiles/?{user}" if user else f"{base_url}profiles",
+        auth=settings.JANUS_CONTROLLER_AUTH,
+        verify=settings.CTRL_SSL_VERIFY
+    )
+    if res.status_code == 200:
+        data = res.json()
+        profiles = dict()
+        for p in data:
+            profiles.update({p["name"]: p})
+    else:
+        profiles = None
+
     res = requests.get(
         url = url,
         auth=settings.JANUS_CONTROLLER_AUTH,
@@ -99,16 +112,24 @@ def get_session_info(user=None, groups=None, session_id=None):
             data = res.json()
         else:
             for entry in res.json():
+                prof = entry["request"][0]["profile"]
+                img = entry["request"][0]["image"]
+                if profiles:
+                    try:
+                        tools = profiles[prof]["settings"]["tools"].get(img, list())
+                    except:
+                        tools = list()
                 if not entry:
                     continue
                 temp = {
                     "id": entry["id"],
                     "user": entry["user"],
                     "state": entry["state"],
-                    "image": entry["request"][0]["image"],
-                    "profile": entry["request"][0]["profile"],
+                    "image": img,
+                    "profile": prof,
                     "nodes": [s for s in entry["services"].keys()],
-                    "data": entry
+                    "tools": tools,
+                    "data": entry,
                 }
                 data.append(temp)
 
