@@ -57,7 +57,7 @@
                 <td> {{ data.qos }} </td>
                 {% if is_admin %}
                 <td class="d-flex justify-content-center">
-                  <a href= "{% url 'janus:remove_node' nname=data.name %}" class="btn btn-sm btn-danger">
+                  <a href= "{% url 'janus:delete_profile' pname=data.name %}" class="btn btn-sm btn-danger">
                     <span class="fa-solid fa-xmark"></span>
                   </a>
                 </td>

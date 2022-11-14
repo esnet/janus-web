@@ -1,30 +1,52 @@
 import json
 import time
+import threading
 import websocket
 from .services import create_exec, get_auth_jwt
 from webapp.settings import PORTAINER_WS
-from channels.generic.websocket import AsyncWebsocketConsumer
-from channels.generic.websocket import WebsocketConsumer
+from asgiref.sync import sync_to_async
+from channels.generic.websocket import JsonWebsocketConsumer, AsyncJsonWebsocketConsumer
+
+class AsyncPerfConsumer(AsyncJsonWebsocketConsumer):
+    async def connect(self):
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        await self.close()
+
+    async def receive_json(self, data):
+        await self.send_json(data)
 
 
-class PerfConsumer(WebsocketConsumer):
+class PerfConsumer(JsonWebsocketConsumer):
     def connect(self):
         self.accept()
 
     def disconnect(self, close_code):
-        pass
+        self.close()
 
-    def receive(self, text_data):
-        text_data_json = json.loads(text_data)
+    def receive_json(self, data):
+        self.th = threading.Thread(target=self.run_handler, args=(data,))
+        self.th.start()
+
+    def create_cmd(self, tool, host, sess):
+        if tool == "iperf3":
+            cmd = f"{tool} -c {host} -i 2"
+        else:
+            cmd = tool
+        return cmd
+
+    def run_handler(self, msg):
         try:
-            message = text_data_json.get("message")
-            sess = message.get("sess").get("data")
-            command = message.get("command")
+            sess = msg.get("sess").get("data")
+            host = msg.get("hostname")
+            tool = msg.get("tool")
+            cmd = self.create_cmd(tool, host, sess)
             create = list()
             for nname,cids in sess.get("allocations").items():
                 for c in cids:
                     nid = sess.get("services").get(nname)[0].get("node_id")
-                    _, exec_id = create_exec(nname, c, command)
+                    _, exec_id = create_exec(nname, c, cmd)
                     create.append({'node_id': nid,
                                    'exec_id': exec_id})
         except Exception as e:
@@ -38,18 +60,18 @@ class PerfConsumer(WebsocketConsumer):
         ws = websocket.create_connection(ws_url)
 
         rmsg = dict()
-        rmsg["sid"] = message["sid"]
+        rmsg["sid"] = msg["sid"]
         while True:
             try:
                 msg = ws.recv()
-                print (msg)
                 rmsg["done"] = False
                 rmsg["data"] = msg
-                self.send(text_data=json.dumps({"message": rmsg}).replace(r'\u0000', ''))
+                #sync_to_async(self.send_json)(rmsg)
+                self.send_json(rmsg)
             except:
                 ws.close()
                 break
 
         rmsg["done"] = True
         rmsg["data"] = None
-        self.send(text_data=json.dumps({"message": rmsg}))
+        self.send_json(rmsg)
