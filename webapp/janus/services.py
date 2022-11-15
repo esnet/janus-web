@@ -56,11 +56,14 @@ def get_auth_jwt():
         data = res.json().get("jwt", None)
     return status, data
 
-def create_exec(nid, cid, cmd, start=False):
+def create_exec(nid, cid, cmd, start=False, attach=True, tty=True):
     data = {"node": nid,
             "container": cid,
             "Cmd": shlex.split(cmd),
+            "attach": attach,
+            "tty": tty,
             "start": start}
+
     res = requests.post(
         url=f"{base_url}exec",
         json=data,
