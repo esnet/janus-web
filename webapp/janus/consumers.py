@@ -69,17 +69,18 @@ class PerfConsumer(JsonWebsocketConsumer):
             src_node = list(allocations.keys())[0]
             src_cid = allocations.get(src_node)[0]
             src_nid = services.get(src_node)[0].get("node_id")
-            if not host:
-                dst_node = list(allocations.keys())[1]
-                dst_cid = allocations.get(dst_node)[0]
-                dst_nid = services.get(dst_node)[0].get("node_id")
-            else:
-                dst_node = None
-                dst_cid = None
-                dst_nid = None
+
+            dst_node = list(allocations.keys())[1]
+            dst_cid = allocations.get(dst_node)[0]
+            dst_nid = services.get(dst_node)[0].get("node_id")
 
             dst_host = host if host else services.get(dst_node)[0].get('ctrl_host')
-            dst_port = None if host else services.get(dst_node)[0].get("ctrl_port")
+            hparts = dst_host.split(":")
+            if len(hparts) > 1:
+                dst_host = hparts[0]
+                dst_port = hparts[1]
+            else:
+                dst_port = services.get(dst_node)[0].get("ctrl_port")
 
             cmd = self.create_cmd(tool, dst_host, dst_port, sess, src_node, src_cid, dst_node, dst_cid)
             _, exec_id = create_exec(src_node, src_cid, cmd)
