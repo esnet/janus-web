@@ -91,7 +91,7 @@ def get_session_info(user=None, groups=None, session_id=None):
 
     # also get profile info
     res = requests.get(
-        url = f"{base_url}profiles/?{user}" if user else f"{base_url}profiles",
+        url = f"{base_url}profiles?user={user}" if user else f"{base_url}profiles",
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY
     )
