@@ -29,27 +29,39 @@ class PerfConsumer(JsonWebsocketConsumer):
         self.th = threading.Thread(target=self.run_handler, args=(data,))
         self.th.start()
 
-    def create_cmd(self, tool, dst_host, dst_port, sess, src_node, src_cid, dst_node, dst_cid):
+    def create_cmd(self, tool, dst_host, dst_port, sess,
+                   src_node, src_cid, dst_node, dst_cid, duration=None):
         img = sess.get("request")[0].get("image")
         if tool == "iperf3":
             cmd = f"{tool} -s -D"
-            _, exec_id = create_exec(dst_node, dst_cid, cmd, start=True)
+            if dst_node:
+                _, exec_id = create_exec(dst_node, dst_cid, cmd, start=True)
             cmd = f"{tool} -c {dst_host} -i 2"
+            if duration:
+                cmd += f" -t {duration}"
         elif tool == "escp":
+            dst_port = dst_port if dst_port else "22"
             cmd = 'dd if=/dev/zero of=/tmp/10T bs=1 count=1 seek=1T'
             _, exec_id = create_exec(src_node, src_cid, cmd, start=True)
             cmd = f'escp -P {dst_port} --bits --direct --args_src="--engine=dummy -t 16 -b 1M" --args_dst="--engine=dummy -t 16 -b 1M" /tmp/10T {dst_host}:/tmp'
         elif tool == "xfer_test" and img == "dtnaas/tools":
             cmd = f"{tool} -s"
-            _, exec_id = create_exec(dst_node, dst_cid, cmd, start=True, attach=False, tty=False)
+            if dst_node:
+                _, exec_id = create_exec(dst_node, dst_cid, cmd, start=True, attach=False, tty=False)
             cmd = f"{tool} -c {dst_host} -t 20 -i 2 -a 1 -o 20"
+            if duration:
+                cmd += f" -t {duration}"
         elif tool == "xfer_test" and img == "dtnaas/ofed":
             cmd = f"{tool} -s -r -d 128"
-            _, exec_id = create_exec(dst_node, dst_cid, cmd, start=True, attach=False, tty=False)
+            if dst_node:
+                _, exec_id = create_exec(dst_node, dst_cid, cmd, start=True, attach=False, tty=False)
             cmd = f"{tool} -c {dst_host} -t 20 -i 2 -a 1 -o 24 -d 128 -r"
+            if duration:
+                cmd += f" -t {duration}"
         elif tool == "ib_write_bw":
             cmd = "ib_write_bw -R -a"
-            _, exec_id = create_exec(dst_node, dst_cid, cmd, start=True, attach=False, tty=False)
+            if dst_node:
+                _, exec_id = create_exec(dst_node, dst_cid, cmd, start=True, attach=False, tty=False)
             cmd = f"ib_write_bw --report_gbits -n 10000 -F -a -t 2048 -R {dst_host}"
         else:
             cmd = tool
@@ -67,6 +79,7 @@ class PerfConsumer(JsonWebsocketConsumer):
             sess = msg.get("sess").get("data")
             sid = msg.get("sid")
             host = msg.get("hostname")
+            duration = msg.get("duration")
             tool = msg.get("tool")
             create = list()
 
@@ -79,19 +92,25 @@ class PerfConsumer(JsonWebsocketConsumer):
             src_cid = allocations.get(src_node)[0]
             src_nid = services.get(src_node)[0].get("node_id")
 
-            dst_node = list(allocations.keys())[1]
-            dst_cid = allocations.get(dst_node)[0]
-            dst_nid = services.get(dst_node)[0].get("node_id")
+            if len(allocations.keys()) > 1 and not host:
+                dst_node = list(allocations.keys())[1]
+                dst_cid = allocations.get(dst_node)[0]
+                dst_nid = services.get(dst_node)[0].get("node_id")
+                dst_host = services.get(dst_node)[0].get('ctrl_host')
+            elif host:
+                dst_node = None
+                dst_cid = None
+                dst_nid = None
+                dst_host = host
 
-            dst_host = host if host else services.get(dst_node)[0].get('ctrl_host')
             hparts = dst_host.split(":")
             if len(hparts) > 1:
                 dst_host = hparts[0]
                 dst_port = hparts[1]
             else:
-                dst_port = services.get(dst_node)[0].get("ctrl_port")
+                dst_port = None if host else services.get(dst_node)[0].get("ctrl_port")
 
-            cmd = self.create_cmd(tool, dst_host, dst_port, sess, src_node, src_cid, dst_node, dst_cid)
+            cmd = self.create_cmd(tool, dst_host, dst_port, sess, src_node, src_cid, dst_node, dst_cid, duration)
             _, exec_id = create_exec(src_node, src_cid, cmd)
             create.append({'node_id': src_nid,
                            'exec_id': exec_id})
