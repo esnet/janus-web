@@ -80,6 +80,9 @@
                           <td class="col-sm-3">
                             <input id="{{data.id}}-testinput" class="form-control form-control-sm" type="text" placeholder="destination override..."/>
                           </td>
+                          <td class="col-sm-2">
+                            <input id="{{data.id}}-testduration" class="form-control form-control-sm" type="text" placeholder="time (s)"/>
+                          </td>
                           <td class="col-sm-2" align="right">
                             <button type="button" id="{{data.id}}-testbtn" value="{{data.id}}">Run</button>
                           </td>
@@ -164,6 +167,7 @@
       return;
     };
     const host = $('#'+sid+'-testinput').val();
+    const duration = $('#'+sid+'-testduration').val();
     const tool = $('#'+sid+'-testtool').val();
     if (! tool) {
       $('#errorModal-text').html("No tool selected.");
@@ -173,6 +177,7 @@
     const data = {'sess': sess,
                   'sid': sid,
                   'hostname': host,
+                  'duration': duration,
                   'tool': tool
                  }
     $('#perfrow-'+sid).removeClass('table-success').addClass('table-warning')
