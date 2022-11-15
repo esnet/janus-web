@@ -30,6 +30,7 @@ class PerfConsumer(JsonWebsocketConsumer):
         self.th.start()
 
     def create_cmd(self, tool, dst_host, dst_port, sess, src_node, src_cid, dst_node, dst_cid):
+        img = sess.get("request")[0].get("image")
         if tool == "iperf3":
             cmd = f"{tool} -s -D"
             _, exec_id = create_exec(dst_node, dst_cid, cmd, start=True)
@@ -38,10 +39,18 @@ class PerfConsumer(JsonWebsocketConsumer):
             cmd = 'dd if=/dev/zero of=/tmp/10T bs=1 count=1 seek=1T'
             _, exec_id = create_exec(src_node, src_cid, cmd, start=True)
             cmd = f'escp -P {dst_port} --bits --direct --args_src="--engine=dummy -t 16 -b 1M" --args_dst="--engine=dummy -t 16 -b 1M" /tmp/10T {dst_host}:/tmp'
-        elif tool == "xfer_test":
+        elif tool == "xfer_test" and img == "dtnaas/tools":
             cmd = f"{tool} -s"
-            _, exec_id = create_exec(dst_node, dst_cid, cmd, start=True)
-            cmd = f"{tool} -c {dst_host} -i 2"
+            _, exec_id = create_exec(dst_node, dst_cid, cmd, start=True, attach=False, tty=False)
+            cmd = f"{tool} -c {dst_host} -t 20 -i 2 -a 1 -o 20"
+        elif tool == "xfer_test" and img == "dtnaas/ofed":
+            cmd = f"{tool} -s -r -d 128"
+            _, exec_id = create_exec(dst_node, dst_cid, cmd, start=True, attach=False, tty=False)
+            cmd = f"{tool} -c {dst_host} -t 20 -i 2 -a 1 -o 24 -d 128 -r"
+        elif tool == "ib_write_bw":
+            cmd = "ib_write_bw -R -a"
+            _, exec_id = create_exec(dst_node, dst_cid, cmd, start=True, attach=False, tty=False)
+            cmd = f"ib_write_bw --report_gbits -n 10000 -F -a -t 2048 -R {dst_host}"
         else:
             cmd = tool
         return cmd
