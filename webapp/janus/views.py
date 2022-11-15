@@ -132,6 +132,7 @@ def list_sessions(request):
     status, sessions = services.get_session_info(quser, qgroups)
     login = request.user.is_authenticated
     content = {
+        'user': user.username,
         'login': login,
         'is_admin': user.is_staff,
     }
