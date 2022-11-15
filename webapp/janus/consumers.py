@@ -106,8 +106,6 @@ class PerfConsumer(JsonWebsocketConsumer):
                 dst_host = None
 
             if host:
-                # even if session has potential target, don't use if host override is given
-                dst_node = None
                 dst_host = host
 
             hparts = dst_host.split(":")
