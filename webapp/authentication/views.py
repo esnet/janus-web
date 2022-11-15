@@ -84,6 +84,7 @@ def image_access_control(request):
         data = {"errors": list()}
 
         if request.method == 'POST':
+            remove = True if "remove" in request.POST else False
             image = request.POST.get('image', None)
             if image is None:
                 data['errors'].append('Image not found!')
@@ -97,7 +98,7 @@ def image_access_control(request):
             data['groups'] = selected_groups
 
             if not len(data['errors']):
-                status, res = set_access("images", data)
+                status, res = set_access("images", data, remove)
                 if status:
                     return HttpResponseRedirect(reverse("auth_images"))
                 else:
@@ -134,6 +135,7 @@ def node_access_control(request):
         data = {"errors": list()}
 
         if request.method == 'POST':
+            remove = True if "remove" in request.POST else False
             node = request.POST.get('node', None)
             if node is None:
                 data['errors'].append('Node not found!')
@@ -147,7 +149,7 @@ def node_access_control(request):
 
             # print(data)
             if not len(data['errors']):
-                status, res = set_access("nodes", data)
+                status, res = set_access("nodes", data, remove)
                 if status:
                     return HttpResponseRedirect(reverse('auth_nodes'))
                 else:
@@ -182,6 +184,7 @@ def profile_access_control(request):
         data = {"errors": list()}
 
         if request.method == 'POST':
+            remove = True if "remove" in request.POST else False
             profile = request.POST.get('profile', None)
             if profile is None:
                 data['errors'].append('Profile not found!')
@@ -196,7 +199,7 @@ def profile_access_control(request):
 
             # print(data)
             if not len(data['errors']):
-                status, res = set_access("profiles", data)
+                status, res = set_access("profiles", data, remove)
                 if status:
                     return HttpResponseRedirect(reverse("auth_profiles"))
                 else:
@@ -231,6 +234,7 @@ def sessions_access_control(request):
         data = {"errors": list()}
 
         if request.method == 'POST':
+            remove = True if "remove" in request.POST else False
             session_id = request.POST.get('id', None)
             if session_id is None:
                 data['errors'].append('Active Session not found!')
@@ -245,7 +249,7 @@ def sessions_access_control(request):
 
             print(data)
             if not len(data['errors']):
-                status, res = set_access("active", data)
+                status, res = set_access("active", data, remove)
                 if status:
                     return HttpResponseRedirect(reverse("auth_sessions"))
                 else:

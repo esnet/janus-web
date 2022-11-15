@@ -5,7 +5,7 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 base_url = settings.JANUS_CONTROLLER_URL + "api/janus/controller/"
 
-def set_access(resource, data):
+def set_access(resource, data, remove=False):
     logger.debug(f"set_access: {resource} {data}")
     if resource == "nodes":
         identifier = data["node"]
@@ -22,7 +22,9 @@ def set_access(resource, data):
         "users": data["users"],
         "groups": data["groups"]
     }
-    res = requests.post(
+
+    fn = requests.delete if remove else requests.post
+    res = fn(
         url=base_url + f"auth/{resource}/{identifier}",
         json=post_body,
         auth=settings.JANUS_CONTROLLER_AUTH,
