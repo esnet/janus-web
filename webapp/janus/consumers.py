@@ -29,13 +29,19 @@ class PerfConsumer(JsonWebsocketConsumer):
         self.th = threading.Thread(target=self.run_handler, args=(data,))
         self.th.start()
 
-    def create_cmd(self, tool, dst_host, dst_port, sess, nname, cid):
+    def create_cmd(self, tool, dst_host, dst_port, sess, src_node, src_cid, dst_node, dst_cid):
         if tool == "iperf3":
+            cmd = f"{tool} -s -D"
+            _, exec_id = create_exec(dst_node, dst_cid, cmd, start=True)
             cmd = f"{tool} -c {dst_host} -i 2"
         elif tool == "escp":
             cmd = 'dd if=/dev/zero of=/tmp/10T bs=1 count=1 seek=1T'
-            _, exec_id = create_exec(nname, cid, cmd, start=True)
+            _, exec_id = create_exec(src_node, src_cid, cmd, start=True)
             cmd = f'escp -P {dst_port} --bits --direct --args_src="--engine=dummy -t 16 -b 1M" --args_dst="--engine=dummy -t 16 -b 1M" /tmp/10T {dst_host}:/tmp'
+        elif tool == "xfer_test":
+            cmd = f"{tool} -s"
+            _, exec_id = create_exec(dst_node, dst_cid, cmd, start=True)
+            cmd = f"{tool} -c {dst_host} -i 2"
         else:
             cmd = tool
         return cmd
@@ -50,6 +56,7 @@ class PerfConsumer(JsonWebsocketConsumer):
     def run_handler(self, msg):
         try:
             sess = msg.get("sess").get("data")
+            sid = msg.get("sid")
             host = msg.get("hostname")
             tool = msg.get("tool")
             create = list()
@@ -66,13 +73,15 @@ class PerfConsumer(JsonWebsocketConsumer):
                 dst_node = list(allocations.keys())[1]
                 dst_cid = allocations.get(dst_node)[0]
                 dst_nid = services.get(dst_node)[0].get("node_id")
+            else:
+                dst_node = None
+                dst_cid = None
+                dst_nid = None
 
             dst_host = host if host else services.get(dst_node)[0].get('ctrl_host')
             dst_port = None if host else services.get(dst_node)[0].get("ctrl_port")
 
-            # XXX need a destination node cmd generator (as needed)
-            # this calls the command on our "source" node container
-            cmd = self.create_cmd(tool, dst_host, dst_port, sess, src_node, src_cid)
+            cmd = self.create_cmd(tool, dst_host, dst_port, sess, src_node, src_cid, dst_node, dst_cid)
             _, exec_id = create_exec(src_node, src_cid, cmd)
             create.append({'node_id': src_nid,
                            'exec_id': exec_id})
@@ -88,7 +97,7 @@ class PerfConsumer(JsonWebsocketConsumer):
         ws = websocket.create_connection(ws_url)
 
         rmsg = dict()
-        rmsg["sid"] = msg["sid"]
+        rmsg["sid"] = sid
         while True:
             try:
                 msg = ws.recv()
