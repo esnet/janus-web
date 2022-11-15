@@ -54,7 +54,7 @@
                     {{ data.settings.mgmt_net }}
                     {% endif %}
                 </td>
-                <td> {{ data.qos }} </td>
+                <td> {{ data.settings.qos| default:"" }} </td>
                 {% if is_admin %}
                 <td class="d-flex justify-content-center">
                   <a href= "{% url 'janus:delete_profile' pname=data.name %}" class="btn btn-sm btn-danger">
