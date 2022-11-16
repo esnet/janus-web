@@ -63,13 +63,14 @@
                           <th>SSH</th>
                           <th>Control Ports</th>
                           <th>Service Ports</th>
+                          <th>Data Net Interfaces</th>
                         </thead>
                         <tbody>
                           <tr class="table-muted">
-                            <td class="col-sm-8">
+                            <td class="col-sm-6">
                               {% for k,v in data.data.services.items %}
                               {% for srv in v %}
-                              <div class="janus-pre"><b>{{k}}</b>: ssh {{ srv.container_user | default:"&lt;user>" }}@{{ srv.ctrl_host }} -p {{ srv.ctrl_port }}</div>
+                              <div class="janus-pre"><b>{{k}}</b>: ssh {{ srv.container_user | default:"&lt;user>" }}@{{ srv.ctrl_host }}{% if srv.ctrl_port %} -p {{ srv.ctrl_port }}{% endif %}</div>
                               {% endfor %}
                               {% endfor %}
                             </td>
@@ -84,6 +85,13 @@
                               {% for k,v in data.data.services.items %}
                               {% for srv in v %}
                               <div class="janus-pre">{{ srv.serv_port }}</div>
+                              {% endfor %}
+                              {% endfor %}
+                            </td>
+                            <td class="col-sm-2">
+                              {% for k,v in data.data.services.items %}
+                              {% for srv in v %}
+                              <div class="janus-pre">{{ srv.data_ipv4|default:"" }}{% if srv.data_ipv4 %}, {% endif %}{{ srv.data_ipv6|default:"" }}</div>
                               {% endfor %}
                               {% endfor %}
                             </td>
