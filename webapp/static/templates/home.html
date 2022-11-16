@@ -216,6 +216,7 @@
                   'tool': tool
                  }
     $('#perfrow-'+sid).removeClass('table-success').addClass('table-warning')
+    $('#testlog-'+sid).val("");
     sock.send(JSON.stringify(data));
   });
 </script>
