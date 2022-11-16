@@ -122,6 +122,12 @@ class PerfConsumer(JsonWebsocketConsumer):
             if len(hparts) > 1:
                 dst_host = hparts[0]
                 dst_port = hparts[1]
+            elif host:
+                dst_port = None
+
+            # XXX only set dst port to control port for escp
+            if not host and not tool == "escp":
+                dst_port = None
 
             cmd = self.create_cmd(tool, dst_host, dst_port, sess, src_node, src_cid, dst_node, dst_cid, duration)
             _, exec_id = create_exec(src_node, src_cid, cmd)
