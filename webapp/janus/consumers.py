@@ -122,7 +122,7 @@ class PerfConsumer(JsonWebsocketConsumer):
             if len(hparts) > 1:
                 dst_host = hparts[0]
                 dst_port = hparts[1]
-            elif host:
+            elif host and not tool == "escp":
                 dst_port = None
 
             # XXX only set dst port to control port for escp
