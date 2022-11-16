@@ -39,6 +39,12 @@ class PerfConsumer(JsonWebsocketConsumer):
             cmd = f"{tool} -c {dst_host} -i 2"
             if duration:
                 cmd += f" -t {duration}"
+            if dst_port:
+                cmd += f" -p {dst_port}"
+        elif tool == "iperf3_server":
+            cmd = f"iperf3 -s -1"
+            if dst_port:
+                cmd += f" -p {dst_port}"
         elif tool == "escp":
             dst_port = dst_port if dst_port else "22"
             cmd = 'dd if=/dev/zero of=/tmp/10T bs=1 count=1 seek=1T'
@@ -51,6 +57,8 @@ class PerfConsumer(JsonWebsocketConsumer):
             cmd = f"{tool} -c {dst_host} -t 20 -i 2 -a 1 -o 20"
             if duration:
                 cmd += f" -t {duration}"
+            if dst_port:
+                cmd += f" -p {dst_port}"
         elif tool == "xfer_test" and img == "dtnaas/ofed":
             cmd = f"{tool} -s -r -d 128"
             if dst_node:
@@ -58,6 +66,8 @@ class PerfConsumer(JsonWebsocketConsumer):
             cmd = f"{tool} -c {dst_host} -t 20 -i 2 -a 1 -o 24 -d 128 -r"
             if duration:
                 cmd += f" -t {duration}"
+            if dst_port:
+                cmd += f" -p {dst_port}"
         elif tool == "ib_write_bw":
             cmd = "ib_write_bw -R -a"
             if dst_node:

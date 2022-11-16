@@ -57,13 +57,40 @@
               <tr>
                 <td colspan="12" class="hiddenRow">
                   <div class="accordian-body collapse" id="row-{{ data.id }}">
-                    <div class="janus-pre"><b>SSH Commands</b></div>
-                    {% for k,v in data.data.services.items %}
-                    {% for srv in v %}
-                    <div class="janus-pre"><b>{{k}}</b>: ssh {{ srv.container_user | default:"&lt;user>" }}@{{ srv.ctrl_host }} -p {{ srv.ctrl_port }}</div>
-                    {% endfor %}
-                    {% endfor %}
-                    <div><br/></div>
+                    <div align="center">
+                      <table class="table table-condensed table-bordered" style="width: 1024px;">
+                        <thead>
+                          <th>SSH</th>
+                          <th>Control Ports</th>
+                          <th>Service Ports</th>
+                        </thead>
+                        <tbody>
+                          <tr class="table-muted">
+                            <td class="col-sm-8">
+                              {% for k,v in data.data.services.items %}
+                              {% for srv in v %}
+                              <div class="janus-pre"><b>{{k}}</b>: ssh {{ srv.container_user | default:"&lt;user>" }}@{{ srv.ctrl_host }} -p {{ srv.ctrl_port }}</div>
+                              {% endfor %}
+                              {% endfor %}
+                            </td>
+                            <td class="col-sm-2">
+                              {% for k,v in data.data.services.items %}
+                              {% for srv in v %}
+                              <div class="janus-pre"><b>{{k}}</b>: {{ srv.ctrl_port }}</div>
+                              {% endfor %}
+                              {% endfor %}
+                            </td>
+                            <td class="col-sm-2">
+                              {% for k,v in data.data.services.items %}
+                              {% for srv in v %}
+                              <div class="janus-pre"><b>{{k}}</b>: {{ srv.serv_port }}</div>
+                              {% endfor %}
+                              {% endfor %}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                     <div align="center">
                       <table class="table table-condensed" style="width: 1024px;">
                         <tr data-toggle="collapse" id="perfrow-{{data.id}}" data-target="#testrow-{{ data.id }}" class="accordion-toggle table-success">
