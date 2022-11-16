@@ -27,8 +27,8 @@
                 <th>Name</th>
                 <th>CPU #Core</th>
                 <th>Memory (Bytes)</th>
-                <th>Affinity</th>
-                <th>Network</th>
+                <th>Mgmt Network</th>
+                <th>Data Network</th>
                 <th>QoS Profile</th>
                 {% if is_admin %}
                 <th>Delete?</th>
@@ -42,16 +42,56 @@
                 <td> {{ data.name }} </td>
                 <td> {{ data.settings.cpu }} </td>
                 <td> {{ data.settings.mem }} </td>
-                <td> {{ data.settings.affinity }} </td>
                 <td>
                     {% if 'name' in data.settings.mgmt_net %}
                     <div>
-                        {{ data.settings.mgmt_net.name }}<br/>
-                        <b>ipv4_addr</b>: {{ data.settings.mgmt_net.ipv4_addr|default:''}}<br/>
-                        <b>ipv6_addr</b>: {{ data.settings.mgmt_net.ipv6_addr|default:''}}
+                      {{ data.settings.mgmt_net.name }}<br/>
+                      <b>ipv4_addr</b>:
+                      {% if data.settings.mgmt_net.ipv4_addr|get_type == 'list' %}
+                        {% for a in data.settings.mgmt_net.ipv4_addr %}
+                          {{ a }}
+                        {% endfor %}
+                      {% else %}
+                        {{ data.settings.mgmt_net.ipv4_addr|default:''}}
+                      {% endif %}
+                      <br/>
+                      <b>ipv6_addr</b>:
+                      {% if data.settings.mgmt_net.ipv6_addr|get_type == 'list' %}
+                        {% for a in data.settings.data_net.ipv6_addr %}
+                          {{ a }}{% if not forloop.last %},{% endif %}
+                        {% endfor %}
+                      {% else %}
+                        {{ data.settings.mgmt_net.ipv6_addr|default:''}}
+                      {% endif %}
                     </div>
                     {% else %}
                     {{ data.settings.mgmt_net }}
+                    {% endif %}
+                </td>
+                <td>
+                  {% if 'name' in data.settings.data_net %}
+                    <div>
+                      {{ data.settings.data_net.name }}<br/>
+                      <b>ipv4_addr</b>:
+                      {% if data.settings.data_net.ipv4_addr|get_type == 'list' %}
+                      {% for a in data.settings.data_net.ipv4_addr %}
+                        {{ a }}{% if not forloop.last %},{% endif %}
+                        {% endfor %}
+                      {% else %}
+                        {{ data.settings.data_net.ipv4_addr|default:''}}
+                      {% endif %}
+                      <br/>
+                      <b>ipv6_addr</b>:
+                      {% if data.settings.data_net.ipv6_addr|get_type == 'list' %}
+                        {% for a in data.settings.data_net.ipv6_addr %}
+                          {{ a }}
+                        {% endfor %}
+                      {% else %}
+                        {{ data.settings.data_net.ipv6_addr|default:''}}
+                      {% endif %}
+                    </div>
+                    {% else %}
+                    {{ data.settings.data_net }}
                     {% endif %}
                 </td>
                 <td> {{ data.settings.qos| default:"" }} </td>
