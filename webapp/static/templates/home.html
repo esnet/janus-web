@@ -76,14 +76,14 @@
                             <td class="col-sm-2">
                               {% for k,v in data.data.services.items %}
                               {% for srv in v %}
-                              <div class="janus-pre"><b>{{k}}</b>: {{ srv.ctrl_port }}</div>
+                              <div class="janus-pre">{{ srv.ctrl_port }}</div>
                               {% endfor %}
                               {% endfor %}
                             </td>
                             <td class="col-sm-2">
                               {% for k,v in data.data.services.items %}
                               {% for srv in v %}
-                              <div class="janus-pre"><b>{{k}}</b>: {{ srv.serv_port }}</div>
+                              <div class="janus-pre">{{ srv.serv_port }}</div>
                               {% endfor %}
                               {% endfor %}
                             </td>
