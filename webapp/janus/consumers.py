@@ -47,7 +47,7 @@ class PerfConsumer(JsonWebsocketConsumer):
                 cmd += f" -p {dst_port}"
         elif tool == "escp":
             dst_port = dst_port if dst_port else "22"
-            cmd = 'dd if=/dev/zero of=/tmp/10T bs=1 count=1 seek=1T'
+            cmd = 'dd if=/dev/zero of=/tmp/10T bs=1 count=1 seek=10T'
             _, exec_id = create_exec(src_node, src_cid, cmd, start=True)
             cmd = f'escp -P {dst_port} --bits --direct --args_src="--engine=dummy -t 16 -b 1M" --args_dst="--engine=dummy -t 16 -b 1M" /tmp/10T {dst_host}:/tmp'
         elif tool == "xfer_test" and img == "dtnaas/tools":
