@@ -118,10 +118,11 @@ def get_session_info(user=None, groups=None, session_id=None):
             for entry in res.json():
                 prof = entry["request"][0]["profile"]
                 img = entry["request"][0]["image"]
+                simg = img.split(":")[0]
                 tools = list()
                 if profiles:
                     try:
-                        tools = profiles[prof]["settings"]["tools"].get(img, list())
+                        tools = profiles[prof]["settings"]["tools"].get(simg, list())
                     except:
                         pass
                 if not entry:

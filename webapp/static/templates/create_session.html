@@ -52,8 +52,8 @@
               </div>
             </div>
           </div>
-          <div class="rows" style="padding-top: 2%">
-	    <div>
+          <div class="row" style="padding-top: 2%">
+	    <div class="col-sm-8">
 	      <label>Select Image:</label>
 	      <select class="form-control" name="image">
 	        {% for item in images %}
@@ -61,6 +61,10 @@
 	        {% endfor %}
 	      </select>
 	    </div>
+            <div class="col-sm-4">
+              <label> Image tag: </label>
+	      <input class="form-control" type="text" id="image_tag" name="image_tag" placeholder="latest">
+            </div>
           </div>
           <div class="rows" style="padding-top: 2%">
 	    <div>
