@@ -276,6 +276,11 @@ def create_session(request):
         if image is not None:
             data['image'] = image
 
+        tag = request.POST.get('image_tag', 'latest')
+        if not tag:
+            tag = 'latest'
+        data['image'] = data['image'] + f":{tag}"
+
         profile = request.POST.get('profile', "default")
         if profile is not None:
             data['profile'] = profile
@@ -292,10 +297,19 @@ def create_session(request):
         # XXX use django Forms...
         if not len(data['errors']):
             status, res = services.create_session(data, quser, qgroups)
-            if status:
+            # look for errors for earch created service
+            errs = dict()
+            for sid,s in res.items():
+                if 'services' in s:
+                    for k,v in s['services'].items():
+                        for n in v:
+                            if len(n['errors']):
+                                errs.update({k: n['errors']})
+            print (errs)
+            if status and not errs:
                 return HttpResponseRedirect(reverse('janus:list_sessions'))
             else:
-                data["errors"].append(res)
+                data["errors"].append(errs if errs else res)
 
     _, nodes = services.get_nodes(quser, qgroups, verbose=True)
     _, profiles = services.get_profiles(quser, qgroups)
