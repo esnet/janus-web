@@ -50,7 +50,7 @@ class PerfConsumer(JsonWebsocketConsumer):
             cmd = 'dd if=/dev/zero of=/tmp/10T bs=1 count=1 seek=10T'
             _, exec_id = create_exec(src_node, src_cid, cmd, start=True)
             cmd = f'escp -P {dst_port} --bits --direct --args_src="--engine=dummy -t 16 -b 1M" --args_dst="--engine=dummy -t 16 -b 1M" /tmp/10T {dst_host}:/tmp'
-        elif tool == "xfer_test" and img == "dtnaas/tools":
+        elif tool == "xfer_test" and img.endswith("dtnaas/tools"):
             cmd = f"{tool} -s"
             if dst_node:
                 _, exec_id = create_exec(dst_node, dst_cid, cmd, start=True, attach=False, tty=False)
@@ -59,7 +59,7 @@ class PerfConsumer(JsonWebsocketConsumer):
                 cmd += f" -t {duration}"
             if dst_port:
                 cmd += f" -p {dst_port}"
-        elif tool == "xfer_test" and img == "dtnaas/ofed":
+        elif tool == "xfer_test" and img.endswith("dtnaas/ofed"):
             cmd = f"{tool} -s -r -d 128"
             if dst_node:
                 _, exec_id = create_exec(dst_node, dst_cid, cmd, start=True, attach=False, tty=False)
