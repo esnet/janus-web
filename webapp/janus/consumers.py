@@ -32,6 +32,8 @@ class PerfConsumer(JsonWebsocketConsumer):
     def create_cmd(self, tool, dst_host, dst_port, sess,
                    src_node, src_cid, dst_node, dst_cid, duration=None):
         img = sess.get("request")[0].get("image")
+        img = img.split(":")[0] # remove any tags
+
         if tool == "iperf3":
             cmd = f"{tool} -s -D"
             if dst_node:
