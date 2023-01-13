@@ -338,18 +338,22 @@ def process_nodes(nodes):
     return nodes_list
 
 
-def get_nodes(user=None, groups=None, verbose=False, nname=None):
+def get_nodes(user=None, groups=None, verbose=False, nname=None, refresh=False):
     """
     Get nodes list from Janus Controller
     :return:
     """
     url = "nodes" if nname is None else "nodes/" + nname
+    params = dict()
     if user:
-        url += f"?user={user}"
+        params['user'] = user
+    if refresh:
+        params['refresh'] = "true"
     res = requests.get(
         url = base_url+url,
         auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY
+        verify=settings.CTRL_SSL_VERIFY,
+        params=params
     )
 
     status, nodes = False, []
