@@ -207,6 +207,22 @@ def view_session(request, session_id):
         return HttpResponseRedirect('/')
 
 
+def refresh_node(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect('/')
+
+    (user,_,quser,qgroups) = _get_user(request)
+    status, nodes = services.get_nodes(quser, qgroups, verbose=True, refresh=True)
+    if status:
+        content = {
+            'nodes': nodes,
+            'login': request.user.is_authenticated,
+            'is_admin': user.is_staff
+        }
+        return render(request, 'node.html', content)
+    else:
+        return HttpResponseServerError()
+
 def add_node(request):
     if not request.user.is_authenticated:
         return HttpResponseRedirect('/')

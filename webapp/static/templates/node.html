@@ -5,7 +5,10 @@
       <div class="card bg-light mb-3">
         <div class="card-header d-flex justify-content-between align-items-center">
 	  <b>Available Nodes</b>
-          <a class="btn btn-primary btn-md" role="button" href="{% url 'janus:add_node' %}">Add</a>
+          <div>
+            <a class="btn btn-primary btn-md" role="button" href="{% url 'janus:refresh_node' %}">Refresh</a>
+            <a class="btn btn-primary btn-md" role="button" href="{% url 'janus:add_node' %}">Add</a>
+          </div>
 	</div>
         <div class="card-body">
 	  <table class="table table-condensed table-striped table-hover">
