@@ -7,6 +7,7 @@ from webapp.settings import PORTAINER_WS
 from asgiref.sync import sync_to_async
 from channels.generic.websocket import JsonWebsocketConsumer, AsyncJsonWebsocketConsumer
 
+
 class AsyncPerfConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
         await self.accept()
