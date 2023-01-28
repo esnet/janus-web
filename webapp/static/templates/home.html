@@ -27,7 +27,7 @@
             <tbody>
               {% for data in sessions %}
                 <tr data-toggle="collapse" data-target="#row-{{ data.id }}" class="accordion-toggle">
-                <td><span class="fa-solid fa-chevron-down"></span></td>
+                <td><span class="fa-solid fa-chevron-right"></span></td>
                 <td> {{ data.id }} </td>
                 <td> {{ data.user }} </td>
 		<td>
@@ -99,10 +99,11 @@
                         </tbody>
                       </table>
                     </div>
+                    {% if data.tools %}
                     <div align="center">
                       <table class="table table-condensed" style="width: 1024px;">
                         <tr data-toggle="collapse" id="perfrow-{{data.id}}" data-target="#testrow-{{ data.id }}" class="accordion-toggle table-success">
-                          <td class="col-sm-1"><span class="fa-solid fa-chevron-down"></span></td>
+                          <td class="col-sm-1"><span class="fa-solid fa-chevron-right"></span></td>
                           <td class="col-sm-3 align-right align-middle"><b>Performance Test</b></td>
                           <td class="col-sm-2">
                             <select class="custom-select custom-select-sm" id="{{data.id}}-testtool">
@@ -126,6 +127,40 @@
                           <td colspan="12" class="hiddenRow">
                             <div class="accordian-body collapse" id="testrow-{{ data.id }}">
                               <textarea readonly style="font-family:monospace" id="testlog-{{data.id}}" cols="100" rows="20"></textarea>
+                            </div>
+                          </td>
+                        </tr>
+                      </table>
+                    </div>
+                    {% endif %}
+                    <div align="center">
+                      <table class="table table-condensed" style="width: 1024px;">
+                        <tr data-toggle="collapse" id="logrow-{{data.id}}" data-target="#logdisp-{{ data.id }}" class="accordion-toggle table-ok">
+                          <td class="col-sm-1"><span class="fa-solid fa-chevron-right"></span></td>
+                          <td class="col-sm-3 align-right align-middle"><b>Logs</b></td>
+                          <td class="col-sm-3">
+                          </td>
+                          <td class="col-sm-2 align-middle">
+                            <div class="form-check form-check-inline">
+                              <input id="{{data.id}}-ts" class="form-check-input" type="checkbox" data-toggle="toggle" data-style="mr-1">
+                              <label for="{{data.id}}-ts" class="form-check-label">Timestamps</label>
+                            </div>
+                          </td>
+                          <td class="col-sm-2">
+                            <select class="custom-select custom-select-sm" id="{{data.id}}-node">
+                              <option disabled selected value>-- node --</option>
+                              {% for item in data.nodes %}
+                              <option value="{{ item }}" label="{{ item }}"></option>
+                              {% endfor %}
+                            </select>
+                          </td>
+                          <td class="col-sm-1" align="right">
+                            <button class="btn inline" id="{{data.id}}-refresh" ><i class="fas fa-refresh"></i></button>
+                          </td>
+                        <tr>
+                          <td colspan="12" class="hiddenRow">
+                            <div class="accordian-body collapse" id="logdisp-{{ data.id }}">
+                              <textarea readonly style="font-family:monospace" id="logs-{{data.id}}" cols="100" rows="20"></textarea>
                             </div>
                           </td>
                         </tr>
@@ -190,7 +225,7 @@
   sock.onclose = function(e) {
     console.error('Exec socket closed unexpectedly');
   };
-  $(":button").click(function (e) {
+  $(":button[id$=testbtn]").click(function (e) {
     if (! this.id) {
       return;
     };
@@ -219,5 +254,38 @@
     $('#testlog-'+sid).val("");
     sock.send(JSON.stringify(data));
   });
+
+  function get_logs(sid, nname) {
+    const ts = $("#"+sid+"-ts").is(":checked");
+    const sess = sessions.find(({ id }) => id == sid);
+    var url = window.location.href + sid
+        + '/logs/' + nname
+        + '?timestamps=' + ts;
+    // Making our request
+    fetch(url, { method: 'GET' })
+      .then(Result => Result.json())
+      .then(string => {
+        if (!string.response) {
+          string.response = "-- logs empty --";
+        }
+        $('#logs-'+sid).val(string.response);
+        $('#logs-'+sid).animate({
+          scrollTop:$('#logs-'+sid)[0].scrollHeight - $('#logs-'+sid).height()
+        });
+      })
+      .catch(errorMsg => { console.log(errorMsg); });
+  };
+
+  $(".btn").click(function(e) {
+    const sid = this.id.split("-")[0];
+    const nname = $("#"+sid+"-node").val();
+    get_logs(sid, nname);
+  });
+  $(".custom-select[id$=node]").change(function (e) {
+    const sid = this.id.split("-")[0];
+    const nname = this.value;
+    get_logs(sid, nname);
+  });
+
 </script>
 {% endblock footer_scripts %}
