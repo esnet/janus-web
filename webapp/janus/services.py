@@ -409,3 +409,23 @@ def get_qos():
         qos = list(res.json().keys())
 
     return (status, qos)
+
+def get_log(sid, nname, timestamps=0):
+    """
+    Get container logs from Janus Controller
+    :return:
+    """
+    params = dict()
+    params['timestamps'] = timestamps
+    url = f"{base_url}/active/{sid}/logs/{nname}"
+    res = requests.get(
+        url = url,
+        auth=settings.JANUS_CONTROLLER_AUTH,
+        verify=settings.CTRL_SSL_VERIFY,
+        params=params
+    )
+    status, log = False, dict()
+    if res.status_code == 200:
+        status = True
+        log = res.json()
+    return (status, log)
