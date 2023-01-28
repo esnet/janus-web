@@ -2,7 +2,7 @@ import logging
 from . import services
 from django.contrib.auth.models import User
 from django.shortcuts import render, HttpResponseRedirect
-from django.http import HttpResponseServerError, HttpResponseNotFound
+from django.http import HttpResponseServerError, HttpResponseNotFound, JsonResponse
 from django.urls import reverse
 from django import forms
 from crispy_forms.helper import FormHelper
@@ -183,7 +183,6 @@ def list_profiles(request, extra_content=dict()):
         return render(request, 'profile.html', content)
     else:
         return HttpResponseServerError()
-
 
 def view_session(request, session_id):
     if request.user.is_authenticated:
@@ -496,4 +495,13 @@ def delete_profile(request, pname):
             return HttpResponseServerError()
     else:
         return HttpResponseRedirect('/')
+
+# Non-template response views
+def view_log(request, session_id, nname):
+    ts = request.GET.get('timestamps')
+    (status, log) = services.get_log(session_id, nname, ts)
+    if status:
+        return JsonResponse(log)
+    else:
+        return JsonResponse({"error": "Could not find logs"})
 

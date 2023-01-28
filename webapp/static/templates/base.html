@@ -20,6 +20,19 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css" rel="stylesheet" type="text/css" />
 
     <style>
+      .btn.inline {
+          background-color: bg-light;
+          border: none; /* Remove borders */
+          color: block; /* White text */
+          padding: 0px 0px; /* Some padding */
+          font-size: 18px; /* Set a font size */
+          cursor: pointer; /* Mouse pointer on hover */
+      }
+
+      /* Darker background on mouse-over */
+      .btn.inline:hover {
+          background-color: bg-dark;
+      }
       .janus-pre {
           white-space: pre-wrap;
           word-break: keep-all;
@@ -51,6 +64,15 @@
           bottom: 0;
           width: 100%;
           height: 100px;
+      }
+      .fa-chevron-right {
+          transition: all 0.3s ease;
+      }
+      .accordion-toggle.collapsed .fa-chevron-right {
+          transform: rotate(0deg);
+      }
+      .accordion-toggle[aria-expanded="true"] .fa-chevron-right {
+          transform: rotate(90deg);
       }
     </style>
 </head>
@@ -123,6 +145,7 @@
       $("table.table td input").on('click', function (e) { e.stopPropagation(); })
       $("table.table td button").on('click', function (e) { e.stopPropagation(); })
       $("table.table td select").on('click', function (e) { e.stopPropagation(); })
+      $("table.table td label").on('click', function (e) { e.stopPropagation(); })
     </script>
     {% endblock footer_scripts %}
 
