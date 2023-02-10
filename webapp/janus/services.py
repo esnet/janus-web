@@ -90,10 +90,12 @@ def get_session_info(user=None, groups=None, session_id=None):
         url += f"?user={user}"
 
     # also get profile info
+    params = get_params(user,groups)
     res = requests.get(
-        url = f"{base_url}profiles?user={user}" if user else f"{base_url}profiles",
+        url = f"{base_url}profiles",
         auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY
+        verify=settings.CTRL_SSL_VERIFY,
+        params=params
     )
     if res.status_code == 200:
         data = res.json()
@@ -106,7 +108,8 @@ def get_session_info(user=None, groups=None, session_id=None):
     res = requests.get(
         url = url,
         auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY
+        verify=settings.CTRL_SSL_VERIFY,
+        params=params
     )
 
     status, data = False, []
@@ -227,13 +230,13 @@ def get_profiles(user=None, groups=None, verbose=False, pname=None):
     profile_url = base_url + f"profiles"
     if pname:
         profile_url += f"/{pname}"
-    if user:
-        profile_url += f"?user={user}"
+    params = get_params(user, groups)
 
     res = requests.get(
         url = profile_url,
         auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY
+        verify=settings.CTRL_SSL_VERIFY,
+        params=params
     )
 
     status, profiles = False, []
@@ -344,11 +347,7 @@ def get_nodes(user=None, groups=None, verbose=False, nname=None, refresh=False):
     :return:
     """
     url = "nodes" if nname is None else "nodes/" + nname
-    params = dict()
-    if user:
-        params['user'] = user
-    if refresh:
-        params['refresh'] = "true"
+    params = get_params(user, groups, refresh)
     res = requests.get(
         url = base_url+url,
         auth=settings.JANUS_CONTROLLER_AUTH,
@@ -377,12 +376,12 @@ def get_images(user=None, groups=None, iname=None):
     url = f"{base_url}/images"
     if iname:
         url += f"/{iname}"
-    if user:
-        url += f"?user={user}"
+    params = get_params(user,groups)
     res = requests.get(
         url = url,
         auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY
+        verify=settings.CTRL_SSL_VERIFY,
+        params=params
     )
 
     status, images = False, []
@@ -429,3 +428,16 @@ def get_log(sid, nname, timestamps=0):
         status = True
         log = res.json()
     return (status, log)
+
+
+def get_params(user=None, groups=None, refresh=False,  timestamps=0):
+    params = dict()
+    if user:
+        params['user'] = user
+    if groups:
+	    params['group'] = ','.join(groups)
+    if refresh:
+	    params['refresh'] = "true"
+    if timestamps:
+	    params['timestamps'] = timestamps
+    return params
