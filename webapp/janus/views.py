@@ -117,7 +117,7 @@ def _get_user(request):
     user = User.objects.get(username=request.user)
     groups = list(user.groups.all())
     quser = user.username
-    qgroups = None
+    qgroups = [g.name for g in groups]
     if user.is_staff:
         quser = None
         qgroups = None
