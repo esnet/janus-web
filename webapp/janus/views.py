@@ -118,7 +118,6 @@ def _get_user(request):
     groups = list(user.groups.all())
     quser = user.username
     qgroups = [g.name for g in groups]
-    print(qgroups)
     if user.is_staff:
         quser = None
         qgroups = None
