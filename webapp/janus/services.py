@@ -153,13 +153,13 @@ def create_session(data, user=None, groups=None):
     :return:
     """
     url = base_url + "create"
-    if user:
-        url += f"?user={user}"
+    params = get_params(user, groups)
     res = requests.post(
         url=url,
         json=data,
         auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY
+        verify=settings.CTRL_SSL_VERIFY,
+        params=params
     )
 
     if res.status_code == 200:
