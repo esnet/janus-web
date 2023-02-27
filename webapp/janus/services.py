@@ -15,11 +15,13 @@ def get_node_types():
     return ntypes
 
 def add_node(data, user=None, groups=None):
+    params = get_params(user,groups)
     res = requests.post(
         url=base_url + "nodes",
         json=data,
         auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY
+        verify=settings.CTRL_SSL_VERIFY,
+        params=params
     )
     status, data = False, []
     if res.status_code in [200, 204]:
@@ -86,8 +88,6 @@ def get_session_info(user=None, groups=None, session_id=None):
     url = base_url + "active"
     if session_id is not None:
         url += f"/{session_id}"
-    elif user is not None:
-        url += f"?user={user}"
 
     # also get profile info
     params = get_params(user,groups)
@@ -270,11 +270,13 @@ def create_profile(data, user=None, groups=None):
     :return:
     """
     name = data["name"]
+    params = get_params(user,groups)
     res = requests.post(
         url=base_url + f"profiles/{name}",
         json=data,
         auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY
+        verify=settings.CTRL_SSL_VERIFY,
+        params=params
     )
 
     if res.status_code == 200:
@@ -373,7 +375,7 @@ def get_images(user=None, groups=None, iname=None):
     Get nodes list from Janus Controller
     :return:
     """
-    url = f"{base_url}/images"
+    url = f"{base_url}images"
     if iname:
         url += f"/{iname}"
     params = get_params(user,groups)
