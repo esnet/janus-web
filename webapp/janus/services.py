@@ -222,7 +222,7 @@ def delete_session(session_id, user=None, groups=None):
         return False, {}
 
 
-def get_profiles(user=None, groups=None, verbose=False, pname=None):
+def get_profiles(user=None, groups=None, verbose=False, pname=None, refresh=False):
     """
     Get profiles list from Janus Controller
     :return:
@@ -230,7 +230,7 @@ def get_profiles(user=None, groups=None, verbose=False, pname=None):
     profile_url = base_url + f"profiles"
     if pname:
         profile_url += f"/{pname}"
-    params = get_params(user, groups)
+    params = get_params(user, groups, refresh)
 
     res = requests.get(
         url = profile_url,
