@@ -15,6 +15,7 @@ urlpatterns = [
     path('profiles/create/', views.create_profile, name='create_profile'),
     path('profiles/update/', views.update_profile, name='update_profile'),
     path('profiles/delete/<str:pname>/', views.delete_profile, name='delete_profile'),
+    path('profiles/refresh/', views.refresh_profile, name='refresh_profile'),
     path('nodes/', views.list_nodes, name='list_nodes'),
     path('nodes/add/', views.add_node, name='add_node'),
     path('nodes/refresh/', views.refresh_node, name='refresh_node'),
