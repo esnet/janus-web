@@ -22,7 +22,8 @@ class ProfileForm(forms.Form):
         selects = {'cpu': 'Cores',
                    'mem': 'Memory'}
         selects_none = {'qos': 'Quality of Service'}
-        textareas = {'environment': 'Environment Variables'}
+        textareas = {'environment': 'Environment Variables',
+                    'volumes': 'Volumes'}
         ranges = {'ctrl_port_range': 'Control Port Range',
                   'serv_port_range': 'Service Port Range',
                   'data_port_range': 'Data Port Range'}
@@ -102,7 +103,7 @@ class ProfileForm(forms.Form):
                 Div('serv_port_range_end', css_class='col-sm-3'),
                 Div('affinity', css_class='col-sm-6'),
                 #Div('features', css_class='col-sm-6'),
-                #Div('volumes', css_class='col-sm-6'),
+                Div('volumes', css_class='col-sm-6'),
                 Div('qos', css_class='col-sm-6'),
                 Div('environment', css_class='col-sm-6'),
                 css_class='row'
@@ -219,6 +220,30 @@ def refresh_node(request):
             'is_admin': user.is_staff
         }
         return render(request, 'node.html', content)
+    else:
+        return HttpResponseServerError()
+
+
+def refresh_profile(request, extra_content=dict()):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect('/')
+
+    (user,_,quser,qgroups) = _get_user(request)
+    status, profiles = services.get_profiles(quser, qgroups, verbose=True, refresh=True)
+    _, qos_choices = services.get_qos()
+    kwargs = {"qos": qos_choices}
+    forms = dict()
+    for p in profiles:
+        forms.update({p['name']: ProfileForm(pfields=p, **kwargs)})
+    if status:
+        content = {
+            "profiles": profiles,
+            'login': request.user.is_authenticated,
+            'is_admin': user.is_staff,
+            'forms': forms
+        }
+        content.update(extra_content)
+        return render(request, 'profile.html', content)
     else:
         return HttpResponseServerError()
 
