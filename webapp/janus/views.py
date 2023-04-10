@@ -104,6 +104,7 @@ class ProfileForm(forms.Form):
                 Div('affinity', css_class='col-sm-6'),
                 #Div('features', css_class='col-sm-6'),
                 Div('volumes', css_class='col-sm-6'),
+                Div('arguments', css_class='col-sm-6'),
                 Div('qos', css_class='col-sm-6'),
                 Div('environment', css_class='col-sm-6'),
                 css_class='row'
@@ -398,6 +399,7 @@ def update_profile(request):
         s['serv_port_range'] = get_range(request.POST, 'serv_port_range')
         s['data_port_range'] = get_range(request.POST, 'data_port_range')
         s['affinity'] = None if not len(request.POST.get('affinity')) else request.POST.get('affinity')
+        s['arguments'] = None if not len(request.POST.get('arguments')) else request.POST.get('arguments')
         s['qos'] = None if request.POST.get('qos') == 'None' else request.POST.get('qos')
         #s['environment'] = list() if not len(request.POST.get('environment')) else request.POST.get('environment')
         pfields['settings'] = s
@@ -440,6 +442,8 @@ def create_profile(request):
             data['internal_port'] = request.POST.get('internal_port', None)
             if not data['internal_port']:
                 data['internal_port'] = None
+
+            data['arguments'] = request.POST.get('arguments', None)
 
             data['internal_port'] = int(data['internal_port']) if data['internal_port'] else None
             data['qos'] = request.POST.get('qos', None)
