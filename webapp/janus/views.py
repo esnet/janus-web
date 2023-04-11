@@ -24,6 +24,7 @@ class ProfileForm(forms.Form):
         selects_none = {'qos': 'Quality of Service'}
         textareas = {'environment': 'Environment Variables',
                     'volumes': 'Volumes'}
+        anytext = {'arguments': "Arguments (Container Cmd)"}
         ranges = {'ctrl_port_range': 'Control Port Range',
                   'serv_port_range': 'Service Port Range',
                   'data_port_range': 'Data Port Range'}
@@ -81,6 +82,10 @@ class ProfileForm(forms.Form):
                 self.fields[f"{key}_end"] = forms.CharField(widget=forms.TextInput(attrs={'type': 'number'}),
                                                             initial=value[1] if value else "",
                                                             required=False, label = f"{ranges[key]} End")
+            elif key in anytext.keys():
+                self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
+                                                   initial=value, required=False, label=anytext[key],
+                                                   max_length=255)
             else:
                 self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'pattern': '[a-zA-Z0-9]+'}),
                                                    initial=value, required=False)
@@ -103,8 +108,8 @@ class ProfileForm(forms.Form):
                 Div('serv_port_range_end', css_class='col-sm-3'),
                 Div('affinity', css_class='col-sm-6'),
                 #Div('features', css_class='col-sm-6'),
-                Div('volumes', css_class='col-sm-6'),
                 Div('arguments', css_class='col-sm-6'),
+                Div('volumes', css_class='col-sm-6'),
                 Div('qos', css_class='col-sm-6'),
                 Div('environment', css_class='col-sm-6'),
                 css_class='row'
@@ -346,7 +351,6 @@ def create_session(request):
                         for n in v:
                             if len(n['errors']):
                                 errs.update({k: n['errors']})
-            print (errs)
             if status and not errs:
                 return HttpResponseRedirect(reverse('janus:list_sessions'))
             else:
