@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'daphne',
     'authentication',
     'bootstrap4',
+    'crispy_bootstrap4',
     'crispy_forms',
     'janus',
     'django.contrib.admin',
