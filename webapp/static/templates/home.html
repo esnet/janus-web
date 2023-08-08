@@ -216,7 +216,7 @@
       $('#perfrow-'+sid).removeClass('table-warning').addClass('table-success')
     };
     if (data["data"]) {
-      $('#testlog-'+sid).val($('#testlog-'+sid).val() + (data["data"]));
+      $('#testlog-'+sid).val($('#testlog-'+sid).val() + (data["data"].replace(/\0/g, '')));
       $('#testlog-'+sid).animate({
         scrollTop:$('#testlog-'+sid)[0].scrollHeight - $('#testlog-'+sid).height()
       });
