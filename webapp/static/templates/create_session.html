@@ -39,7 +39,7 @@
 	    <div class="row" v-for="row in rows" style="padding-top: 2%">
               <div class="col">
 	        <select class="form-control" name="node" id="" v-model="row.select">
-	          {% for item in nodes %}
+	          {% for item in nodes|dictsort:"name" %}
 	          <option value="{{ item.name }}" label="{{ item.name }}"></option>
 	          {% endfor %}
 	        </select>
@@ -56,7 +56,7 @@
 	    <div class="col-sm-8">
 	      <label>Select Image:</label>
 	      <select class="form-control" name="image">
-	        {% for item in images %}
+	        {% for item in images|dictsort:"name" %}
 	        <option>{{ item.name }}</option>
 	        {% endfor %}
 	      </select>

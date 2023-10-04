@@ -363,7 +363,7 @@ def create_session(request):
     content = {
         'data': data,
         'nodes': nodes,
-        'profiles': profiles,
+        'profiles': sorted(profiles),
         'images': images,
         'login': request.user.is_authenticated,
         'is_admin': user.is_staff
