@@ -28,7 +28,7 @@
             </tr>
             </thead>
             <tbody>
-              {% for data in nodes %}
+              {% for data in nodes|dictsort:"name" %}
               <tr data-toggle="collapse" data-target="#row-{{ data.id }}" class="accordion-toggle">
                 <td><span class="fa-solid fa-chevron-right"></span></td>
 	        <td>

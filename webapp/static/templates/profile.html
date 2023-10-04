@@ -39,7 +39,7 @@
             </tr>
             </thead>
             <tbody>
-              {% for data in profiles %}
+              {% for data in profiles|dictsort:"name" %}
               <tr data-toggle="collapse" data-target="#row-{{ data.name }}" class="accordion-toggle">
                 <td><span class="fa-solid fa-chevron-right"></span></td>
                 <td> {{ data.name }} </td>
