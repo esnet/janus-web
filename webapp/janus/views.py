@@ -331,6 +331,8 @@ def create_session(request):
         if profile is not None:
             data['profile'] = profile
 
+        data['arguments'] = request.POST.get('arguments', None)
+
         data['kwargs'] = {}
         ssh_user_name = request.POST.get('ssh_user_name', None)
         if ssh_user_name is not None:
