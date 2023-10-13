@@ -342,6 +342,8 @@ def create_session(request):
         if ssh_public_key is not None:
             data['kwargs']['PUBLIC_KEY'] = ssh_public_key
 
+        data['remove_container'] = request.POST.get('remove_container', None)
+
         # XXX use django Forms...
         if not len(data['errors']):
             status, res = services.create_session(data, quser, qgroups)
