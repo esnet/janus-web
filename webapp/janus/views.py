@@ -412,8 +412,8 @@ def update_profile(request, resource=Constants.HOST):
         s['pull_image'] = True if request.POST.get('pull_image') else False
         s['cpu'] = False if not int(request.POST.get('cpu')) else int(request.POST.get('cpu'))
         s['mem'] = False if not int(request.POST.get('mem'))*1024*1024*1024 else int(request.POST.get('mem'))*1024*1024*1024
-        s['mgmt_net'] = None if not len(request.POST.get('mgmt_net')) else request.POST.get('mgmt_net')
-        s['data_net'] = None if not len(request.POST.get('data_net')) else request.POST.get('data_net')
+        s['mgmt_net'] = None if request.POST.get('mgmt_net') == Constants.NONE else request.POST.get('mgmt_net')
+        s['data_net'] = None if request.POST.get('data_net') == Constants.NONE else request.POST.get('data_net')
         s['ctrl_port_range'] = get_range(request.POST, 'ctrl_port_range')
         s['serv_port_range'] = get_range(request.POST, 'serv_port_range')
         s['data_port_range'] = get_range(request.POST, 'data_port_range')
