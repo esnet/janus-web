@@ -15,7 +15,7 @@
     </div>
     <div class="panel-body">
 	<div align="center">
-	    <form class="form-group" action="{% url 'janus:create_profile' %}" method="post" id="session_post_form" style="width:60%">
+	    <form class="form-group" action="{% url 'janus:create_profile' resource='host' %}" method="post" id="session_post_form" style="width:60%">
 		{% csrf_token %}
 		<div class="rows" style="padding-top: 2%">
 		    <div>

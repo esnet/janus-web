@@ -1,5 +1,6 @@
 import logging
 from . import services
+from .constants import Constants
 from django.contrib.auth.models import User
 from django.shortcuts import render, HttpResponseRedirect
 from django.http import HttpResponseServerError, HttpResponseNotFound, JsonResponse
@@ -10,20 +11,40 @@ from crispy_forms.layout import Hidden, Div, Layout, Submit
 
 logger = logging.getLogger(__name__)
 
-class ProfileForm(forms.Form):
+class NetworkProfileForm(forms.Form):
+    def __init__(self, *args, **kwargs):
+        super(NetworkProfileForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.add_input(Submit('submit', 'Save', css_class='btn btn-primary'))
+        self.helper.form_method = 'POST'
+        self.helper.form_action = reverse('janus:update_profile', args=[Constants.NET])
+
+class VolumeProfileForm(forms.Form):
+    def __init__(self, *args, **kwargs):
+        super(VolumeProfileForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.add_input(Submit('submit', 'Save', css_class='btn btn-primary'))
+        self.helper.form_method = 'POST'
+        self.helper.form_action = reverse('janus:update_profile', args=[Constants.VOL])
+
+class ContainerProfileForm(forms.Form):
     def __init__(self, *args, **kwargs):
         pfields = kwargs.pop('pfields')
         qos_choices = kwargs.pop('qos').copy()
-        super(ProfileForm, self).__init__(*args, **kwargs)
+        mgmt_net_choices = kwargs.pop('network').copy()
+        volumes_choices = kwargs.pop('volume').copy()
+        super(ContainerProfileForm, self).__init__(*args, **kwargs)
 
         bools = {'privileged': 'Privileged Container',
                  'systemd': 'Systemd Container',
                  'pull_image': 'Pull Image on Create'}
         selects = {'cpu': 'Cores',
                    'mem': 'Memory'}
-        selects_none = {'qos': 'Quality of Service'}
-        textareas = {'environment': 'Environment Variables',
-                    'volumes': 'Volumes'}
+        selects_none = {'qos': 'Quality of Service',
+                        'mgmt_net': 'Management Network',
+                        'data_net': 'Dataplane Network'}
+        multichoice = {'volumes': 'Volumes'}
+        textareas = {'environment': 'Environment Variables'}
         anytext = {'arguments': "Arguments (Container Cmd)"}
         ranges = {'ctrl_port_range': 'Control Port Range',
                   'serv_port_range': 'Service Port Range',
@@ -50,8 +71,12 @@ class ProfileForm(forms.Form):
             ('32', '32 GB')
         )
 
-        qos_choices.append('None')
-        qos_choices = tuple(zip(qos_choices, qos_choices))
+        qos_choices.append(Constants.NONE)
+        qos_choices = sorted(tuple(zip(qos_choices, qos_choices)))
+        mgmt_net_choices.append(Constants.NONE)
+        mgmt_net_choices = sorted(tuple(zip(mgmt_net_choices, mgmt_net_choices)))
+        data_net_choices = mgmt_net_choices
+        volumes_choices = sorted(tuple(zip(volumes_choices, volumes_choices)))
 
         for key, value in pfields["settings"].items():
             if key in bools:
@@ -60,7 +85,7 @@ class ProfileForm(forms.Form):
                                                       initial=False if value=="default" else value)
             elif key in selects_none.keys():
                 self.fields[key] = forms.ChoiceField(choices=locals().get(f"{key}_choices", tuple()),
-                                                     initial='None' if not value else value,
+                                                     initial=Constants.NONE if not value else value,
                                                      required=False, label=selects_none[key])
             elif key in selects.keys():
                 try:
@@ -86,6 +111,9 @@ class ProfileForm(forms.Form):
                 self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
                                                    initial=value, required=False, label=anytext[key],
                                                    max_length=255)
+            elif key in multichoice.keys():
+                self.fields[key] = forms.MultipleChoiceField(choices=locals().get(f"{key}_choices", tuple()),
+                                                             initial=value, required=False, label=multichoice[key])
             else:
                 self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'pattern': '[a-zA-Z0-9]+'}),
                                                    initial=value, required=False)
@@ -117,7 +145,7 @@ class ProfileForm(forms.Form):
         )
         self.helper.add_input(Submit('submit', 'Save', css_class='btn btn-primary'))
         self.helper.form_method = 'POST'
-        self.helper.form_action = reverse('janus:update_profile')
+        self.helper.form_action = reverse('janus:update_profile', args=[Constants.HOST])
 
 
 def _get_user(request):
@@ -168,20 +196,30 @@ def list_nodes(request):
     else:
         return HttpResponseServerError()
 
-def list_profiles(request, extra_content=dict()):
+def list_profiles(request, extra_content=dict(), refresh=False):
     if not request.user.is_authenticated:
         return HttpResponseRedirect('/')
 
     (user,_,quser,qgroups) = _get_user(request)
-    status, profiles = services.get_profiles(quser, qgroups, verbose=True)
-    _, qos_choices = services.get_qos()
-    kwargs = {"qos": qos_choices}
+    status, profiles = services.get_profiles(quser, qgroups, verbose=True, refresh=refresh)
+    _, qos_choices = services.get_profiles(quser, qgroups, resource=Constants.QOS, verbose=True, refresh=refresh)
+    _, net_choices = services.get_profiles(quser, qgroups, resource=Constants.NET, verbose=True, refresh=refresh)
+    _, vol_choices = services.get_profiles(quser, qgroups, resource=Constants.VOL, verbose=True, refresh=refresh)
+    kwargs = {Constants.QOS: [k.get('name') for k in qos_choices],
+              Constants.NET: [k.get('name') for k in net_choices],
+              Constants.VOL: [k.get('name') for k in vol_choices]}
     forms = dict()
     for p in profiles:
-        forms.update({p['name']: ProfileForm(pfields=p, **kwargs)})
+        forms.update({f"{Constants.HOST}_{p['name']}": ContainerProfileForm(pfields=p, **kwargs)})
+    for p in net_choices:
+        forms.update({f"{Constants.NET}_{p['name']}": NetworkProfileForm()})
+    for p in vol_choices:
+        forms.update({f"{Constants.VOL}_{p['name']}": VolumeProfileForm()})
     if status:
         content = {
             "profiles": profiles,
+            "nets": net_choices,
+            "vols": vol_choices,
             'login': request.user.is_authenticated,
             'is_admin': user.is_staff,
             'forms': forms
@@ -190,6 +228,9 @@ def list_profiles(request, extra_content=dict()):
         return render(request, 'profile.html', content)
     else:
         return HttpResponseServerError()
+
+def refresh_profiles(request, extra_content=dict()):
+    return list_profiles(request, extra_content, refresh=True)
 
 def view_session(request, session_id):
     if request.user.is_authenticated:
@@ -226,30 +267,6 @@ def refresh_node(request):
             'is_admin': user.is_staff
         }
         return render(request, 'node.html', content)
-    else:
-        return HttpResponseServerError()
-
-
-def refresh_profile(request, extra_content=dict()):
-    if not request.user.is_authenticated:
-        return HttpResponseRedirect('/')
-
-    (user,_,quser,qgroups) = _get_user(request)
-    status, profiles = services.get_profiles(quser, qgroups, verbose=True, refresh=True)
-    _, qos_choices = services.get_qos()
-    kwargs = {"qos": qos_choices}
-    forms = dict()
-    for p in profiles:
-        forms.update({p['name']: ProfileForm(pfields=p, **kwargs)})
-    if status:
-        content = {
-            "profiles": profiles,
-            'login': request.user.is_authenticated,
-            'is_admin': user.is_staff,
-            'forms': forms
-        }
-        content.update(extra_content)
-        return render(request, 'profile.html', content)
     else:
         return HttpResponseServerError()
 
@@ -377,7 +394,7 @@ def create_session(request):
     return render(request, 'create_session.html', content)
 
 
-def update_profile(request):
+def update_profile(request, resource=Constants.HOST):
     def get_range(r, key):
         start = r.get(f"{key}_start")
         end = r.get(f"{key}_end")
@@ -386,13 +403,7 @@ def update_profile(request):
         else:
             return [int(start), int(end)]
 
-    if not request.user.is_authenticated:
-        return HttpResponseRedirect('/')
-
-    (user,_,quser,qgroups) = _get_user(request)
-
-    if request.method == 'POST':
-        data = {"errors": list()}
+    def handle_host(request):
         pfields = dict()
         pfields['name'] = request.POST.get('name')
         s = dict()
@@ -408,22 +419,43 @@ def update_profile(request):
         s['data_port_range'] = get_range(request.POST, 'data_port_range')
         s['affinity'] = None if not len(request.POST.get('affinity')) else request.POST.get('affinity')
         s['arguments'] = None if not len(request.POST.get('arguments')) else request.POST.get('arguments')
-        s['qos'] = None if request.POST.get('qos') == 'None' else request.POST.get('qos')
+        s['qos'] = None if request.POST.get('qos') == Constants.NONE else request.POST.get('qos')
+        s['volumes'] = request.POST.getlist('volumes')
         #s['environment'] = list() if not len(request.POST.get('environment')) else request.POST.get('environment')
         pfields['settings'] = s
+        return pfields
 
+    def handle_net(request):
+        pass
+
+    def handle_vol(request):
+        pass
+
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect('/')
+
+    (user,_,quser,qgroups) = _get_user(request)
+
+    if request.method == 'POST':
+        if resource == Constants.HOST:
+            pfields = handle_host(request)
+        elif resource == Constants.NET:
+            pfields = handle_net(request)
+        elif resource == Constants.VOL:
+            pfields = handle_vol(request)
+
+        data = {"errors": list()}
         content = {
             'data': data
         }
-        status, res = services.update_profile(pfields, quser, qgroups)
+        status, res = services.update_profile(resource, pfields, quser, qgroups)
         if status:
             return HttpResponseRedirect(reverse('janus:list_profiles'))
         else:
             data["errors"].append(res)
-        return list_profiles(request, content) 
+        return list_profiles(request, content)
 
-
-def create_profile(request):
+def create_profile(request, resource=Constants.HOST):
     if not request.user.is_authenticated:
         return HttpResponseRedirect('/')
 
@@ -465,7 +497,7 @@ def create_profile(request):
 
             # XXX use django Forms...
             if not len(data['errors']):
-                status, res = services.create_profile(profile, quser, qgroups)
+                status, res = services.create_profile(resource, profile, quser, qgroups)
                 if status:
                     return HttpResponseRedirect(reverse('janus:list_profiles'))
                 else:
@@ -522,10 +554,10 @@ def delete_session(request, session_id):
         return HttpResponseRedirect('/')
 
 
-def delete_profile(request, pname):
+def delete_profile(request, pname, resource=Constants.HOST):
     if request.user.is_authenticated:
         (user,_,quser,qgroups) = _get_user(request)
-        status, _ = services.delete_profile(pname, quser, qgroups)
+        status, _ = services.delete_profile(resource, pname, quser, qgroups)
         if status:
             return HttpResponseRedirect(reverse('janus:list_profiles'))
         else:
