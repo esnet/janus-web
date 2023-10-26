@@ -222,12 +222,12 @@ def delete_session(session_id, user=None, groups=None):
         return False, {}
 
 
-def get_profiles(user=None, groups=None, verbose=False, pname=None, refresh=False):
+def get_profiles(user=None, groups=None, verbose=False, resource="host", pname=None, refresh=False):
     """
     Get profiles list from Janus Controller
     :return:
     """
-    profile_url = base_url + f"profiles"
+    profile_url = base_url + f"profiles/{resource}"
     if pname:
         profile_url += f"/{pname}"
     params = get_params(user, groups, refresh)
@@ -247,15 +247,20 @@ def get_profiles(user=None, groups=None, verbose=False, pname=None, refresh=Fals
         else:
             for entry in res.json():
                 if verbose:
-                    ps = dict()
-                    for k,v in entry["settings"].items():
-                        if v == False:
-                            ps[k] = "default"
-                        elif k == "mem":
-                            ps[k] = convert_size(v)
-                        else:
-                            ps[k] = v
-                    entry["settings"] = ps
+                    if not entry.get('settings'):
+                        entry["settings"] = dict()
+                    else:
+                        ps = dict()
+                        for k,v in entry["settings"].items():
+                            if v == False:
+                                ps[k] = "default"
+                            elif k == "mem":
+                                ps[k] = convert_size(v)
+                            elif k == "mgmt_net" or k == "data_net":
+                                ps[k] = v.get('name') if isinstance(v, dict) else v
+                            else:
+                                ps[k] = v
+                        entry["settings"] = ps
                     profiles.append(entry)
                 else:
                     profiles.append(entry["name"])
@@ -263,7 +268,7 @@ def get_profiles(user=None, groups=None, verbose=False, pname=None, refresh=Fals
     return (status, profiles)
 
 
-def create_profile(data, user=None, groups=None):
+def create_profile(resource, data, user=None, groups=None):
     """
     Create profile on Janus Controller
     :param data dict:
@@ -272,7 +277,7 @@ def create_profile(data, user=None, groups=None):
     name = data["name"]
     params = get_params(user,groups)
     res = requests.post(
-        url=base_url + f"profiles/{name}",
+        url=base_url + f"profiles/{resource}/{name}",
         json=data,
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
@@ -284,7 +289,7 @@ def create_profile(data, user=None, groups=None):
     else:
         return False, res.json()
 
-def update_profile(data, user=None, groups=None):
+def update_profile(resource, data, user=None, groups=None):
     """
     Update profile on Janus Controller
     :param data dict:
@@ -292,7 +297,7 @@ def update_profile(data, user=None, groups=None):
     """
     name = data["name"]
     res = requests.put(
-        url=base_url + f"profiles/{name}",
+        url=base_url + f"profiles/{resource}/{name}",
         json=data,
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY
@@ -304,10 +309,10 @@ def update_profile(data, user=None, groups=None):
         return False, res.json()
 
 
-def delete_profile(pname, user=None, groups=None):
+def delete_profile(resource, pname, user=None, groups=None):
     """ Delete profile from Janus Controller """
     res = requests.delete(
-        url=base_url + f"profiles/{pname}",
+        url=base_url + f"profiles/{resource}/{pname}",
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY
     )

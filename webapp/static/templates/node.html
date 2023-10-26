@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load janus_filters %}
 {% block content %}
 
     <div class="container" style="padding-top: 2%">
@@ -55,7 +56,31 @@
               <tr>
                 <td colspan="12" class="hiddenRow">
                   <div class="accordian-body collapse" id="row-{{ data.id }}">
-                    <div class="janus-pre">{{ data.data |pprint }}</div>
+                    <div align="center">
+                      <table class="table table-condensed table-bordered" style="width: 1024px;">
+                        <thead>
+                          <th>Network</th>
+                          <th>Driver</th>
+                          <th>Parent</th>
+                          <th>MTU</th>
+                          <th>IPAM</th>
+                        </thead>
+                        <tbody>
+                          {% for n,net in data.data.networks.items|dictsort:0 %}
+                          <tr class="table-muted">
+                            <td>{{ n }}</td>
+                            <td>{{ net.driver }}</td>
+                            <td>{{ net.parent}}</td>
+                            <td>{{ net|get_key:"com.docker.network.driver.mtu"|default_if_none:"" }}</td>
+                            <td>
+                              {% for s in net.subnet %}
+                              {{ s.Subnet }}<br/>
+                              {% endfor %}
+                            </td>
+                          </tr>
+                          {% endfor %}
+                      </table>
+                    </div>
                   </div>
                 </td>
               </tr>
