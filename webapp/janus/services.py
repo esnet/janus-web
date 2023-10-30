@@ -183,7 +183,7 @@ def start_session(session_id, user=None, groups=None):
     if res.status_code == 200:
         return True, res.json()
     else:
-        return False, {}
+        return False, res.json()
 
 
 def stop_session(session_id, user=None, groups=None):
@@ -201,7 +201,7 @@ def stop_session(session_id, user=None, groups=None):
     if res.status_code == 200:
         return True, res.json()
     else:
-        return False, {}
+        return False, res.json()
 
 
 def delete_session(session_id, user=None, groups=None):
@@ -219,7 +219,7 @@ def delete_session(session_id, user=None, groups=None):
     if res.status_code == 204:
         return True, {}
     else:
-        return False, {}
+        return False, res.json()
 
 
 def get_profiles(user=None, groups=None, verbose=False, resource="host", pname=None, refresh=False):
