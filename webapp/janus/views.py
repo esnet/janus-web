@@ -147,6 +147,15 @@ class ContainerProfileForm(forms.Form):
         self.helper.form_method = 'POST'
         self.helper.form_action = reverse('janus:update_profile', args=[Constants.HOST])
 
+def _get_res_errors(data, res):
+    try:
+        sess = next(iter(res.values()))
+    except Exception as e:
+        return
+    for k,v in sess.get('services').items():
+        for srv in v:
+            for err in srv.get('errors'):
+                data['errors'].append(err)
 
 def _get_user(request):
     user = User.objects.get(username=request.user)
@@ -159,25 +168,28 @@ def _get_user(request):
     return (user, groups, quser, qgroups)
 
 
-def list_sessions(request):
+def list_sessions(request, data=None):
     if not request.user.is_authenticated:
         return HttpResponseRedirect('/')
 
+    if not data:
+        data = {"errors": list()}
     (user,_,quser,qgroups) = _get_user(request)
-    status, sessions = services.get_session_info(quser, qgroups)
+    status, res = services.get_session_info(quser, qgroups)
     login = request.user.is_authenticated
     content = {
+        'data': data,
         'user': user.username,
         'login': login,
         'is_admin': user.is_staff,
     }
 
     if status:
-        content['sessions'] = sessions
-        # logger.info(content)
-        return render(request, 'home.html', content)
+        content['sessions'] = res
     else:
-        return HttpResponseServerError()
+        data['errors'].append(res)
+
+    return render(request, 'home.html', content)
 
 
 def list_nodes(request):
@@ -517,42 +529,44 @@ def create_profile(request, resource=Constants.HOST):
     else:
         return HttpResponseRedirect('/')
 
-
 def start_session(request, session_id):
     if request.user.is_authenticated:
+        data = {"errors": list()}
         (user,_,quser,qgroups) = _get_user(request)
-        status, _ = services.start_session(session_id, quser, qgroups)
+        status, res = services.start_session(session_id, quser, qgroups)
         if status:
-            return HttpResponseRedirect(reverse('janus:list_sessions'))
+            _get_res_errors(data, res)
         else:
-            return HttpResponseServerError()
+            data['errors'].append(res)
+        return list_sessions(request, data)
     else:
         return HttpResponseRedirect('/')
-
 
 def stop_session(request, session_id):
     if request.user.is_authenticated:
+        data = {"errors": list()}
         (user,_,quser,qgroups) = _get_user(request)
-        status, _ = services.stop_session(session_id, quser, qgroups)
+        status, res = services.stop_session(session_id, quser, qgroups)
         if status:
-            return HttpResponseRedirect(reverse('janus:list_sessions'))
+            _get_res_errors(data, res)
         else:
-            return HttpResponseServerError()
+            data['errors'].append(res)
+        return list_sessions(request, data)
     else:
         return HttpResponseRedirect('/')
-
 
 def delete_session(request, session_id):
     if request.user.is_authenticated:
+        data = {"errors": list()}
         (user,_,quser,qgroups) = _get_user(request)
-        status, _ = services.delete_session(session_id, quser, qgroups)
+        status, res = services.delete_session(session_id, quser, qgroups)
         if status:
-            return HttpResponseRedirect(reverse('janus:list_sessions'))
+            _get_res_errors(data, res)
         else:
-            return HttpResponseServerError()
+            data['errors'].append(res)
+        return list_sessions(request, data)
     else:
         return HttpResponseRedirect('/')
-
 
 def delete_profile(request, pname, resource=Constants.HOST):
     if request.user.is_authenticated:
