@@ -331,6 +331,8 @@ def create_session(request):
         if profile is not None:
             data['profile'] = profile
 
+        data['arguments'] = request.POST.get('arguments', None)
+
         data['kwargs'] = {}
         ssh_user_name = request.POST.get('ssh_user_name', None)
         if ssh_user_name is not None:
@@ -339,6 +341,8 @@ def create_session(request):
         ssh_public_key = request.POST.get('ssh_public_key', None)
         if ssh_public_key is not None:
             data['kwargs']['PUBLIC_KEY'] = ssh_public_key
+
+        data['remove_container'] = request.POST.get('remove_container', None)
 
         # XXX use django Forms...
         if not len(data['errors']):
