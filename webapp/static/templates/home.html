@@ -4,6 +4,13 @@
 {% bootstrap_javascript jquery='full' %}
 
 {% block content %}
+    {% if data.errors|length %}
+    <div class="alert alert-danger" role="alert">
+      {% for err in data.errors %}
+      <b>{{ err }}</b><br/>
+      {% endfor %}
+    </div>
+    {% endif %}
     <div class="container" style="padding-top: 2%">
       <div class="card bg-light mb-3">
         <div class="card-header d-flex justify-content-between align-items-center">
@@ -47,11 +54,21 @@
                       <span class="fa-solid fa-xmark"></span>
                     </a>
                   </td>
-                {% else %}
+                {% elif data.state == 'MIXED' %}
                   <td>
                     <a title="stop" href="{% url 'janus:stop_session' session_id=data.id %}" class="btn btn-sm btn-secondary">
                       <span class="fa-solid fa-stop"></span>
                     </a>
+                    <a title="delete" href="{% url 'janus:delete_session' session_id=data.id %}" class="btn btn-sm btn-danger">
+                      <span class="fa-solid fa-xmark"></span>
+                    </a>
+                  </td>
+                  {% else %}
+                  <td>
+                    <a title="stop" href="{% url 'janus:stop_session' session_id=data.id %}" class="btn btn-sm btn-secondary">
+                      <span class="fa-solid fa-stop"></span>
+                    </a>
+                  </td>
                 {% endif%}
               </tr>
               <tr>
