@@ -45,7 +45,11 @@ class ContainerProfileForm(forms.Form):
                         'data_net': 'Dataplane Network'}
         multichoice = {'volumes': 'Volumes'}
         textareas = {'environment': 'Environment Variables'}
-        anytext = {'arguments': "Arguments (Container Cmd)"}
+        anytext = {'arguments': 'Arguments (Container Cmd)',
+                   'mgmt_net_ipv4': 'Management IPv4 Address',
+                   'mgmt_net_ipv6': 'Management IPv6 Address',
+                   'data_net_ipv4': 'Data IPv4 Address',
+                   'data_net_ipv6': 'Data IPv6 Address'}
         ranges = {'ctrl_port_range': 'Control Port Range',
                   'serv_port_range': 'Service Port Range',
                   'data_port_range': 'Data Port Range'}
@@ -127,7 +131,11 @@ class ContainerProfileForm(forms.Form):
                 Div('cpu', css_class='col-sm-6'),
                 Div('mem', css_class='col-sm-6'),
                 Div('mgmt_net', css_class='col-sm-6'),
+                Div('mgmt_net_ipv4', css_class='col-sm-3'),
+                Div('mgmt_net_ipv6', css_class='col-sm-3'),
                 Div('data_net', css_class='col-sm-6'),
+                Div('data_net_ipv4', css_class='col-sm-3'),
+                Div('data_net_ipv6', css_class='col-sm-3'),
                 Div('ctrl_port_range_start', css_class='col-sm-3'),
                 Div('ctrl_port_range_end', css_class='col-sm-3'),
                 Div('data_port_range_start', css_class='col-sm-3'),
@@ -426,6 +434,10 @@ def update_profile(request, resource=Constants.HOST):
         s['mem'] = False if not int(request.POST.get('mem'))*1024*1024*1024 else int(request.POST.get('mem'))*1024*1024*1024
         s['mgmt_net'] = None if request.POST.get('mgmt_net') == Constants.NONE else request.POST.get('mgmt_net')
         s['data_net'] = None if request.POST.get('data_net') == Constants.NONE else request.POST.get('data_net')
+        s['mgmt_net_ipv4'] = None if not len(request.POST.get('mgmt_net_ipv4')) else request.POST.get('mgmt_net_ipv4')
+        s['mgmt_net_ipv6'] = None if not len(request.POST.get('mgmt_net_ipv6')) else request.POST.get('mgmt_net_ipv6')
+        s['data_net_ipv4'] = None if not len(request.POST.get('data_net_ipv4')) else request.POST.get('data_net_ipv4')
+        s['data_net_ipv6'] = None if not len(request.POST.get('data_net_ipv6')) else request.POST.get('data_net_ipv6')
         s['ctrl_port_range'] = get_range(request.POST, 'ctrl_port_range')
         s['serv_port_range'] = get_range(request.POST, 'serv_port_range')
         s['data_port_range'] = get_range(request.POST, 'data_port_range')

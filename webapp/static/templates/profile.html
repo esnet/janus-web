@@ -61,25 +61,25 @@
                   <td> {{ data.settings.cpu }} </td>
                   <td> {{ data.settings.mem }} </td>
                   <td>
-                    {% if 'name' in data.settings.mgmt_net %}
+                    {% if data.settings.mgmt_net_ipv4 %}
                     <div>
-                      {{ data.settings.mgmt_net.name }}<br/>
+                      {{ data.settings.mgmt_net }}<br/>
                       <b>ipv4_addr</b>:
-                      {% if data.settings.mgmt_net.ipv4_addr|get_type == 'list' %}
-                        {% for a in data.settings.mgmt_net.ipv4_addr %}
+                      {% if data.settings.mgmt_net_ipv4|get_type == 'list' %}
+                        {% for a in data.settings.mgmt_net_ipv4 %}
                           {{ a }}
                         {% endfor %}
                       {% else %}
-                        {{ data.settings.mgmt_net.ipv4_addr|default:''}}
+                        {{ data.settings.mgmt_net_ipv4|default:''}}
                       {% endif %}
                       <br/>
                       <b>ipv6_addr</b>:
-                      {% if data.settings.mgmt_net.ipv6_addr|get_type == 'list' %}
-                        {% for a in data.settings.data_net.ipv6_addr %}
+                      {% if data.settings.mgmt_net_ipv6|get_type == 'list' %}
+                        {% for a in data.settings.data_net_ipv6 %}
                           {{ a }}{% if not forloop.last %},{% endif %}
                         {% endfor %}
                       {% else %}
-                        {{ data.settings.mgmt_net.ipv6_addr|default:''}}
+                        {{ data.settings.mgmt_net_ipv6|default:''}}
                       {% endif %}
                     </div>
                     {% else %}
@@ -87,25 +87,25 @@
                     {% endif %}
                   </td>
                   <td>
-                    {% if 'name' in data.settings.data_net %}
+                    {% if data.settings.data_net_ipv4 %}
                     <div>
-                      {{ data.settings.data_net.name }}<br/>
+                      {{ data.settings.data_net }}<br/>
                       <b>ipv4_addr</b>:
-                      {% if data.settings.data_net.ipv4_addr|get_type == 'list' %}
-                      {% for a in data.settings.data_net.ipv4_addr %}
+                      {% if data.settings.data_net_ipv4|get_type == 'list' %}
+                      {% for a in data.settings.data_net_ipv4 %}
                         {{ a }}{% if not forloop.last %},{% endif %}
                         {% endfor %}
                       {% else %}
-                        {{ data.settings.data_net.ipv4_addr|default:''}}
+                        {{ data.settings.data_net_ipv4|default:''}}
                       {% endif %}
                       <br/>
                       <b>ipv6_addr</b>:
-                      {% if data.settings.data_net.ipv6_addr|get_type == 'list' %}
-                        {% for a in data.settings.data_net.ipv6_addr %}
+                      {% if data.settings.data_net_ipv6|get_type == 'list' %}
+                        {% for a in data.settings.data_net_ipv6 %}
                           {{ a }}
                         {% endfor %}
                       {% else %}
-                        {{ data.settings.data_net.ipv6_addr|default:''}}
+                        {{ data.settings.data_net_ipv6|default:''}}
                       {% endif %}
                     </div>
                     {% else %}

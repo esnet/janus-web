@@ -258,6 +258,8 @@ def get_profiles(user=None, groups=None, verbose=False, resource="host", pname=N
                                 ps[k] = convert_size(v)
                             elif k == "mgmt_net" or k == "data_net":
                                 ps[k] = v.get('name') if isinstance(v, dict) else v
+                                ps[f"{k}_ipv4"] = v.get('ipv4_addr') if isinstance(v, dict) else None
+                                ps[f"{k}_ipv6"] = v.get('ipv6_addr') if isinstance(v, dict) else None
                             else:
                                 ps[k] = v
                         entry["settings"] = ps
@@ -295,7 +297,15 @@ def update_profile(resource, data, user=None, groups=None):
     :param data dict:
     :return:
     """
-    name = data["name"]
+    name = data.get('name')
+    s = data.get('settings')
+    # Convert networks into fully-specified dict syntax
+    for k in ['mgmt_net', 'data_net']:
+        s[k] = {'name': s.get(k),
+                'ipv4_addr': s.get(f"{k}_ipv4"),
+                'ipv6_addr': s.get(f"{k}_ipv6")}
+        del s[f"{k}_ipv4"]
+        del s[f"{k}_ipv6"]
     res = requests.put(
         url=base_url + f"profiles/{resource}/{name}",
         json=data,
