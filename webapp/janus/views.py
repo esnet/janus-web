@@ -13,16 +13,83 @@ logger = logging.getLogger(__name__)
 
 class NetworkProfileForm(forms.Form):
     def __init__(self, *args, **kwargs):
+        nfields = kwargs.pop('nfields')
+        print(f"======nfields b update in VolumeProfileForm ================ {nfields}")
         super(NetworkProfileForm, self).__init__(*args, **kwargs)
+
+        bools = {'enable_ipv6': 'IPv6Enabled'}
+        anytext = {'driver': 'Driver',
+                   'ipam': 'Subnets',
+                   'options': 'Options'}
+
+        for keys in list(anytext.keys()):
+            if keys not in list(nfields["settings"].keys()):
+                nfields["settings"].update({keys: Constants.NONE})
+
+        for keys in list(bools.keys()):
+            if keys not in list(nfields["settings"].keys()):
+                nfields["settings"].update({keys: None})
+
+        print(f"======nfields a update in VolumeProfileForm ================ {nfields}")
+
+        for key, value in nfields["settings"].items():
+            if key in anytext.keys():
+                self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
+                                                   initial=value, required=False, label=anytext[key],
+                                                   max_length=255)
+            elif key in bools:
+                self.fields[key] = forms.BooleanField(
+                    widget=forms.CheckboxInput(attrs={'id': f"{nfields['name']}-{key}"}),
+                    required=False, label=bools[key],
+                    initial=False if value == "default" else value)
+
         self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Hidden('name', value=nfields["name"]),
+            Div(
+                Div('enable_ipv6', css_class='col-sm-8'),
+                Div('driver', css_class='col-sm-6'),
+                Div('ipam', css_class='col-sm-6'),
+                Div('options', css_class='col-sm-6'),
+                css_class='row'
+            )
+        )
         self.helper.add_input(Submit('submit', 'Save', css_class='btn btn-primary'))
         self.helper.form_method = 'POST'
         self.helper.form_action = reverse('janus:update_profile', args=[Constants.NET])
 
 class VolumeProfileForm(forms.Form):
     def __init__(self, *args, **kwargs):
+        vfields = kwargs.pop('vfields')
+        #print(f"vfields in VolumeProfileForm ================ {vfields}")
         super(VolumeProfileForm, self).__init__(*args, **kwargs)
+
+        anytext = {'type': 'Type',
+                   'source': 'Source',
+                   'target': 'Target'}
+#                   'mode': 'Mode'}
+
+        for keys in list(anytext.keys()):
+            if keys not in list(vfields["settings"].keys()):
+                vfields["settings"].update({keys: Constants.NONE})
+
+        for key, value in vfields["settings"].items():
+             if key in anytext.keys():
+                 self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
+                                                initial=value, required=False, label=anytext[key],
+                                                max_length=255)
+
         self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Hidden('name', value=vfields["name"]),
+            Div(
+                Div('type', css_class='col-sm-6'),
+                Div('source', css_class='col-sm-6'),
+                Div('target', css_class='col-sm-6'),
+                #Div('mode', css_class='col-sm-6'),
+                css_class='row'
+            )
+        )
         self.helper.add_input(Submit('submit', 'Save', css_class='btn btn-primary'))
         self.helper.form_method = 'POST'
         self.helper.form_action = reverse('janus:update_profile', args=[Constants.VOL])
@@ -30,6 +97,7 @@ class VolumeProfileForm(forms.Form):
 class ContainerProfileForm(forms.Form):
     def __init__(self, *args, **kwargs):
         pfields = kwargs.pop('pfields')
+        #print(f"pfields in VolumeProfileForm ================ {pfields}")
         qos_choices = kwargs.pop('qos').copy()
         mgmt_net_choices = kwargs.pop('network').copy()
         volumes_choices = kwargs.pop('volume').copy()
@@ -222,19 +290,24 @@ def list_profiles(request, extra_content=dict(), refresh=False):
 
     (user,_,quser,qgroups) = _get_user(request)
     status, profiles = services.get_profiles(quser, qgroups, verbose=True, refresh=refresh)
+    #print(f"profiles in list_profiles ============ {profiles}")
     _, qos_choices = services.get_profiles(quser, qgroups, resource=Constants.QOS, verbose=True, refresh=refresh)
     _, net_choices = services.get_profiles(quser, qgroups, resource=Constants.NET, verbose=True, refresh=refresh)
     _, vol_choices = services.get_profiles(quser, qgroups, resource=Constants.VOL, verbose=True, refresh=refresh)
     kwargs = {Constants.QOS: [k.get('name') for k in qos_choices],
               Constants.NET: [k.get('name') for k in net_choices],
               Constants.VOL: [k.get('name') for k in vol_choices]}
+    print(f"net_choices in list_profiles ============ {net_choices}")
+    #print(f"kwargs in list_profiles ============ {kwargs}")
     forms = dict()
     for p in profiles:
         forms.update({f"{Constants.HOST}_{p['name']}": ContainerProfileForm(pfields=p, **kwargs)})
     for p in net_choices:
-        forms.update({f"{Constants.NET}_{p['name']}": NetworkProfileForm()})
+        forms.update({f"{Constants.NET}_{p['name']}": NetworkProfileForm(nfields=p)})
     for p in vol_choices:
-        forms.update({f"{Constants.VOL}_{p['name']}": VolumeProfileForm()})
+        forms.update({f"{Constants.VOL}_{p['name']}": VolumeProfileForm(vfields=p)})
+    #print(f"forms in list_profiles ============ {forms}")
+
     if status:
         content = {
             "profiles": profiles,
@@ -245,6 +318,7 @@ def list_profiles(request, extra_content=dict(), refresh=False):
             'forms': forms
         }
         content.update(extra_content)
+        # print(f"content in list_profiles ============ {content}")
         return render(request, 'profile.html', content)
     else:
         return HttpResponseServerError()
@@ -415,6 +489,8 @@ def create_session(request):
 
 
 def update_profile(request, resource=Constants.HOST):
+    print(f"=====request in update_profile in views.py========================={request}")
+    print(f"=====resource in update_profile in views.py========================={resource}")
     def get_range(r, key):
         start = r.get(f"{key}_start")
         end = r.get(f"{key}_end")
@@ -450,10 +526,29 @@ def update_profile(request, resource=Constants.HOST):
         return pfields
 
     def handle_net(request):
-        pass
+        print(f"=============Running handle_net in update_profile============")
+        pfields = dict()
+        pfields['name'] = request.POST.get('name')
+        s = dict()
+        s['driver'] = None if not len(request.POST.get('driver')) else request.POST.get('driver')
+        s['enable_ipv6'] = None if not len(request.POST.get('enable_ipv6')) else request.POST.get('enable_ipv6')
+        s['ipam'] = None if not len(request.POST.get('ipam')) else request.POST.get('ipam')
+        s['options'] = None if not len(request.POST.get('options')) else request.POST.get('options')
+        pfields['settings'] = s
+        print(f"=======pfields in handle_net in update_profiles =============== {pfields}")
+        return pfields
 
     def handle_vol(request):
-        pass
+        #print(f"=============Running handle_vol in update_profile============")
+        pfields = dict()
+        pfields['name'] = request.POST.get('name')
+        s = dict()
+        s['type'] = None if not len(request.POST.get('type')) else request.POST.get('type')
+        s['source'] = None if not len(request.POST.get('source')) else request.POST.get('source')
+        s['target'] = None if not len(request.POST.get('target')) else request.POST.get('target')
+        pfields['settings'] = s
+        #print(f" pfields in handle_vol in update_profiles =============== {pfields}")
+        return pfields
 
     if not request.user.is_authenticated:
         return HttpResponseRedirect('/')
@@ -466,6 +561,7 @@ def update_profile(request, resource=Constants.HOST):
         elif resource == Constants.NET:
             pfields = handle_net(request)
         elif resource == Constants.VOL:
+            #print(f"=============Running elif to run handle_vol in update_profile============")
             pfields = handle_vol(request)
 
         data = {"errors": list()}
@@ -479,67 +575,153 @@ def update_profile(request, resource=Constants.HOST):
             data["errors"].append(res)
         return list_profiles(request, content)
 
+
 def create_profile(request, resource=Constants.HOST):
+    #print(f"=======resource in create_profile ==================== {resource}")
     if not request.user.is_authenticated:
         return HttpResponseRedirect('/')
 
     (user,_,quser,qgroups) = _get_user(request)
     if user.is_staff:
         data = {"errors": list()}
-        if request.method == 'POST':
-            name = request.POST.get('name', None)
-            if not name:
-                data["errors"].append("Invalid name")
-            data['cpu'] = request.POST.get('cpu', 0)
-            if not data['cpu']:
-                data["cpu"] = 0
-            data["cpu"] = int(data["cpu"])
+        if resource == Constants.HOST:
+            if request.method == 'POST':
+                name = request.POST.get('name', None)
+                if not name:
+                    data["errors"].append("Invalid name")
+                data['cpu'] = request.POST.get('cpu', 0)
+                if not data['cpu']:
+                    data["cpu"] = 0
+                data["cpu"] = int(data["cpu"])
 
-            data['mem'] = request.POST.get('memory', 0)
-            if not data['mem']:
-                data['mem'] = 0
-            data['mem'] = int(data['mem'])
+                data['mem'] = request.POST.get('memory', 0)
+                if not data['mem']:
+                    data['mem'] = 0
+                data['mem'] = int(data['mem'])
 
-            data['affinity'] = request.POST.get('affinity', "network")
-            data['mgmt_net'] = request.POST.get('mgmt_net', "bridge")
+                data['affinity'] = request.POST.get('affinity', "network")
+                data['mgmt_net'] = request.POST.get('mgmt_net', "bridge")
 
-            data['internal_port'] = request.POST.get('internal_port', None)
-            if not data['internal_port']:
-                data['internal_port'] = None
+                data['internal_port'] = request.POST.get('internal_port', None)
+                if not data['internal_port']:
+                    data['internal_port'] = None
 
-            data['arguments'] = request.POST.get('arguments', None)
+                data['arguments'] = request.POST.get('arguments', None)
 
-            data['internal_port'] = int(data['internal_port']) if data['internal_port'] else None
-            data['qos'] = request.POST.get('qos', None)
-            if not data['qos']:
-                data["qos"] = None
+                data['internal_port'] = int(data['internal_port']) if data['internal_port'] else None
+                data['qos'] = request.POST.get('qos', None)
+                if not data['qos']:
+                    data["qos"] = None
 
-            profile = {
-                'name': name,
-                'settings': data
+                profile = {
+                    'name': name,
+                    'settings': data
+                }
+
+                # XXX use django Forms...
+                if not len(data['errors']):
+                    status, res = services.create_profile(resource, profile, quser, qgroups)
+                    print(f"=======status for HOST in create_profile ==================== {status}")
+                    print(f"=======res for HOST in create_profile ==================== {res}")
+                    if status:
+                        return HttpResponseRedirect(reverse('janus:list_profiles'))
+                    else:
+                        data["errors"].append(res)
+
+            _, qos = services.get_qos()
+            content = {
+                'data': data,
+                'qos': qos,
+                'login': request.user.is_authenticated,
+                'is_admin': user.is_staff
             }
 
-            # XXX use django Forms...
-            if not len(data['errors']):
-                status, res = services.create_profile(resource, profile, quser, qgroups)
-                if status:
-                    return HttpResponseRedirect(reverse('janus:list_profiles'))
-                else:
-                    data["errors"].append(res)
+            logger.debug(content)
+            return render(request, 'create_profile.html', content)
 
-        _, qos = services.get_qos()
-        content = {
-            'data': data,
-            'qos': qos,
-            'login': request.user.is_authenticated,
-            'is_admin': user.is_staff
-        }
+        elif resource == Constants.VOL:
+            if request.method == 'POST':
+                name = request.POST.get('name', None)
+                if not name:
+                    data["errors"].append("Invalid name")
+                data['type'] = request.POST.get('type', None)
+                data['source'] = request.POST.get('source', None)
+                data['target'] = request.POST.get('target', None)
+                data['driver'] = request.POST.get('driver', None)
+                #print(f"=======data for VOL in create_profile ==================== {data}")
 
-        logger.debug(content)
-        return render(request, 'create_profile.html', content)
+                volume = {
+                    'name': name,
+                    'settings': data
+                }
+                #print(f"=======volume in create_profile ==================== {volume}")
+
+                if not len(data['errors']):
+                    status, res = services.create_profile(resource, volume, quser, qgroups)
+                    #print(f"=======status for VOL in create_profile ==================== {status}")
+                    #print(f"=======res for VOL in create_profile ==================== {res}")
+                    if status:
+                        return HttpResponseRedirect(reverse('janus:list_profiles'))
+                    else:
+                        data["errors"].append(res)
+
+            #_, qos = services.get_qos()
+            #print(f"qos in create_profile ==================== {qos}")
+            #print(f"=======data for VOl before entering POST condition in elif in create_profile ==================== {data}")
+            content = {
+                'data': data,
+                #'qos': qos,
+                'login': request.user.is_authenticated,
+                'is_admin': user.is_staff
+            }
+
+            #print(f"=======content for VOL in elif in create_profile ==================== {content}")
+
+            logger.debug(content)
+            return render(request, 'create_volume.html', content)
+
+
+        elif resource == Constants.NET:
+            if request.method == 'POST':
+                name = request.POST.get('name', None)
+                if not name:
+                    data["errors"].append("Invalid name")
+                data['driver'] = request.POST.get('driver', None)
+                data['enable_ipv6'] = request.POST.get('enable_ipv6', None)
+                data['ipam'] = request.POST.get('ipam', None)
+                data['options'] = request.POST.get('options', None)
+                print(f"=======data for NET in create_profile ==================== {data}")
+
+                network = {
+                    'name': name,
+                    'settings': data
+                }
+                print(f"=======network in create_profile ==================== {network}")
+
+                if not len(data['errors']):
+                    status, res = services.create_profile(resource, network, quser, qgroups)
+                    print(f"=======status for NET in create_profile ==================== {status}")
+                    print(f"=======res for NET in create_profile ==================== {res}")
+                    if status:
+                        return HttpResponseRedirect(reverse('janus:list_profiles'))
+                    else:
+                        data["errors"].append(res)
+
+            print(f"=======data for NET before entering POST condition in elif in create_profile ==================== {data}")
+            content = {
+                'data': data,
+                #'qos': qos,
+                'login': request.user.is_authenticated,
+                'is_admin': user.is_staff
+            }
+
+            print(f"=======content for NET in elif in create_profile ==================== {content}")
+            logger.debug(content)
+            return render(request, 'create_network.html', content)
 
     else:
         return HttpResponseRedirect('/')
+
 
 def start_session(request, session_id):
     if request.user.is_authenticated:

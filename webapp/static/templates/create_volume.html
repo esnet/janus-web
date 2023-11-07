@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block title %} New Session {% endblock title %}
+{% block content %}
+
+<div class="panel panel-default">
+      {% if data.errors|length %}
+    <div class="alert alert-danger" role="alert">
+      {% for err in data.errors %}
+      <b>{{ err }}</b><br/>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <div class="panel-heading">
+	<h1 class="text-center"><strong><i>New Mount</i></strong></h1>
+    </div>
+    <div class="panel-body">
+	<div align="center">
+	    <form class="form-group" action="{% url 'janus:create_profile' resource='volume' %}" method="post" id="session_post_form" style="width:60%">
+		{% csrf_token %}
+		<div class="rows" style="padding-top: 2%">
+		    <div>
+			<label>Name:</label>
+			<input class="form-control" type="text" id="name" name="name" placeholder="volume name" >
+		    </div>
+		</div>
+
+		<div class="rows" style="padding-top: 2%">
+                    <div>
+                        <label>Type:</label>
+                        <input class="form-control" type="text" id="type" name="type" placeholder="Ex: bind"  >
+                    </div>
+                </div>
+
+		<div class="rows" style="padding-top: 2%">
+                    <div>
+                        <label>Source:</label>
+                        <input class="form-control" type="text" id="source" name="source"  >
+                    </div>
+                </div>
+
+		<div class="rows" style="padding-top: 2%">
+                    <div>
+                        <label>Target:</label>
+                        <input class="form-control" type="text" id="target" name="target"  >
+                    </div>
+                </div>
+
+		<div class="row" style="padding-left:10%; padding-right:10%; padding-top: 2%">
+                    <div class="col-sm-4">
+                	<button class="btn btn-lg btn-block btn-success" type="submit"><i class="glyphicon glyphicon-ok-sign"></i>Create</button>
+                    </div>
+                    <div class="col-sm-4">
+                	<button class="btn btn-lg btn-block btn-warning" type="reset"><i class="glyphicon glyphicon-repeat"></i>Reset</button>
+                    </div>
+                    <div class="col-sm-4">
+                        <a class="btn btn-lg btn-block btn-secondary" href="../"><i class="glyphicon glyphicon-repeat"></i>Cancel</a>
+                    </div>
+                </div>
+	    </form>
+	</div>
+    </div>
+</div>
+
+{% endblock content %}
