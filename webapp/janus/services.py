@@ -4,6 +4,7 @@ import requests
 import shlex
 from django.conf import settings
 from .utils import convert_size
+from .constants import Constants
 
 
 base_url = settings.JANUS_CONTROLLER_URL + "api/janus/controller/"
@@ -278,6 +279,9 @@ def create_profile(resource, data, user=None, groups=None):
     """
     name = data["name"]
     params = get_params(user,groups)
+    print(f"=======name in create_profile in services.py ==================== {name}")
+    print(f"=======resource in create_profile in services.py ==================== {resource}")
+    print(f"=======data in create_profile in services.py ==================== {data}")
     res = requests.post(
         url=base_url + f"profiles/{resource}/{name}",
         json=data,
@@ -285,7 +289,6 @@ def create_profile(resource, data, user=None, groups=None):
         verify=settings.CTRL_SSL_VERIFY,
         params=params
     )
-
     if res.status_code == 200:
         return True, res.json()
     else:
@@ -300,12 +303,13 @@ def update_profile(resource, data, user=None, groups=None):
     name = data.get('name')
     s = data.get('settings')
     # Convert networks into fully-specified dict syntax
-    for k in ['mgmt_net', 'data_net']:
-        s[k] = {'name': s.get(k),
-                'ipv4_addr': s.get(f"{k}_ipv4"),
-                'ipv6_addr': s.get(f"{k}_ipv6")}
-        del s[f"{k}_ipv4"]
-        del s[f"{k}_ipv6"]
+    if resource == Constants.HOST:
+        for k in ['mgmt_net', 'data_net']:
+            s[k] = {'name': s.get(k),
+                    'ipv4_addr': s.get(f"{k}_ipv4"),
+                    'ipv6_addr': s.get(f"{k}_ipv6")}
+            del s[f"{k}_ipv4"]
+            del s[f"{k}_ipv6"]
     res = requests.put(
         url=base_url + f"profiles/{resource}/{name}",
         json=data,
