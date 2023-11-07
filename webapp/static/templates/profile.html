@@ -168,7 +168,8 @@
                   <td><span class="fa-solid fa-chevron-right"></span></td>
                   <td> {{ data.name }} </td>
                   <td> {{ data.settings.driver }} </td>
-                  <td> {{ data.settings.ipv6enabled|default:'' }} </td>
+                  <td> {{ data.settings.enable_ipv6|default:'' }} </td>
+                  <td> {{ data.settings.ipam|default:'' }} </td>
                   <td/>
                   {% if is_admin %}
                   <td class="d-flex justify-content-center">
