@@ -254,7 +254,7 @@ def get_profiles(user=None, groups=None, verbose=False, resource="host", pname=N
                         for k,v in entry["settings"].items():
                             if v == False:
                                 ps[k] = "default"
-                            elif k == "mem":
+                            elif k == "memory":
                                 ps[k] = convert_size(v)
                             elif k == "mgmt_net" or k == "data_net":
                                 ps[k] = v.get('name') if isinstance(v, dict) else v
