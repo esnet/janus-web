@@ -107,7 +107,7 @@ class ContainerProfileForm(forms.Form):
                  'systemd': 'Systemd Container',
                  'pull_image': 'Pull Image on Create'}
         selects = {'cpu': 'Cores',
-                   'mem': 'Memory'}
+                   'memory': 'Memory'}
         selects_none = {'qos': 'Quality of Service',
                         'mgmt_net': 'Management Network',
                         'data_net': 'Dataplane Network'}
@@ -133,7 +133,7 @@ class ContainerProfileForm(forms.Form):
             ('64', '64'),
             ('128', '128')
         )
-        mem_choices = (
+        memory_choices = (
             ('0', 'default'),
             ('1', '1 GB'),
             ('2', '2 GB'),
@@ -197,7 +197,7 @@ class ContainerProfileForm(forms.Form):
                 Div('systemd', css_class='col-4 border d-flex justify-content-center'),
                 Div('pull_image', css_class='col-4 border d-flex justify-content-center'),
                 Div('cpu', css_class='col-sm-6'),
-                Div('mem', css_class='col-sm-6'),
+                Div('memory', css_class='col-sm-6'),
                 Div('mgmt_net', css_class='col-sm-6'),
                 Div('mgmt_net_ipv4', css_class='col-sm-3'),
                 Div('mgmt_net_ipv6', css_class='col-sm-3'),
@@ -507,7 +507,7 @@ def update_profile(request, resource=Constants.HOST):
         s['systemd'] = True if request.POST.get('systemd') else False
         s['pull_image'] = True if request.POST.get('pull_image') else False
         s['cpu'] = False if not int(request.POST.get('cpu')) else int(request.POST.get('cpu'))
-        s['mem'] = False if not int(request.POST.get('mem'))*1024*1024*1024 else int(request.POST.get('mem'))*1024*1024*1024
+        s['memory'] = False if not int(request.POST.get('memory'))*1024*1024*1024 else int(request.POST.get('memory'))*1024*1024*1024
         s['mgmt_net'] = None if request.POST.get('mgmt_net') == Constants.NONE else request.POST.get('mgmt_net')
         s['data_net'] = None if request.POST.get('data_net') == Constants.NONE else request.POST.get('data_net')
         s['mgmt_net_ipv4'] = None if not len(request.POST.get('mgmt_net_ipv4')) else request.POST.get('mgmt_net_ipv4')
@@ -594,10 +594,17 @@ def create_profile(request, resource=Constants.HOST):
                     data["cpu"] = 0
                 data["cpu"] = int(data["cpu"])
 
-                data['mem'] = request.POST.get('memory', 0)
-                if not data['mem']:
-                    data['mem'] = 0
-                data['mem'] = int(data['mem'])
+# <<<<<<< HEAD
+#                 data['mem'] = request.POST.get('memory', 0)
+#                 if not data['mem']:
+#                     data['mem'] = 0
+#                 data['mem'] = int(data['mem'])
+# =======
+                data['memory'] = request.POST.get('memory', 0)
+                if not data['memory']:
+                    data['memory'] = 0
+                data['memory'] = int(data['memory'])
+# >>>>>>> netvol-profiles
 
                 data['affinity'] = request.POST.get('affinity', "network")
                 data['mgmt_net'] = request.POST.get('mgmt_net', "bridge")
