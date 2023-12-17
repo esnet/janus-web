@@ -279,9 +279,6 @@ def create_profile(resource, data, user=None, groups=None):
     """
     name = data["name"]
     params = get_params(user,groups)
-    print(f"=======name in create_profile in services.py ==================== {name}")
-    print(f"=======resource in create_profile in services.py ==================== {resource}")
-    print(f"=======data in create_profile in services.py ==================== {data}")
     res = requests.post(
         url=base_url + f"profiles/{resource}/{name}",
         json=data,
