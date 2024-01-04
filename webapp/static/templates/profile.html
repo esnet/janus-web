@@ -169,7 +169,7 @@
                   <td> {{ data.name }} </td>
                   <td> {{ data.settings.driver }} </td>
                   <td> {{ data.settings.enable_ipv6|default:'' }} </td>
-                  <td> {{ data.settings.ipam|default:'' }} </td>
+                  <td> {{ data.settings.ipam.config|default:'' }} </td>
                   <td/>
                   {% if is_admin %}
                   <td class="d-flex justify-content-center">
