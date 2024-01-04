@@ -1,227 +1,13 @@
 import logging
 from . import services
 from .constants import Constants
+from .forms import *
 from django.contrib.auth.models import User
 from django.shortcuts import render, HttpResponseRedirect
 from django.http import HttpResponseServerError, HttpResponseNotFound, JsonResponse
 from django.urls import reverse
-from django import forms
-from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Hidden, Div, Layout, Submit
 
 logger = logging.getLogger(__name__)
-
-class NetworkProfileForm(forms.Form):
-    def __init__(self, *args, **kwargs):
-        nfields = kwargs.pop('nfields')
-        super(NetworkProfileForm, self).__init__(*args, **kwargs)
-
-        bools = {'enable_ipv6': 'IPv6Enabled'}
-        anytext = {'driver': 'Driver',
-                   'mode': 'Mode',
-                   'ipam': 'Subnets',
-                   'options': 'Options'}
-
-        for keys in list(anytext.keys()):
-            if keys not in list(nfields["settings"].keys()):
-                nfields["settings"].update({keys: Constants.NONE})
-
-        for keys in list(bools.keys()):
-            if keys not in list(nfields["settings"].keys()):
-                nfields["settings"].update({keys: None})
-
-        for key, value in nfields["settings"].items():
-            if key in anytext.keys():
-                self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
-                                                   initial=value, required=False, label=anytext[key],
-                                                   max_length=255)
-            elif key in bools:
-                self.fields[key] = forms.BooleanField(
-                    widget=forms.CheckboxInput(attrs={'id': f"{nfields['name']}-{key}"}),
-                    required=False, label=bools[key],
-                    initial=False if value == "default" else value)
-
-        self.helper = FormHelper()
-        self.helper.layout = Layout(
-            Hidden('name', value=nfields["name"]),
-            Div(
-                Div('enable_ipv6', css_class='col-sm-8'),
-                Div('driver', css_class='col-sm-6'),
-                Div('mode', css_class='col-sm-6'),
-                Div('ipam', css_class='col-sm-6'),
-                Div('options', css_class='col-sm-6'),
-                css_class='row'
-            )
-        )
-        self.helper.add_input(Submit('submit', 'Save', css_class='btn btn-primary'))
-        self.helper.form_method = 'POST'
-        self.helper.form_action = reverse('janus:update_profile', args=[Constants.NET])
-
-class VolumeProfileForm(forms.Form):
-    def __init__(self, *args, **kwargs):
-
-        anytext = {'type': 'Type',
-                   'driver': 'Driver',
-                   'source': 'Source',
-                   'target': 'Target'}
-
-        vfields = kwargs.pop('vfields')
-        super(VolumeProfileForm, self).__init__(*args, **kwargs)
-
-        for keys in list(anytext.keys()):
-            if keys not in list(vfields["settings"].keys()):
-                vfields["settings"].update({keys: Constants.NONE})
-
-        for key, value in vfields["settings"].items():
-             if key in anytext.keys():
-                 self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
-                                                initial=value, required=False, label=anytext[key],
-                                                max_length=255)
-
-        self.helper = FormHelper()
-        self.helper.layout = Layout(
-            Hidden('name', value=vfields["name"]),
-            Div(
-                Div('type', css_class='col-sm-6'),
-                Div('driver', css_class='col-sm-6'),
-                Div('source', css_class='col-sm-6'),
-                Div('target', css_class='col-sm-6'),
-                css_class='row'
-            )
-        )
-        self.helper.add_input(Submit('submit', 'Save', css_class='btn btn-primary'))
-        self.helper.form_method = 'POST'
-        self.helper.form_action = reverse('janus:update_profile', args=[Constants.VOL])
-
-
-
-class ContainerProfileForm(forms.Form):
-    def __init__(self, *args, **kwargs):
-        pfields = kwargs.pop('pfields')
-        qos_choices = kwargs.pop('qos').copy()
-        mgmt_net_choices = kwargs.pop('network').copy()
-        volumes_choices = kwargs.pop('volume').copy()
-        super(ContainerProfileForm, self).__init__(*args, **kwargs)
-
-        bools = {'privileged': 'Privileged Container',
-                 'systemd': 'Systemd Container',
-                 'pull_image': 'Pull Image on Create'}
-        selects = {'cpu': 'Cores',
-                   'memory': 'Memory'}
-        selects_none = {'qos': 'Quality of Service',
-                        'mgmt_net': 'Management Network',
-                        'data_net': 'Dataplane Network'}
-        multichoice = {'volumes': 'Volumes'}
-        textareas = {'environment': 'Environment Variables'}
-        anytext = {'arguments': 'Arguments (Container Cmd)',
-                   'mgmt_net_ipv4': 'Management IPv4 Address',
-                   'mgmt_net_ipv6': 'Management IPv6 Address',
-                   'data_net_ipv4': 'Data IPv4 Address',
-                   'data_net_ipv6': 'Data IPv6 Address'}
-        ranges = {'ctrl_port_range': 'Control Port Range',
-                  'serv_port_range': 'Service Port Range',
-                  'data_port_range': 'Data Port Range'}
-
-        cpu_choices = (
-            ('0', 'default'),
-            ('1', '1'),
-            ('2', '2'),
-            ('4', '4'),
-            ('8', '8'),
-            ('16', '16'),
-            ('32', '32'),
-            ('64', '64'),
-            ('128', '128')
-        )
-        memory_choices = (
-            ('0', 'default'),
-            ('1', '1 GB'),
-            ('2', '2 GB'),
-            ('4', '4 GB'),
-            ('8', '8 GB'),
-            ('16', '16 GB'),
-            ('32', '32 GB')
-        )
-
-        qos_choices.append(Constants.NONE)
-        qos_choices = sorted(tuple(zip(qos_choices, qos_choices)))
-        mgmt_net_choices.append(Constants.NONE)
-        mgmt_net_choices = sorted(tuple(zip(mgmt_net_choices, mgmt_net_choices)))
-        data_net_choices = mgmt_net_choices
-        volumes_choices = sorted(tuple(zip(volumes_choices, volumes_choices)))
-
-        for key, value in pfields["settings"].items():
-            if key in bools:
-                self.fields[key] = forms.BooleanField(widget=forms.CheckboxInput(attrs={'id': f"{pfields['name']}-{key}"}),
-                                                      required=False, label=bools[key],
-                                                      initial=False if value=="default" else value)
-            elif key in selects_none.keys():
-                self.fields[key] = forms.ChoiceField(choices=locals().get(f"{key}_choices", tuple()),
-                                                     initial=Constants.NONE if not value else value,
-                                                     required=False, label=selects_none[key])
-            elif key in selects.keys():
-                try:
-                    parts = value.split(" ")
-                    if len(parts):
-                        value = parts[0]
-                except:
-                    pass
-                self.fields[key] = forms.ChoiceField(choices=locals().get(f"{key}_choices", tuple()),
-                                                     initial=0 if value=="default" else value,
-                                                     required=False, label=selects[key])
-            elif key in textareas.keys():
-                self.fields[key] = forms.CharField(widget=forms.Textarea(attrs={'rows': 4, 'readonly':'readonly'}),
-                                                   initial=value, required=False, label=textareas[key])
-            elif key in ranges.keys():
-                self.fields[f"{key}_start"] = forms.CharField(widget=forms.TextInput(attrs={'type': 'number'}),
-                                                              initial=value[0] if value else "",
-                                                              required=False, label = f"{ranges[key]} Start")
-                self.fields[f"{key}_end"] = forms.CharField(widget=forms.TextInput(attrs={'type': 'number'}),
-                                                            initial=value[1] if value else "",
-                                                            required=False, label = f"{ranges[key]} End")
-            elif key in anytext.keys():
-                self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
-                                                   initial=value, required=False, label=anytext[key],
-                                                   max_length=255)
-            elif key in multichoice.keys():
-                self.fields[key] = forms.MultipleChoiceField(choices=locals().get(f"{key}_choices", tuple()),
-                                                             initial=value, required=False, label=multichoice[key])
-            else:
-                self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'pattern': '[a-zA-Z0-9]+'}),
-                                                   initial=value, required=False)
-        self.helper = FormHelper()
-        self.helper.layout = Layout(
-            Hidden('name', value=pfields["name"]),
-            Div(
-                Div('privileged', css_class='col-4 border d-flex justify-content-center'),
-                Div('systemd', css_class='col-4 border d-flex justify-content-center'),
-                Div('pull_image', css_class='col-4 border d-flex justify-content-center'),
-                Div('cpu', css_class='col-sm-6'),
-                Div('memory', css_class='col-sm-6'),
-                Div('mgmt_net', css_class='col-sm-6'),
-                Div('mgmt_net_ipv4', css_class='col-sm-3'),
-                Div('mgmt_net_ipv6', css_class='col-sm-3'),
-                Div('data_net', css_class='col-sm-6'),
-                Div('data_net_ipv4', css_class='col-sm-3'),
-                Div('data_net_ipv6', css_class='col-sm-3'),
-                Div('ctrl_port_range_start', css_class='col-sm-3'),
-                Div('ctrl_port_range_end', css_class='col-sm-3'),
-                Div('data_port_range_start', css_class='col-sm-3'),
-                Div('data_port_range_end', css_class='col-sm-3'),
-                Div('serv_port_range_start', css_class='col-sm-3'),
-                Div('serv_port_range_end', css_class='col-sm-3'),
-                Div('affinity', css_class='col-sm-6'),
-                #Div('features', css_class='col-sm-6'),
-                Div('arguments', css_class='col-sm-6'),
-                Div('volumes', css_class='col-sm-6'),
-                Div('qos', css_class='col-sm-6'),
-                Div('environment', css_class='col-sm-6'),
-                css_class='row'
-            )
-        )
-        self.helper.add_input(Submit('submit', 'Save', css_class='btn btn-primary'))
-        self.helper.form_method = 'POST'
-        self.helper.form_action = reverse('janus:update_profile', args=[Constants.HOST])
 
 def _get_res_errors(data, res):
     try:
@@ -285,9 +71,11 @@ def list_nodes(request):
         return HttpResponseServerError()
 
 def list_profiles(request, extra_content=dict(), refresh=False):
+    # print(f"==========request in list_profiles in views.py================{request}")
+    # print(f"==========extra_content in list_profiles in views.py================{extra_content}")
+    # print(f"==========refresh in list_profiles in views.py================{refresh}")
     if not request.user.is_authenticated:
         return HttpResponseRedirect('/')
-
     (user,_,quser,qgroups) = _get_user(request)
     status, profiles = services.get_profiles(quser, qgroups, verbose=True, refresh=refresh)
     _, qos_choices = services.get_profiles(quser, qgroups, resource=Constants.QOS, verbose=True, refresh=refresh)
@@ -296,6 +84,11 @@ def list_profiles(request, extra_content=dict(), refresh=False):
     kwargs = {Constants.QOS: [k.get('name') for k in qos_choices],
               Constants.NET: [k.get('name') for k in net_choices],
               Constants.VOL: [k.get('name') for k in vol_choices]}
+    # print(f"==========profiles in list_profiles in views.py================{profiles}")
+    # print(f"==========vol_choices in list_profiles in views.py================{vol_choices}")
+    print(f"==========net_choices in list_profiles in views.py================{net_choices}")
+    # print(f"==========qos_choices in list_profiles in views.py================{qos_choices}")
+    # print(f"==========kwargs in list_profiles in views.py================{kwargs}")
 
     forms = dict()
     for p in profiles:
@@ -304,6 +97,8 @@ def list_profiles(request, extra_content=dict(), refresh=False):
         forms.update({f"{Constants.NET}_{p['name']}": NetworkProfileForm(nfields=p)})
     for p in vol_choices:
         forms.update({f"{Constants.VOL}_{p['name']}": VolumeProfileForm(vfields=p)})
+
+    # print(f"=========forms in list_profiles in views.py================{forms}")
 
     if status:
         content = {
@@ -315,6 +110,7 @@ def list_profiles(request, extra_content=dict(), refresh=False):
             'forms': forms
         }
         content.update(extra_content)
+        # print(f"=========content in list_profiles in views.py================{content}")
         return render(request, 'profile.html', content)
     else:
         return HttpResponseServerError()
@@ -468,8 +264,10 @@ def create_session(request):
                 data["errors"].append(errs if errs else res)
 
     _, nodes = services.get_nodes(quser, qgroups, verbose=True)
+    # print(f"=========nodes in create_session in views.py ==========={nodes}")
     _, profiles = services.get_profiles(quser, qgroups)
     _, images = services.get_images(quser, qgroups)
+    print(f"=========images in create_session in views.py ==========={images}")
 
     content = {
         'data': data,
@@ -526,8 +324,12 @@ def update_profile(request, resource=Constants.HOST):
         s['driver'] = None if not len(request.POST.get('driver')) else request.POST.get('driver')
         s['mode'] = None if not len(request.POST.get('mode')) else request.POST.get('mode')
         s['enable_ipv6'] = True if request.POST.get('enable_ipv6') else False
-        s['ipam'] = None if not len(request.POST.get('ipam')) else request.POST.get('ipam')
-        s['options'] = None if not len(request.POST.get('options')) else request.POST.get('options')
+        ipam = None if not len(request.POST.get('ipam')) else request.POST.get('ipam')
+        if ipam is not None:
+            ipam = {'config': eval(ipam)}
+            s['ipam'] = ipam
+        options = None if not len(request.POST.get('options')) else request.POST.get('options')
+        s['options'] = eval(options) if options is not None else None
         pfields['settings'] = s
         return pfields
 
@@ -536,6 +338,7 @@ def update_profile(request, resource=Constants.HOST):
         pfields['name'] = request.POST.get('name')
         s = dict()
         s['type'] = None if not len(request.POST.get('type')) else request.POST.get('type')
+        s['driver'] = None if not len(request.POST.get('type')) else request.POST.get('driver')
         s['source'] = None if not len(request.POST.get('source')) else request.POST.get('source')
         s['target'] = None if not len(request.POST.get('target')) else request.POST.get('target')
         pfields['settings'] = s
@@ -569,13 +372,12 @@ def update_profile(request, resource=Constants.HOST):
 def create_profile(request, resource=Constants.HOST):
     if not request.user.is_authenticated:
         return HttpResponseRedirect('/')
-
     (user,_,quser,qgroups) = _get_user(request)
     if user.is_staff:
         data = {"errors": list()}
+        name = request.POST.get('name', None)
         if resource == Constants.HOST:
             if request.method == 'POST':
-                name = request.POST.get('name', None)
                 if not name:
                     data["errors"].append("Invalid name")
                 data['cpu'] = request.POST.get('cpu', 0)
@@ -626,17 +428,18 @@ def create_profile(request, resource=Constants.HOST):
             logger.debug(content)
             return render(request, 'create_profile.html', content)
 
+
         elif resource == Constants.VOL:
             if request.method == 'POST':
-                name = request.POST.get('name', None)
                 if not name:
                     data["errors"].append("Invalid name")
                 data['type'] = request.POST.get('type', None)
                 # data['source'] = request.POST.get('source', None)
                 # data['target'] = request.POST.get('target', None)
+                # data['driver'] = request.POST.get('driver', None)
                 data['source'] = None if not len(request.POST.get('source')) else request.POST.get('source')
                 data['target'] = None if not len(request.POST.get('target')) else request.POST.get('target')
-                data['driver'] = request.POST.get('driver', None)
+                data['driver'] = None if not len(request.POST.get('driver')) else request.POST.get('driver')
 
                 volume = {
                     'name': name,
@@ -650,48 +453,93 @@ def create_profile(request, resource=Constants.HOST):
                     else:
                         data["errors"].append(res)
 
+            volume = {
+                'name': name,
+                'settings': data
+            }
+
+            forms = VolumeCreateForm(vfields=volume)
             content = {
                 'data': data,
                 'login': request.user.is_authenticated,
-                'is_admin': user.is_staff
+                'is_admin': user.is_staff,
+                'forms': forms
             }
-
             logger.debug(content)
             return render(request, 'create_volume.html', content)
 
 
+
         elif resource == Constants.NET:
             if request.method == 'POST':
-                name = request.POST.get('name', None)
                 if not name:
                     data["errors"].append("Invalid name")
                 data['driver'] = request.POST.get('driver', None)
-                data['mode'] = request.POST.get('mode', None)
+                # data['mode'] = request.POST.get('mode', None)
                 # data['enable_ipv6'] = request.POST.get('enable_ipv6', False)
+                data['mode'] = None if not len(request.POST.get('mode')) else request.POST.get('mode')
                 data['enable_ipv6'] = True if request.POST.get('enable_ipv6') else False
-                # data['ipam'] = request.POST.get('ipam', None)
-                # data['options'] = request.POST.get('options', None)
-                data['ipam'] = None if not len(request.POST.get('ipam')) else request.POST.get('ipam')
-                data['options'] = None if not len(request.POST.get('options')) else request.POST.get('options')
+
+                data['ipam'] = None
+                subnet = request.POST.getlist('subnet', None)
+                gateway = request.POST.getlist('gateway', None)
+                config = list()
+                if subnet[0]:
+                    ipam = dict()
+                    idx = 0
+                    while idx < (len(subnet)):
+                        addrs_dict = dict()
+                        addrs_dict.update({'subnet': subnet[idx]})
+                        addrs_dict.update({'gateway': gateway[idx]})
+                        config.append(addrs_dict)
+                        idx += 1
+                    ipam.update({'config': config})
+                    data['ipam'] = ipam
+
+                data['options'] = None
+                opts = request.POST.getlist('options', None)
+                opts_values = request.POST.getlist('values', None)
+                if opts[0]:
+                    options = dict()
+                    idx = 0
+                    while idx < (len(opts)):
+                        options.update({opts[idx]: opts_values[idx]})
+                        idx += 1
+                    data['options'] = options
+
 
                 network = {
                     'name': name,
                     'settings': data
                 }
+                # print(f"===========network a in create_profile in views.py======={network}")
 
                 if not len(data['errors']):
                     status, res = services.create_profile(resource, network, quser, qgroups)
+                    # print(f"===========res in NET create_profile in views.py======={res}")
                     if status:
                         return HttpResponseRedirect(reverse('janus:list_profiles'))
                     else:
                         data["errors"].append(res)
 
+            # print(f"===========request.method b in NET in create_profile in views.py======={request.method}")
+            # print(f"===========data b in NET create_profile in views.py======={data}")
+            network = {
+                'name': name,
+                'settings': data
+            }
+            # print(f"===========network b in create_profile in views.py======={network}")
+
+            forms = NetworkCreateForm(nfields=network)
+            # options = ['mtu', 'parent']
+            # data['options'] = options
             content = {
                 'data': data,
-                #'qos': qos,
                 'login': request.user.is_authenticated,
-                'is_admin': user.is_staff
+                'is_admin': user.is_staff,
+                'forms': forms
             }
+            print(f"===========content in NET create_profile in views.py======={content}")
 
             logger.debug(content)
             return render(request, 'create_network.html', content)
