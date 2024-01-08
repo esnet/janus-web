@@ -168,22 +168,23 @@ class ContainerCreateForm(forms.Form):
 class VolumeProfileForm(forms.Form):
     def __init__(self, *args, **kwargs):
         vfields = kwargs.pop('vfields')
+        print(f"===========vfields b in VolumeProfileForm in forms.py======={vfields}")
         super(VolumeProfileForm, self).__init__(*args, **kwargs)
         anytext = {'type': 'Type',
                    'driver': 'Driver',
                    'source': 'Source',
                    'target': 'Target'}
 
-        for keys in list(anytext.keys()):
-            if keys not in list(vfields["settings"].keys()):
-                vfields["settings"].update({keys: Constants.NONE})
+        # for keys in list(anytext.keys()):
+        #     if keys not in list(vfields["settings"].keys()):
+        #         vfields["settings"].update({keys: Constants.NONE})
 
         for key, value in vfields["settings"].items():
              if key in anytext.keys():
                  self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
                                                 initial=value, required=False, label=anytext[key],
                                                 max_length=255)
-        # print(f"===========vfields a in VolumeProfileForm in forms.py======={vfields}")
+        print(f"===========vfields a in VolumeProfileForm in forms.py======={vfields}")
         self.helper = FormHelper()
         self.helper.layout = Layout(
             Hidden('name', value=vfields["name"]),
@@ -212,13 +213,13 @@ class NetworkProfileForm(forms.Form):
                    'ipam': 'IPAM',
                    'options': 'Options'}
 
-        for keys in list(anytext.keys()):
-            if keys not in list(nfields["settings"].keys()):
-                nfields["settings"].update({keys: Constants.NONE})
-
-        for keys in list(bools.keys()):
-            if keys not in list(nfields["settings"].keys()):
-                nfields["settings"].update({keys: None})
+        # for keys in list(anytext.keys()):
+        #     if keys not in list(nfields["settings"].keys()):
+        #         nfields["settings"].update({keys: Constants.NONE})
+        #
+        # for keys in list(bools.keys()):
+        #     if keys not in list(nfields["settings"].keys()):
+        #         nfields["settings"].update({keys: None})
 
         print(f"===========nfields a in NetworkProfileForm in forms.py======={nfields}")
         for key, value in nfields["settings"].items():
@@ -229,9 +230,24 @@ class NetworkProfileForm(forms.Form):
                     initial=False if value == "default" else value)
 
             elif key in anytext.keys():
-                if key=='ipam' and value is not None:
-                    self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
+                if key=='ipam':
+                    if value is not None:
+                        self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'placeholder': "Ex: [{'subnet': '192.168.1.2', 'gateway': '192.168.1.1'}]"}),
                                                    initial=value["config"], required=False, label=anytext[key],
+                                                   max_length=255)
+                    elif value is None:
+                        self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'placeholder': "Ex: [{'subnet': '192.168.1.2', 'gateway': '192.168.1.1'}]"}),
+                                                   required=False, label=anytext[key],
+                                                   max_length=255)
+
+                elif key=='options':
+                    if value is not None:
+                        self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'placeholder': "Ex: {'parent': 'enp0s3', 'mtu': 9100}"}),
+                                                   initial=value, required=False, label=anytext[key],
+                                                   max_length=255)
+                    elif value is None:
+                        self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'placeholder': "Ex: {'parent': 'enp0s3', 'mtu': 9100}"}),
+                                                   required=False, label=anytext[key],
                                                    max_length=255)
 
                 else:

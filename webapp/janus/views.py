@@ -327,7 +327,7 @@ def update_profile(request, resource=Constants.HOST):
         ipam = None if not len(request.POST.get('ipam')) else request.POST.get('ipam')
         if ipam is not None:
             ipam = {'config': eval(ipam)}
-            s['ipam'] = ipam
+        s['ipam'] = ipam
         options = None if not len(request.POST.get('options')) else request.POST.get('options')
         s['options'] = eval(options) if options is not None else None
         pfields['settings'] = s
@@ -356,6 +356,8 @@ def update_profile(request, resource=Constants.HOST):
             pfields = handle_net(request)
         elif resource == Constants.VOL:
             pfields = handle_vol(request)
+
+        print(f"=====pfields in update_profile in views.py========== {pfields}")
 
         data = {"errors": list()}
         content = {
