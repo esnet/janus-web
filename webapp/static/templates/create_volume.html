@@ -15,26 +15,27 @@
     <form class="form-group" action="{% url 'janus:create_profile' resource='volume' %}" method="post" id="session_post_form" style="width:60%">
         {% csrf_token %}
 <!--        {% crispy forms %}-->
-<!--        {{ forms }}-->
-        <div style="padding-left:10%; padding-right:10%; padding-top: 2%">
+        <div style="padding-left:20%; padding-right:20%">
+            <div style="padding-top: 2%">
             {{ forms.name.label }}
             {{ forms.name }}
         </div>
-        <div style="padding-left:10%; padding-right:10%; padding-top: 2%">
+        <div style="padding-top: 3%">
             {{ forms.type.label }}
             {{ forms.type }}
         </div>
-        <div style="padding-left:10%; padding-right:10%; padding-top: 2%">
+        <div style="padding-top: 3%">
             {{ forms.driver.label }}
             {{ forms.driver }}
         </div>
-        <div style="padding-left:10%; padding-right:10%; padding-top: 2%">
+        <div style="padding-top: 3%">
             {{ forms.source.label }}
             {{ forms.source }}
         </div>
-        <div style="padding-left:10%; padding-right:10%; padding-top: 2%">
+        <div style="padding-top: 3%">
             {{ forms.target.label }}
             {{ forms.target }}
+        </div>
         </div>
         <div class="row" style="padding-left:10%; padding-right:10%; padding-top: 5%">
             <div class="col-sm-4">

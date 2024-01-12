@@ -15,7 +15,6 @@
     <form class="form-group" action="{% url 'janus:create_profile' resource='network' %}" method="post" id="network_post_form" style="width:60%">
         {% csrf_token %}
 <!--        {% crispy forms %}-->
-<!--        <div>-->
         <div style="padding-left:10%; padding-right:10%; padding-top: 2%">
             {{ forms.name.label }}
             {{ forms.name }}
@@ -30,12 +29,13 @@
         </div>
         <div id="app">
         <div style="padding-left:10%; padding-right:10%; padding-top: 2%">
+            <label>IPAM:</label>
             <div class="row">
                 <div class="col-sm-5">
-                  <label>Subnet</label>
+                  {{ forms.subnet.label }}
 	      </div>
             <div class="col-sm-5">
-                  <label>Gateway</label>
+                  {{ forms.gateway.label }}
 	      </div>
             </div>
         <div class="row" v-for="row in rows">
@@ -55,23 +55,19 @@
         </div>
             </div>
         <div id="app2">
-        <div style="padding-left:10%; padding-right:10%; padding-top: 2%">
+        <div style="padding-left:10%; padding-right:10%; padding-top: 3%">
+            <label>Options:</label>
             <div class="row">
                 <div class="col-sm-5">
-                  <label>Option</label>
+                  {{ forms.options.label }}
 	      </div>
             <div class="col-sm-5">
-                  <label>Value</label>
+                  {{ forms.values.label }}
 	      </div>
             </div>
         <div class="row" v-for="row in rows">
               <div class="col-sm-5">
                     {{ forms.options }}
-<!--            <select class="form-control" name="option" id="" v-model="row.select">-->
-<!--	          {% for item in options %}-->
-<!--	          <option {{ item }}></option>-->
-<!--	          {% endfor %}-->
-<!--	        </select>-->
 	        </div>
                 <div class="col-sm-5">
                     {{ forms.values }}

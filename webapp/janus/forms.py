@@ -7,13 +7,12 @@ from crispy_forms.layout import Hidden, Div, Layout, Submit
 class VolumeCreateForm(forms.Form):
     def __init__(self, *args, **kwargs):
         vfields = kwargs.pop('vfields')
-        # print(f"===========vfields b in VolumeProfileForm in forms.py======={vfields}")
         super(VolumeCreateForm, self).__init__(*args, **kwargs)
-        anytext = {'name': 'Name',
-                   'type': 'Type',
-                   'driver': 'Driver',
-                   'source': 'Source',
-                   'target': 'Target'}
+        anytext = {'name': 'Name:',
+                   'type': 'Type:',
+                   'driver': 'Driver:',
+                   'source': 'Source:',
+                   'target': 'Target:'}
 
         for keys in list(anytext.keys()):
             if keys not in list(vfields["settings"].keys()):
@@ -29,16 +28,15 @@ class VolumeCreateForm(forms.Form):
 class NetworkCreateForm(forms.Form):
     def __init__(self, *args, **kwargs):
         nfields = kwargs.pop('nfields')
-        # print(f"===========nfields b in NetworkCreateForm in forms.py======={nfields}")
         super(NetworkCreateForm, self).__init__(*args, **kwargs)
         bools = {'enable_ipv6': 'Enable IPv6'}
-        anytext = {'name': 'Name',
-                   'driver': 'Driver',
-                   'mode': 'Mode',
-                   'subnet': 'Subnet',
-                   'gateway': 'Gateway',
-                   'options': 'Option',
-                   'values': 'Value'}
+        anytext = {'name': 'Name:',
+                   'driver': 'Driver:',
+                   'mode': 'Mode:',
+                   'subnet': 'Subnet:',
+                   'gateway': 'Gateway:',
+                   'options': 'Option:',
+                   'values': 'Value:'}
 
         for keys in list(anytext.keys()):
             if keys not in list(nfields["settings"].keys()):
@@ -48,42 +46,42 @@ class NetworkCreateForm(forms.Form):
             if keys not in list(nfields["settings"].keys()):
                 nfields["settings"].update({keys: "default"})
 
-        # print(f"===========nfields a in NetworkCreateForm in forms.py======={nfields}")
         for key, value in nfields["settings"].items():
-            if key in anytext.keys():
-                self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
-                                                   initial=value, required=False, label=anytext[key],
-                                                   max_length=255)
-            elif key in bools:
+            if key in bools:
                 self.fields[key] = forms.BooleanField(widget=forms.CheckboxInput(attrs={'id': f"{nfields['name']}-{key}"}),
                                                       required=False, label=bools[key],
                                                       initial=False if value=="default" else value)
-
+            elif key in anytext.keys():
+                self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
+                                                   initial=value, required=False, label=anytext[key],
+                                                   max_length=255)
 
 class ContainerCreateForm(forms.Form):
     def __init__(self, *args, **kwargs):
         pfields = kwargs.pop('pfields')
-        qos_choices = kwargs.pop('qos').copy
+        qos_choices = kwargs.pop('qos')
         mgmt_net_choices = kwargs.pop('network').copy()
         volumes_choices = kwargs.pop('volume').copy()
         super(ContainerCreateForm, self).__init__(*args, **kwargs)
 
-        bools = {'privileged': 'Privileged Container',
-                 'systemd': 'Systemd Container',
-                 'pull_image': 'Pull Image on Create'}
-        selects = {'cpu': 'Cores',
-                   'memory': 'Memory'}
-        selects_none = {'qos': 'Quality of Service',
-                        'mgmt_net': 'Management Network',
-                        'data_net': 'Dataplane Network'}
-        multichoice = {'volumes': 'Volumes'}
-        textareas = {'environment': 'Environment Variables'}
-        anytext = {'name': 'Name',
-                   'arguments': 'Arguments (Container Cmd)',
-                   'mgmt_net_ipv4': 'Management IPv4 Address',
-                   'mgmt_net_ipv6': 'Management IPv6 Address',
-                   'data_net_ipv4': 'Data IPv4 Address',
-                   'data_net_ipv6': 'Data IPv6 Address'}
+        bools = {'privileged': 'Privileged Container:',
+                 'systemd': 'Systemd Container:',
+                 'pull_image': 'Pull Image on Create:'}
+        selects = {'cpu': 'Cores:',
+                   'memory': 'Memory:'}
+        selects_none = {'qos': 'Quality of Service:',
+                        'mgmt_net': 'Management Network:',
+                        'data_net': 'Dataplane Network:'}
+        multichoice = {'volumes': 'Volumes:'}
+        # textareas = {'environment': 'Environment Variables'}
+        anytext = {'name': 'Name:',
+                   'arguments': 'Arguments (Container Cmd):',
+                   'mgmt_net_ipv4': 'Management IPv4 Address:',
+                   'mgmt_net_ipv6': 'Management IPv6 Address:',
+                   'data_net_ipv4': 'Data IPv4 Address:',
+                   'data_net_ipv6': 'Data IPv6 Address:',
+                   'affinity': 'Affinity:',
+                   'environment': 'Environment Variables:'}
         ranges = {'ctrl_port_range': 'Control Port Range',
                   'serv_port_range': 'Service Port Range',
                   'data_port_range': 'Data Port Range'}
@@ -116,13 +114,11 @@ class ContainerCreateForm(forms.Form):
         data_net_choices = mgmt_net_choices
         volumes_choices = sorted(tuple(zip(volumes_choices, volumes_choices)))
 
-
-        for keys in list(anytext.keys()):
-            if keys not in list(pfields["settings"].keys()):
-                pfields["settings"].update({keys: None})
-
-        print(f"===========pfields a in ContainerCreateForm in forms.py======={pfields}")
-
+        field_types = [bools, selects, selects_none, multichoice, anytext, anytext, ranges]
+        for fields in field_types:
+            for keys in list(fields.keys()):
+                if keys not in list(pfields["settings"].keys()):
+                    pfields["settings"].update({keys: None})
 
         for key, value in pfields["settings"].items():
             if key in bools:
@@ -143,16 +139,16 @@ class ContainerCreateForm(forms.Form):
                 self.fields[key] = forms.ChoiceField(choices=locals().get(f"{key}_choices", tuple()),
                                                      initial=0 if value=="default" else value,
                                                      required=False, label=selects[key])
-            elif key in textareas.keys():
-                self.fields[key] = forms.CharField(widget=forms.Textarea(attrs={'rows': 4, 'readonly':'readonly'}),
-                                                   initial=value, required=False, label=textareas[key])
+            # elif key in textareas.keys():
+            #     self.fields[key] = forms.CharField(widget=forms.Textarea(attrs={'rows': 4, 'readonly':'readonly'}),
+            #                                        initial=value, required=False, label=textareas[key])
             elif key in ranges.keys():
                 self.fields[f"{key}_start"] = forms.CharField(widget=forms.TextInput(attrs={'type': 'number'}),
                                                               initial=value[0] if value else "",
-                                                              required=False, label = f"{ranges[key]} Start")
+                                                              required=False, label = f"{ranges[key]} Start:")
                 self.fields[f"{key}_end"] = forms.CharField(widget=forms.TextInput(attrs={'type': 'number'}),
                                                             initial=value[1] if value else "",
-                                                            required=False, label = f"{ranges[key]} End")
+                                                            required=False, label = f"{ranges[key]} End:")
             elif key in anytext.keys():
                 self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
                                                    initial=value, required=False, label=anytext[key],
@@ -164,11 +160,41 @@ class ContainerCreateForm(forms.Form):
                 self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'pattern': '[a-zA-Z0-9]+'}),
                                                    initial=value, required=False)
 
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Div(
+                Div('name', css_class='col-sm-12 d-flex justify-content-center'),
+                Div('privileged', css_class='col-4'),
+                Div('systemd', css_class='col-4'),
+                Div('pull_image', css_class='col-4'),
+                Div('cpu', css_class='col-sm-6'),
+                Div('memory', css_class='col-sm-6'),
+                Div('mgmt_net', css_class='col-sm-4'),
+                Div('mgmt_net_ipv4', css_class='col-sm-4'),
+                Div('mgmt_net_ipv6', css_class='col-sm-4'),
+                Div('data_net', css_class='col-sm-4'),
+                Div('data_net_ipv4', css_class='col-sm-4'),
+                Div('data_net_ipv6', css_class='col-sm-4'),
+                Div('ctrl_port_range_start', css_class='col-sm-6'),
+                Div('ctrl_port_range_end', css_class='col-sm-6'),
+                Div('data_port_range_start', css_class='col-sm-6'),
+                Div('data_port_range_end', css_class='col-sm-6'),
+                Div('serv_port_range_start', css_class='col-sm-6'),
+                Div('serv_port_range_end', css_class='col-sm-6'),
+                Div('affinity', css_class='col-sm-6'),
+                # Div('features', css_class='col-sm-6'),
+                Div('arguments', css_class='col-sm-6'),
+                Div('volumes', css_class='col-sm-6'),
+                Div('qos', css_class='col-sm-6'),
+                Div('environment', css_class='col-sm-12 justify-content-center'),
+                css_class='row'
+            )
+        )
+
 
 class VolumeProfileForm(forms.Form):
     def __init__(self, *args, **kwargs):
         vfields = kwargs.pop('vfields')
-        print(f"===========vfields b in VolumeProfileForm in forms.py======={vfields}")
         super(VolumeProfileForm, self).__init__(*args, **kwargs)
         anytext = {'type': 'Type',
                    'driver': 'Driver',
@@ -184,7 +210,6 @@ class VolumeProfileForm(forms.Form):
                  self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
                                                 initial=value, required=False, label=anytext[key],
                                                 max_length=255)
-        print(f"===========vfields a in VolumeProfileForm in forms.py======={vfields}")
         self.helper = FormHelper()
         self.helper.layout = Layout(
             Hidden('name', value=vfields["name"]),
@@ -204,7 +229,6 @@ class VolumeProfileForm(forms.Form):
 class NetworkProfileForm(forms.Form):
     def __init__(self, *args, **kwargs):
         nfields = kwargs.pop('nfields')
-        print(f"===========nfields b in NetworkProfileForm in forms.py======={nfields}")
         super(NetworkProfileForm, self).__init__(*args, **kwargs)
 
         bools = {'enable_ipv6': 'Enable IPv6'}
@@ -221,7 +245,6 @@ class NetworkProfileForm(forms.Form):
         #     if keys not in list(nfields["settings"].keys()):
         #         nfields["settings"].update({keys: None})
 
-        print(f"===========nfields a in NetworkProfileForm in forms.py======={nfields}")
         for key, value in nfields["settings"].items():
             if key in bools:
                 self.fields[key] = forms.BooleanField(
@@ -231,22 +254,24 @@ class NetworkProfileForm(forms.Form):
 
             elif key in anytext.keys():
                 if key=='ipam':
+                    placeholder = "e.g. [{'subnet':'192.168.1.2', 'gateway':'192.168.1.1'}]"
                     if value is not None:
-                        self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'placeholder': "Ex: [{'subnet': '192.168.1.2', 'gateway': '192.168.1.1'}]"}),
+                        self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'placeholder': placeholder}),
                                                    initial=value["config"], required=False, label=anytext[key],
                                                    max_length=255)
                     elif value is None:
-                        self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'placeholder': "Ex: [{'subnet': '192.168.1.2', 'gateway': '192.168.1.1'}]"}),
+                        self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'placeholder': placeholder}),
                                                    required=False, label=anytext[key],
                                                    max_length=255)
 
                 elif key=='options':
+                    placeholder = "e.g. {'parent': 'enp0s3', 'mtu': 9100}"
                     if value is not None:
-                        self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'placeholder': "Ex: {'parent': 'enp0s3', 'mtu': 9100}"}),
+                        self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'placeholder': placeholder}),
                                                    initial=value, required=False, label=anytext[key],
                                                    max_length=255)
                     elif value is None:
-                        self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'placeholder': "Ex: {'parent': 'enp0s3', 'mtu': 9100}"}),
+                        self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'placeholder': placeholder}),
                                                    required=False, label=anytext[key],
                                                    max_length=255)
 

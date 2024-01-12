@@ -71,9 +71,6 @@ def list_nodes(request):
         return HttpResponseServerError()
 
 def list_profiles(request, extra_content=dict(), refresh=False):
-    # print(f"==========request in list_profiles in views.py================{request}")
-    # print(f"==========extra_content in list_profiles in views.py================{extra_content}")
-    # print(f"==========refresh in list_profiles in views.py================{refresh}")
     if not request.user.is_authenticated:
         return HttpResponseRedirect('/')
     (user,_,quser,qgroups) = _get_user(request)
@@ -84,11 +81,6 @@ def list_profiles(request, extra_content=dict(), refresh=False):
     kwargs = {Constants.QOS: [k.get('name') for k in qos_choices],
               Constants.NET: [k.get('name') for k in net_choices],
               Constants.VOL: [k.get('name') for k in vol_choices]}
-    # print(f"==========profiles in list_profiles in views.py================{profiles}")
-    # print(f"==========vol_choices in list_profiles in views.py================{vol_choices}")
-    print(f"==========net_choices in list_profiles in views.py================{net_choices}")
-    # print(f"==========qos_choices in list_profiles in views.py================{qos_choices}")
-    # print(f"==========kwargs in list_profiles in views.py================{kwargs}")
 
     forms = dict()
     for p in profiles:
@@ -97,8 +89,6 @@ def list_profiles(request, extra_content=dict(), refresh=False):
         forms.update({f"{Constants.NET}_{p['name']}": NetworkProfileForm(nfields=p)})
     for p in vol_choices:
         forms.update({f"{Constants.VOL}_{p['name']}": VolumeProfileForm(vfields=p)})
-
-    # print(f"=========forms in list_profiles in views.py================{forms}")
 
     if status:
         content = {
@@ -110,7 +100,6 @@ def list_profiles(request, extra_content=dict(), refresh=False):
             'forms': forms
         }
         content.update(extra_content)
-        # print(f"=========content in list_profiles in views.py================{content}")
         return render(request, 'profile.html', content)
     else:
         return HttpResponseServerError()
@@ -264,10 +253,8 @@ def create_session(request):
                 data["errors"].append(errs if errs else res)
 
     _, nodes = services.get_nodes(quser, qgroups, verbose=True)
-    # print(f"=========nodes in create_session in views.py ==========={nodes}")
     _, profiles = services.get_profiles(quser, qgroups)
     _, images = services.get_images(quser, qgroups)
-    print(f"=========images in create_session in views.py ==========={images}")
 
     content = {
         'data': data,
@@ -357,8 +344,6 @@ def update_profile(request, resource=Constants.HOST):
         elif resource == Constants.VOL:
             pfields = handle_vol(request)
 
-        print(f"=====pfields in update_profile in views.py========== {pfields}")
-
         data = {"errors": list()}
         content = {
             'data': data
@@ -419,26 +404,33 @@ def create_profile(request, resource=Constants.HOST):
                     else:
                         data["errors"].append(res)
 
-            _, qos = services.get_qos()
-            content = {
-                'data': data,
-                'qos': qos,
-                'login': request.user.is_authenticated,
-                'is_admin': user.is_staff
+            profile = {
+                'name': name,
+                'settings': data
             }
 
-            logger.debug(content)
-            return render(request, 'create_profile.html', content)
+            _, qos_choices = services.get_profiles(quser, qgroups, resource=Constants.QOS, verbose=True)
+            _, vol_choices = services.get_profiles(quser, qgroups, resource=Constants.VOL, verbose=True)
+            _, net_choices = services.get_profiles(quser, qgroups, resource=Constants.NET, verbose=True)
+            kwargs = {Constants.QOS: [k.get('name') for k in qos_choices],
+                      Constants.NET: [k.get('name') for k in net_choices],
+                      Constants.VOL: [k.get('name') for k in vol_choices]}
 
+            forms = ContainerCreateForm(pfields=profile, **kwargs)
+            content = {
+                'data': data,
+                'login': request.user.is_authenticated,
+                'is_admin': user.is_staff,
+                'forms': forms
+            }
+            logger.debug(content)
+            return render(request, 'profile_create.html', content)
 
         elif resource == Constants.VOL:
             if request.method == 'POST':
                 if not name:
                     data["errors"].append("Invalid name")
                 data['type'] = request.POST.get('type', None)
-                # data['source'] = request.POST.get('source', None)
-                # data['target'] = request.POST.get('target', None)
-                # data['driver'] = request.POST.get('driver', None)
                 data['source'] = None if not len(request.POST.get('source')) else request.POST.get('source')
                 data['target'] = None if not len(request.POST.get('target')) else request.POST.get('target')
                 data['driver'] = None if not len(request.POST.get('driver')) else request.POST.get('driver')
@@ -477,8 +469,6 @@ def create_profile(request, resource=Constants.HOST):
                 if not name:
                     data["errors"].append("Invalid name")
                 data['driver'] = request.POST.get('driver', None)
-                # data['mode'] = request.POST.get('mode', None)
-                # data['enable_ipv6'] = request.POST.get('enable_ipv6', False)
                 data['mode'] = None if not len(request.POST.get('mode')) else request.POST.get('mode')
                 data['enable_ipv6'] = True if request.POST.get('enable_ipv6') else False
 
@@ -509,39 +499,30 @@ def create_profile(request, resource=Constants.HOST):
                         idx += 1
                     data['options'] = options
 
-
                 network = {
                     'name': name,
                     'settings': data
                 }
-                # print(f"===========network a in create_profile in views.py======={network}")
 
                 if not len(data['errors']):
                     status, res = services.create_profile(resource, network, quser, qgroups)
-                    # print(f"===========res in NET create_profile in views.py======={res}")
                     if status:
                         return HttpResponseRedirect(reverse('janus:list_profiles'))
                     else:
                         data["errors"].append(res)
 
-            # print(f"===========request.method b in NET in create_profile in views.py======={request.method}")
-            # print(f"===========data b in NET create_profile in views.py======={data}")
             network = {
                 'name': name,
                 'settings': data
             }
-            # print(f"===========network b in create_profile in views.py======={network}")
 
             forms = NetworkCreateForm(nfields=network)
-            # options = ['mtu', 'parent']
-            # data['options'] = options
             content = {
                 'data': data,
                 'login': request.user.is_authenticated,
                 'is_admin': user.is_staff,
                 'forms': forms
             }
-            print(f"===========content in NET create_profile in views.py======={content}")
 
             logger.debug(content)
             return render(request, 'create_network.html', content)
