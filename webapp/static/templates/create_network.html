@@ -11,92 +11,16 @@
       {% endfor %}
     </div>
     {% endif %}
-	<h1 class="text-center"><strong><i>New Network</i></strong></h1>
-    <form class="form-group" action="{% url 'janus:create_profile' resource='network' %}" method="post" id="network_post_form" style="width:60%">
+
+    <div class="card bg-light mb-3" style="width: 60%">
+      <div class="card-header align-items-center">
+	<b>Create New Network</b>
+      </div>
+      <div class="card-body">
         {% csrf_token %}
-<!--        {% crispy forms %}-->
-        <div style="padding-left:10%; padding-right:10%; padding-top: 2%">
-            {{ forms.name.label }}
-            {{ forms.name }}
-        </div>
-        <div style="padding-left:10%; padding-right:10%; padding-top: 2%">
-            {{ forms.driver.label }}
-            {{ forms.driver }}
-        </div>
-        <div style="padding-left:10%; padding-right:10%; padding-top: 2%">
-            {{ forms.mode.label }}
-            {{ forms.mode }}
-        </div>
-        <div id="app">
-        <div style="padding-left:10%; padding-right:10%; padding-top: 2%">
-            <label>IPAM:</label>
-            <div class="row">
-                <div class="col-sm-5">
-                  {{ forms.subnet.label }}
-	      </div>
-            <div class="col-sm-5">
-                  {{ forms.gateway.label }}
-	      </div>
-            </div>
-        <div class="row" v-for="row in rows">
-              <div class="col-sm-5">
-                    {{ forms.subnet }}
-	      </div>
-            <div class="col-sm-5">
-                    {{ forms.gateway }}
-	      </div>
-            <div class="col-xs-1">
-	        <button class="btn btn-success" @click="addRow" type="button">+</button>
-              </div>
-              <div class="col-xs-1">
-	        <button class="btn btn-danger" @click="deleteRow(row)" type="button">x</button>
-              </div>
-            </div>
-        </div>
-            </div>
-        <div id="app2">
-        <div style="padding-left:10%; padding-right:10%; padding-top: 3%">
-            <label>Options:</label>
-            <div class="row">
-                <div class="col-sm-5">
-                  {{ forms.options.label }}
-	      </div>
-            <div class="col-sm-5">
-                  {{ forms.values.label }}
-	      </div>
-            </div>
-        <div class="row" v-for="row in rows">
-              <div class="col-sm-5">
-                    {{ forms.options }}
-	        </div>
-                <div class="col-sm-5">
-                    {{ forms.values }}
-	        </div>
-            <div class="col-xs-1">
-	        <button class="btn btn-success" @click="addRow" type="button">+</button>
-              </div>
-              <div class="col-xs-1">
-	        <button class="btn btn-danger" @click="deleteRow(row)" type="button">x</button>
-              </div>
-            </div>
-        </div>
-            </div>
-        <div style="padding-left:10%; padding-right:10%; padding-top: 2%">
-            {{ forms.enable_ipv6.label }}
-            {{ forms.enable_ipv6 }}
-        </div>
-        <div class="row" style="padding-left:10%; padding-right:10%; padding-top: 5%">
-            <div class="col-sm-4">
-              <button class="btn btn-lg btn-block btn-success" type="submit"><i class="glyphicon glyphicon-ok-sign"></i>Create</button>
-            </div>
-            <div class="col-sm-4">
-              <button class="btn btn-lg btn-block btn-warning" type="reset"><i class="glyphicon glyphicon-repeat"></i>Reset</button>
-            </div>
-            <div class="col-sm-4">
-              <a class="btn btn-lg btn-block btn-secondary" href="../"><i class="glyphicon glyphicon-repeat"></i>Cancel</a>
-            </div>
-          </div>
-    </form>
+        {% crispy forms %}
+      </div>
+    </div>
     </div>
 </div>
 
