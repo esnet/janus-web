@@ -2,59 +2,8 @@ from .constants import Constants
 from django.urls import reverse
 from django import forms
 from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Hidden, Div, Layout, Submit
+from crispy_forms.layout import Hidden, Div, Layout, Submit, Button, Field, HTML
 
-class VolumeCreateForm(forms.Form):
-    def __init__(self, *args, **kwargs):
-        vfields = kwargs.pop('vfields')
-        super(VolumeCreateForm, self).__init__(*args, **kwargs)
-        anytext = {'name': 'Name:',
-                   'type': 'Type:',
-                   'driver': 'Driver:',
-                   'source': 'Source:',
-                   'target': 'Target:'}
-
-        for keys in list(anytext.keys()):
-            if keys not in list(vfields["settings"].keys()):
-                vfields["settings"].update({keys: None})
-
-        for key, value in vfields["settings"].items():
-             if key in anytext.keys():
-                 self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
-                                                initial=value, required=False, label=anytext[key],
-                                                max_length=255)
-
-
-class NetworkCreateForm(forms.Form):
-    def __init__(self, *args, **kwargs):
-        nfields = kwargs.pop('nfields')
-        super(NetworkCreateForm, self).__init__(*args, **kwargs)
-        bools = {'enable_ipv6': 'Enable IPv6'}
-        anytext = {'name': 'Name:',
-                   'driver': 'Driver:',
-                   'mode': 'Mode:',
-                   'subnet': 'Subnet:',
-                   'gateway': 'Gateway:',
-                   'options': 'Option:',
-                   'values': 'Value:'}
-
-        for keys in list(anytext.keys()):
-            if keys not in list(nfields["settings"].keys()):
-                nfields["settings"].update({keys: None})
-
-        for keys in list(bools.keys()):
-            if keys not in list(nfields["settings"].keys()):
-                nfields["settings"].update({keys: "default"})
-
-        for key, value in nfields["settings"].items():
-            if key in bools:
-                self.fields[key] = forms.BooleanField(widget=forms.CheckboxInput(attrs={'id': f"{nfields['name']}-{key}"}),
-                                                      required=False, label=bools[key],
-                                                      initial=False if value=="default" else value)
-            elif key in anytext.keys():
-                self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
-                                                   initial=value, required=False, label=anytext[key],
-                                                   max_length=255)
 
 class ContainerCreateForm(forms.Form):
     def __init__(self, *args, **kwargs):
@@ -200,30 +149,39 @@ class VolumeProfileForm(forms.Form):
                    'driver': 'Driver',
                    'source': 'Source',
                    'target': 'Target'}
+        if not vfields:
+            anytext.update({'name': 'Name'})
 
-        # for keys in list(anytext.keys()):
-        #     if keys not in list(vfields["settings"].keys()):
-        #         vfields["settings"].update({keys: Constants.NONE})
-
-        for key, value in vfields["settings"].items():
-             if key in anytext.keys():
-                 self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
-                                                initial=value, required=False, label=anytext[key],
-                                                max_length=255)
+        for key, label in anytext.items():
+            value = None
+            if vfields and key in vfields.get('settings'):
+                value = vfields['settings'].get(key)
+            self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
+                                               initial=value, required=False, label=label,
+                                               max_length=255)
         self.helper = FormHelper()
+        name_layout = Hidden('name', value=vfields["name"]) if vfields else Div('name', css_class='col-sm-6')
         self.helper.layout = Layout(
-            Hidden('name', value=vfields["name"]),
+            name_layout,
             Div(
                 Div('type', css_class='col-sm-6'),
                 Div('driver', css_class='col-sm-6'),
+                css_class='form-row'
+            ),
+            Div(
                 Div('source', css_class='col-sm-6'),
                 Div('target', css_class='col-sm-6'),
-                css_class='row'
+                css_class='form-row'
             )
         )
         self.helper.add_input(Submit('submit', 'Save', css_class='btn btn-primary'))
         self.helper.form_method = 'POST'
-        self.helper.form_action = reverse('janus:update_profile', args=[Constants.VOL])
+        if vfields:
+            self.helper.form_action = reverse('janus:update_profile', args=[Constants.VOL])
+        else:
+            self.helper.add_input(Button('cancel', 'Cancel', css_class='btn btn-primary',
+                                         onclick="window.location.href = '{}';".format(reverse('janus:list_profiles'))))
+            self.helper.form_action = reverse('janus:create_profile', args=[Constants.VOL])
 
 
 class NetworkProfileForm(forms.Form):
@@ -237,22 +195,21 @@ class NetworkProfileForm(forms.Form):
                    'ipam': 'IPAM',
                    'options': 'Options'}
 
-        # for keys in list(anytext.keys()):
-        #     if keys not in list(nfields["settings"].keys()):
-        #         nfields["settings"].update({keys: Constants.NONE})
-        #
-        # for keys in list(bools.keys()):
-        #     if keys not in list(nfields["settings"].keys()):
-        #         nfields["settings"].update({keys: None})
+        if not nfields:
+            anytext.update({'name': 'Name'})
 
-        for key, value in nfields["settings"].items():
+        name = nfields.get('name') if nfields else "new"
+        for key, label in {**bools, **anytext}.items():
+            value = None
+            if nfields and key in nfields.get('settings'):
+                value = nfields['settings'].get(key)
             if key in bools:
                 self.fields[key] = forms.BooleanField(
-                    widget=forms.CheckboxInput(attrs={'id': f"{nfields['name']}-{key}"}),
+                    widget=forms.CheckboxInput(attrs={'id': f"{name}-{key}"}),
                     required=False, label=bools[key],
                     initial=False if value == "default" else value)
 
-            elif key in anytext.keys():
+            else:
                 if key=='ipam':
                     placeholder = "e.g. [{'subnet':'192.168.1.2', 'gateway':'192.168.1.1'}]"
                     if value is not None:
@@ -281,23 +238,54 @@ class NetworkProfileForm(forms.Form):
                                                    max_length=255)
 
         self.helper = FormHelper()
+        name_layout = Hidden('name', value=nfields["name"]) if nfields else Div('name', css_class='col-sm-6')
         self.helper.layout = Layout(
-            Hidden('name', value=nfields["name"]),
+            name_layout,
             Div(
-                Div('enable_ipv6', css_class='col-sm-8'),
+                Div('enable_ipv6', css_class='col-sm-3'),
+                css_class='checkbox-inline'
+            ),
+            Div(
                 Div('driver', css_class='col-sm-6'),
                 Div('mode', css_class='col-sm-6'),
-                Div('ipam', css_class='col-sm-6'),
-                Div('options', css_class='col-sm-6'),
-                css_class='row'
-            )
+                css_class='form-row'
+            ),
+            HTML("<p>IPAM</p>"),
         )
         self.helper.add_input(Submit('submit', 'Save', css_class='btn btn-primary'))
         self.helper.form_method = 'POST'
-        self.helper.form_action = reverse('janus:update_profile', args=[Constants.NET])
+        if nfields:
+            self.helper.form_action = reverse('janus:update_profile', args=[Constants.NET])
+        else:
+            self.helper.add_input(Button('cancel', 'Cancel', css_class='btn btn-primary',
+                                         onclick="window.location.href = '{}';".format(reverse('janus:list_profiles'))))
+            self.helper.form_action = reverse('janus:create_profile', args=[Constants.NET])
 
-
-
+        ipam = None
+        if nfields:
+            ipam = nfields['settings'].get('ipam')
+        if not ipam:
+            ipam = {'config': [{'subnet': '', 'gateway': ''}]}
+        counter = 1
+        for i in ipam.get('config'):
+            subnet_field_name = f"subnet_{counter}"
+            gateway_field_name = f"gateway_{counter}"
+            self.fields[subnet_field_name] = forms.CharField(label=f"Subnet {counter}",
+                                                             initial=i.get('subnet'),
+                                                             required=False)
+            self.fields[gateway_field_name] = forms.CharField(label=f"Gateway {counter}",
+                                                              initial=i.get('gateway'),
+                                                              required=False)
+            self.helper.layout.append(
+                Div(
+                    Field(subnet_field_name, wrapper_class='col-sm-4'),
+                    Field(gateway_field_name, wrapper_class='col-sm-4'),
+                    HTML('<a href= "#" onclick="" class="btn btn-sm btn-success"><span class="fa-solid fa-plus"></span></a>'),
+                    HTML('<a href= "#" onclick="" class="btn btn-sm btn-danger"><span class="fa-solid fa-xmark"></span></a>'),
+                    css_class='form-row align-items-center d-flex justify-content-center'
+                )
+            )
+            counter+=1
 
 class ContainerProfileForm(forms.Form):
     def __init__(self, *args, **kwargs):
