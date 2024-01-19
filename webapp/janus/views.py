@@ -447,12 +447,7 @@ def create_profile(request, resource=Constants.HOST):
                     else:
                         data["errors"].append(res)
 
-            volume = {
-                'name': name,
-                'settings': data
-            }
-
-            forms = VolumeCreateForm(vfields=volume)
+            forms = VolumeProfileForm(vfields=None)
             content = {
                 'data': data,
                 'login': request.user.is_authenticated,
@@ -511,20 +506,13 @@ def create_profile(request, resource=Constants.HOST):
                     else:
                         data["errors"].append(res)
 
-            network = {
-                'name': name,
-                'settings': data
-            }
-
-            forms = NetworkCreateForm(nfields=network)
+            forms = NetworkProfileForm(nfields=None)
             content = {
                 'data': data,
                 'login': request.user.is_authenticated,
                 'is_admin': user.is_staff,
                 'forms': forms
             }
-
-            logger.debug(content)
             return render(request, 'create_network.html', content)
 
     else:
