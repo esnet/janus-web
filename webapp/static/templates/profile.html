@@ -169,7 +169,11 @@
                   <td> {{ data.name }} </td>
                   <td> {{ data.settings.driver }} </td>
                   <td> {{ data.settings.enable_ipv6|default:'' }} </td>
-                  <td> {{ data.settings.ipam.config|default:'' }} </td>
+                  <td>
+                    {% for s in data.settings.ipam.config %}
+                    {{ s.subnet }}<br/>
+                    {% endfor %}
+                  </td>
                   <td/>
                   {% if is_admin %}
                   <td class="d-flex justify-content-center">
@@ -194,6 +198,7 @@
                   </td>
                 </tr>
                 {% endfor %}
+                {{ nets|json_script:"nets" }}
               </tbody>
             </table>
           </div>
@@ -258,5 +263,33 @@
       </div>
     </div>
   </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/1.0.26/vue.js"></script>
+<script>
+  const nets = JSON.parse(document.getElementById('nets').textContent);
+  console.log(nets);
+
+  document.querySelectorAll('div.ipam-app').forEach(x => new Vue({
+    el: x,
+    data() {
+      return {
+        rows: [{'subnet': 'snet1',
+                'gateway': 'gw1'},
+               {'subnet': 'snet2',
+                'gateway': 'gw2'}]
+      };
+    }
+  }));
+
+  document.querySelectorAll('div.options-app').forEach(x => new Vue({
+    el: x,
+    data() {
+      return {
+        rows: [{'name': 'parent',
+                'value': 'eth1'}]
+      };
+    }
+  }));
+</script>
 
 {% endblock content %}
