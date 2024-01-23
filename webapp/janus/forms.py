@@ -209,31 +209,8 @@ class NetworkProfileForm(forms.Form):
                     required=False, label=bools[key],
                     initial=False if value == "default" else value)
 
-            else:
-                if key=='ipam':
-                    placeholder = "e.g. [{'subnet':'192.168.1.2', 'gateway':'192.168.1.1'}]"
-                    if value is not None:
-                        self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'placeholder': placeholder}),
-                                                   initial=value["config"], required=False, label=anytext[key],
-                                                   max_length=255)
-                    elif value is None:
-                        self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'placeholder': placeholder}),
-                                                   required=False, label=anytext[key],
-                                                   max_length=255)
-
-                elif key=='options':
-                    placeholder = "e.g. {'parent': 'enp0s3', 'mtu': 9100}"
-                    if value is not None:
-                        self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'placeholder': placeholder}),
-                                                   initial=value, required=False, label=anytext[key],
-                                                   max_length=255)
-                    elif value is None:
-                        self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'placeholder': placeholder}),
-                                                   required=False, label=anytext[key],
-                                                   max_length=255)
-
-                else:
-                    self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
+            elif key in ['driver', 'mode']:
+                self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
                                                    initial=value, required=False, label=anytext[key],
                                                    max_length=255)
 
@@ -249,8 +226,7 @@ class NetworkProfileForm(forms.Form):
                 Div('driver', css_class='col-sm-6'),
                 Div('mode', css_class='col-sm-6'),
                 css_class='form-row'
-            ),
-            HTML("<p>IPAM</p>"),
+            )
         )
         self.helper.add_input(Submit('submit', 'Save', css_class='btn btn-primary'))
         self.helper.form_method = 'POST'
@@ -261,31 +237,59 @@ class NetworkProfileForm(forms.Form):
                                          onclick="window.location.href = '{}';".format(reverse('janus:list_profiles'))))
             self.helper.form_action = reverse('janus:create_profile', args=[Constants.NET])
 
-        ipam = None
-        if nfields:
-            ipam = nfields['settings'].get('ipam')
-        if not ipam:
-            ipam = {'config': [{'subnet': '', 'gateway': ''}]}
-        counter = 1
-        for i in ipam.get('config'):
-            subnet_field_name = f"subnet_{counter}"
-            gateway_field_name = f"gateway_{counter}"
-            self.fields[subnet_field_name] = forms.CharField(label=f"Subnet {counter}",
-                                                             initial=i.get('subnet'),
-                                                             required=False)
-            self.fields[gateway_field_name] = forms.CharField(label=f"Gateway {counter}",
-                                                              initial=i.get('gateway'),
-                                                              required=False)
-            self.helper.layout.append(
+        self.helper.layout.append(HTML("<p>IPAM</p>"))
+        self.helper.layout.append(HTML("""
+        <div class='form-row align-items-center d-flex justify-content-center'>
+          <div class='col-sm-4'><i>Subnet</i></div>
+          <div class='col-sm-4'><i>Gateway</i></div>
+        </div>
+        """))
+        self.fields['subnet'] = forms.CharField(widget=forms.TextInput(attrs={}),
+                                                label=False,
+                                                required=False)
+        self.fields['gateway'] = forms.CharField(widget=forms.TextInput(attrs={}),
+                                                 label=False,
+                                                 required=False)
+        self.helper.layout.append(
+            Div(
                 Div(
-                    Field(subnet_field_name, wrapper_class='col-sm-4'),
-                    Field(gateway_field_name, wrapper_class='col-sm-4'),
-                    HTML('<a href= "#" onclick="" class="btn btn-sm btn-success"><span class="fa-solid fa-plus"></span></a>'),
-                    HTML('<a href= "#" onclick="" class="btn btn-sm btn-danger"><span class="fa-solid fa-xmark"></span></a>'),
-                    css_class='form-row align-items-center d-flex justify-content-center'
-                )
+                    Field('subnet', wrapper_class='col-sm-4', v_model='row.subnet'),
+                    Field('gateway', wrapper_class='col-sm-4', v_model='row.gateway'),
+                    HTML('<a v-on:click="rows.push({})" class="btn btn-sm btn-success"><span class="fa-solid fa-plus"></span></a>'),
+                    HTML('<a v-on:click="rows.splice(index, 1)" class="btn btn-sm btn-danger"><span class="fa-solid fa-xmark"></span></a>'),
+                    css_class='form-row align-items-center d-flex justify-content-center',
+                    v_for=f'row in rows'
+                ),
+                id=f"ipam-app-{name}", css_class="ipam-app"
             )
-            counter+=1
+        )
+
+        self.helper.layout.append(HTML("<p>Options</p>"))
+        self.helper.layout.append(HTML("""
+        <div class='form-row align-items-center d-flex justify-content-center'>
+          <div class='col-sm-4'><i>Name</i></div>
+          <div class='col-sm-4'><i>Value</i></div>
+        </div>
+        """))
+        self.fields['opt_name'] = forms.CharField(widget=forms.TextInput(attrs={}),
+                                                  label=False,
+                                                  required=False)
+        self.fields['opt_value'] = forms.CharField(widget=forms.TextInput(attrs={}),
+                                                   label=False,
+                                                   required=False)
+        self.helper.layout.append(
+            Div(
+                Div(
+                    Field('opt_name', wrapper_class='col-sm-4', v_model='row.name'),
+                    Field('opt_value', wrapper_class='col-sm-4', v_model='row.value'),
+                    HTML('<a v-on:click="rows.push({})" class="btn btn-sm btn-success"><span class="fa-solid fa-plus"></span></a>'),
+                    HTML('<a v-on:click="rows.splice(index, 1)" class="btn btn-sm btn-danger"><span class="fa-solid fa-xmark"></span></a>'),
+                    css_class='form-row align-items-center d-flex justify-content-center',
+                    v_for='row in rows'
+                ),
+                id=f"options-app-{name}", css_class="options-app"
+            )
+        )
 
 class ContainerProfileForm(forms.Form):
     def __init__(self, *args, **kwargs):
