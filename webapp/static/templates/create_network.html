@@ -25,41 +25,24 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/1.0.26/vue.js"></script>
-
 <script>
-new Vue({
-	el: '#app',
-	data: {
-		rows: [
-			{ 'select': 1 }
-		]
-	},
-	methods: {
-		addRow: function() {
-			this.rows.push({'select': 1 });
-		},
-		deleteRow: function(row) {
-			this.rows.$remove(row);
-		}
-	}
-})
+  document.querySelectorAll('div.ipam-app').forEach(x => new Vue({
+    el: x,
+    data() {
+      return {
+        rows: [{}]
+      };
+    }
+  }));
 
-new Vue({
-	el: '#app2',
-	data: {
-		rows: [
-			{ 'select': 1 }
-		]
-	},
-	methods: {
-		addRow: function() {
-			this.rows.push({'select': 1 });
-		},
-		deleteRow: function(row) {
-			this.rows.$remove(row);
-		}
-	}
-})
+  document.querySelectorAll('div.options-app').forEach(x => new Vue({
+    el: x,
+    data() {
+      return {
+        rows: [{}]
+      };
+    }
+  }));
 </script>
 
 {% endblock content %}
