@@ -209,13 +209,13 @@ class NetworkProfileForm(forms.Form):
                     required=False, label=bools[key],
                     initial=False if value == "default" else value)
 
-            elif key in ['driver', 'mode']:
+            elif key in ['name', 'driver', 'mode']:
                 self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
                                                    initial=value, required=False, label=anytext[key],
                                                    max_length=255)
 
         self.helper = FormHelper()
-        name_layout = Hidden('name', value=nfields["name"]) if nfields else Div('name', css_class='col-sm-6')
+        name_layout = Hidden('name', value=name) if nfields else Div('name', css_class='col-sm-6')
         self.helper.layout = Layout(
             name_layout,
             Div(
