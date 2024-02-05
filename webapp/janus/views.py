@@ -404,10 +404,10 @@ def create_profile(request, resource=Constants.HOST):
                     else:
                         data["errors"].append(res)
 
-            profile = {
-                'name': name,
-                'settings': data
-            }
+            # profile = {
+            #     'name': name,
+            #     'settings': data
+            # }
 
             _, qos_choices = services.get_profiles(quser, qgroups, resource=Constants.QOS, verbose=True)
             _, vol_choices = services.get_profiles(quser, qgroups, resource=Constants.VOL, verbose=True)
@@ -416,7 +416,8 @@ def create_profile(request, resource=Constants.HOST):
                       Constants.NET: [k.get('name') for k in net_choices],
                       Constants.VOL: [k.get('name') for k in vol_choices]}
 
-            forms = ContainerCreateForm(pfields=profile, **kwargs)
+            # forms = ContainerProfileForm(pfields=profile, **kwargs)
+            forms = ContainerProfileForm(pfields=None, **kwargs)
             content = {
                 'data': data,
                 'login': request.user.is_authenticated,
@@ -485,6 +486,7 @@ def create_profile(request, resource=Constants.HOST):
 
                 data['options'] = None
                 opts = request.POST.getlist('options', None)
+                print(f"=======opts in create_profile in NET======{opts}")
                 opts_values = request.POST.getlist('values', None)
                 if opts[0]:
                     options = dict()
