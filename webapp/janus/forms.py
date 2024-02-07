@@ -7,7 +7,6 @@ from crispy_forms.layout import Hidden, Div, Layout, Submit, Button, Field, HTML
 class VolumeProfileForm(forms.Form):
     def __init__(self, *args, **kwargs):
         vfields = kwargs.pop('vfields')
-        # print(f"======vfields in VolumeProfileForm==========={vfields}")
         super(VolumeProfileForm, self).__init__(*args, **kwargs)
         anytext = {'type': 'Type',
                    'driver': 'Driver',
@@ -164,11 +163,6 @@ class ContainerProfileForm(forms.Form):
         volumes_choices = kwargs.pop('volume').copy()
         super(ContainerProfileForm, self).__init__(*args, **kwargs)
 
-        print(f"======pfields b in ContainerProfileForm==========={pfields}")
-        # print(f"======qos_choices in ContainerProfileForm==========={qos_choices}")
-        # print(f"======mgmt_net_choices in ContainerProfileForm==========={mgmt_net_choices}")
-        # print(f"======volumes_choices in ContainerProfileForm==========={volumes_choices}")
-
         bools = {'privileged': 'Privileged Container:',
                  'systemd': 'Systemd Container:',
                  'pull_image': 'Pull Image on Create:'}
@@ -224,7 +218,7 @@ class ContainerProfileForm(forms.Form):
         volumes_choices = sorted(tuple(zip(volumes_choices, volumes_choices)))
 
         name = pfields.get('name') if pfields else "new"
-        for key, label in {**bools, **selects, **selects_none, **multichoice, **anytext, **ranges}.items():
+        for key, label in {**bools, **selects, **selects_none, **multichoice, **textareas, **anytext, **ranges}.items():
             value = None
             if pfields and key in pfields.get('settings'):
                 value = pfields['settings'].get(key)
@@ -238,11 +232,13 @@ class ContainerProfileForm(forms.Form):
                 self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
                                                    initial=value, required=False, label=anytext[key],
                                                    max_length=255)
+
             elif key in selects_none:
                 self.fields[key] = forms.ChoiceField(choices=locals().get(f"{key}_choices", tuple()),
                                                      initial=Constants.NONE if not value else value,
                                                      required=False, label=selects_none[key])
-            elif key in selects.keys():
+
+            elif key in selects:
                 try:
                     parts = value.split(" ")
                     if len(parts):
@@ -252,23 +248,23 @@ class ContainerProfileForm(forms.Form):
                 self.fields[key] = forms.ChoiceField(choices=locals().get(f"{key}_choices", tuple()),
                                                      initial=0 if value=="default" else value,
                                                      required=False, label=selects[key])
-            elif key in textareas.keys():
+
+            elif key in textareas:
                 self.fields[key] = forms.CharField(widget=forms.Textarea(attrs={'rows': 4, 'readonly':'readonly'}),
                                                    initial=value, required=False, label=textareas[key])
-            elif key in ranges.keys():
+
+            elif key in ranges:
                 self.fields[f"{key}_start"] = forms.CharField(widget=forms.TextInput(attrs={'type': 'number'}),
                                                               initial=value[0] if value else "",
                                                               required=False, label = f"{ranges[key]} Start:")
                 self.fields[f"{key}_end"] = forms.CharField(widget=forms.TextInput(attrs={'type': 'number'}),
                                                             initial=value[1] if value else "",
                                                             required=False, label = f"{ranges[key]} End:")
-            elif key in anytext.keys():
-                self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
-                                                   initial=value, required=False, label=anytext[key],
-                                                   max_length=255)
+
             elif key in multichoice.keys():
                 self.fields[key] = forms.MultipleChoiceField(choices=locals().get(f"{key}_choices", tuple()),
                                                              initial=value, required=False, label=multichoice[key])
+
             else:
                 self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'pattern': '[a-zA-Z0-9]+'}),
                                                    initial=value, required=False)
