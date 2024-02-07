@@ -367,6 +367,13 @@ def create_profile(request, resource=Constants.HOST):
             if request.method == 'POST':
                 if not name:
                     data["errors"].append("Invalid name")
+
+                data['privileged'] = request.POST.get('privileged', "default")
+                data['systemd'] = request.POST.get('systemd', "default")
+                data['pull_image'] = request.POST.get('pull_image', "default")
+                for opt in ['privileged', 'systemd', 'pull_image']:
+                    data[opt] = True if data[opt] == 'on' else False
+
                 data['cpu'] = request.POST.get('cpu', 0)
                 if not data['cpu']:
                     data["cpu"] = 0
@@ -377,19 +384,39 @@ def create_profile(request, resource=Constants.HOST):
                     data['memory'] = 0
                 data['memory'] = int(data['memory'])
 
-                data['affinity'] = request.POST.get('affinity', "network")
                 data['mgmt_net'] = request.POST.get('mgmt_net', "bridge")
 
                 data['internal_port'] = request.POST.get('internal_port', None)
                 if not data['internal_port']:
                     data['internal_port'] = None
+                data['internal_port'] = int(data['internal_port']) if data['internal_port'] else None
+
+                data['mgmt_net_ipv4'] = request.POST.get('mgmt_net_ipv4', None)
+                data['mgmt_net_ipv6'] = request.POST.get('mgmt_net_ipv6', None)
+                data['data_net_ipv4'] = request.POST.get('data_net_ipv4', None)
+                data['data_net_ipv6'] = request.POST.get('data_net_ipv6', None)
+
+                data['ctrl_port_range'] = request.POST.get('ctrl_port_range', None)
+                data['data_port_range'] = request.POST.get('data_port_range', None)
+                data['serv_port_range'] = request.POST.get('serv_port_range', None)
+
+
+                data['affinity'] = request.POST.get('affinity', "network")
+                if not data['affinity']:
+                    data['affinity'] = 'network'
+
 
                 data['arguments'] = request.POST.get('arguments', None)
 
-                data['internal_port'] = int(data['internal_port']) if data['internal_port'] else None
+                data['volumes'] = request.POST.getlist('volumes', None)
+
                 data['qos'] = request.POST.get('qos', None)
                 if not data['qos']:
                     data["qos"] = None
+
+                data['environment'] = request.POST.getlist('environment', None)
+                if not data['environment']:
+                    data['environment'] = list()
 
                 profile = {
                     'name': name,
@@ -404,11 +431,6 @@ def create_profile(request, resource=Constants.HOST):
                     else:
                         data["errors"].append(res)
 
-            # profile = {
-            #     'name': name,
-            #     'settings': data
-            # }
-
             _, qos_choices = services.get_profiles(quser, qgroups, resource=Constants.QOS, verbose=True)
             _, vol_choices = services.get_profiles(quser, qgroups, resource=Constants.VOL, verbose=True)
             _, net_choices = services.get_profiles(quser, qgroups, resource=Constants.NET, verbose=True)
@@ -416,7 +438,6 @@ def create_profile(request, resource=Constants.HOST):
                       Constants.NET: [k.get('name') for k in net_choices],
                       Constants.VOL: [k.get('name') for k in vol_choices]}
 
-            # forms = ContainerProfileForm(pfields=profile, **kwargs)
             forms = ContainerProfileForm(pfields=None, **kwargs)
             content = {
                 'data': data,
@@ -486,7 +507,6 @@ def create_profile(request, resource=Constants.HOST):
 
                 data['options'] = None
                 opts = request.POST.getlist('options', None)
-                print(f"=======opts in create_profile in NET======{opts}")
                 opts_values = request.POST.getlist('values', None)
                 if opts[0]:
                     options = dict()
