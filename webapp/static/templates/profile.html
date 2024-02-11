@@ -269,27 +269,33 @@
   const nets = JSON.parse(document.getElementById('nets').textContent);
   console.log(nets);
 
-  document.querySelectorAll('div.ipam-app').forEach(x => new Vue({
+  document.querySelectorAll('div.ipam-app').forEach((x, index) => new Vue({
     el: x,
-    data() {
-      return {
-        rows: [{'subnet': 'snet1',
-                'gateway': 'gw1'},
-               {'subnet': 'snet2',
-                'gateway': 'gw2'}]
-      };
-    }
-  }));
+      data() {
+        return {
+          rows: nets[index].settings.ipam && nets[index].settings.ipam.config ?
+            nets[index].settings.ipam.config.map(item => ({
+              subnet: item.subnet,
+              gateway: item.gateway || ''
+        })) : []
+    };
+  }
+}));
 
-  document.querySelectorAll('div.options-app').forEach(x => new Vue({
+  document.querySelectorAll('div.options-app').forEach((x, index) => new Vue({
     el: x,
-    data() {
-      return {
-        rows: [{'name': 'parent',
-                'value': 'eth1'}]
-      };
-    }
-  }));
+      data() {
+          return {
+            rows: nets[index].settings.options ?
+            Object.entries(nets[index].settings.options).map(([name, value]) => ({
+            name,
+            value
+        })) : []
+    };
+  }
+}));
+
+
 </script>
 
 {% endblock content %}
