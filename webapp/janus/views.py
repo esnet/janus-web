@@ -506,9 +506,9 @@ def create_profile(request, resource=Constants.HOST):
                     data['ipam'] = ipam
 
                 data['options'] = None
-                opts = request.POST.getlist('options', None)
-                opts_values = request.POST.getlist('values', None)
-                if opts[0]:
+                opts = request.POST.getlist('opt_name', None)
+                opts_values = request.POST.getlist('opt_value', None)
+                if len(opts) != 0:
                     options = dict()
                     idx = 0
                     while idx < (len(opts)):
