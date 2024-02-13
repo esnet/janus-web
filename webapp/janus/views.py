@@ -311,12 +311,33 @@ def update_profile(request, resource=Constants.HOST):
         s['driver'] = None if not len(request.POST.get('driver')) else request.POST.get('driver')
         s['mode'] = None if not len(request.POST.get('mode')) else request.POST.get('mode')
         s['enable_ipv6'] = True if request.POST.get('enable_ipv6') else False
-        ipam = None if not len(request.POST.get('ipam')) else request.POST.get('ipam')
-        if ipam is not None:
-            ipam = {'config': eval(ipam)}
-        s['ipam'] = ipam
-        options = None if not len(request.POST.get('options')) else request.POST.get('options')
-        s['options'] = eval(options) if options is not None else None
+        s['ipam'] = None
+        s['options'] = None
+        subnet = None if not len(request.POST.getlist('subnet')) else request.POST.getlist('subnet')
+        gateway = None if not len(request.POST.getlist('gateway')) else request.POST.getlist('gateway')
+        opt_name = None if not len(request.POST.getlist('opt_name')) else request.POST.getlist('opt_name')
+        opt_value = None if not len(request.POST.getlist('opt_value')) else request.POST.getlist('opt_value')
+        if subnet:
+            config = list()
+            ipam = dict()
+            idx = 0
+            while idx < (len(subnet)):
+                addrs_dict = dict()
+                addrs_dict.update({'subnet': subnet[idx]})
+                addrs_dict.update({'gateway': gateway[idx]})
+                config.append(addrs_dict)
+                idx += 1
+            ipam.update({'config': config})
+            s['ipam'] = ipam
+
+        if opt_name:
+            options = dict()
+            idx = 0
+            while idx < (len(opt_name)):
+                options.update({opt_name[idx]: opt_value[idx]})
+                idx += 1
+            s['options'] = options
+
         pfields['settings'] = s
         return pfields
 

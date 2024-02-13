@@ -91,14 +91,6 @@ class NetworkProfileForm(forms.Form):
                 css_class='form-row'
             )
         )
-        self.helper.add_input(Submit('submit', 'Save', css_class='btn btn-primary'))
-        self.helper.form_method = 'POST'
-        if nfields:
-            self.helper.form_action = reverse('janus:update_profile', args=[Constants.NET])
-        else:
-            self.helper.add_input(Button('cancel', 'Cancel', css_class='btn btn-primary',
-                                         onclick="window.location.href = '{}';".format(reverse('janus:list_profiles'))))
-            self.helper.form_action = reverse('janus:create_profile', args=[Constants.NET])
 
         self.helper.layout.append(HTML("<p>IPAM</p>"))
         self.helper.layout.append(HTML("""
@@ -153,6 +145,15 @@ class NetworkProfileForm(forms.Form):
                 id=f"options-app-{name}", css_class="options-app"
             )
         )
+
+        self.helper.add_input(Submit('submit', 'Save', css_class='btn btn-primary'))
+        self.helper.form_method = 'POST'
+        if nfields:
+            self.helper.form_action = reverse('janus:update_profile', args=[Constants.NET])
+        else:
+            self.helper.add_input(Button('cancel', 'Cancel', css_class='btn btn-primary',
+                                         onclick="window.location.href = '{}';".format(reverse('janus:list_profiles'))))
+            self.helper.form_action = reverse('janus:create_profile', args=[Constants.NET])
 
 
 class ContainerProfileForm(forms.Form):
