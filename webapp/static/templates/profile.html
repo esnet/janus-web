@@ -275,9 +275,9 @@
         return {
           rows: nets[index].settings.ipam && nets[index].settings.ipam.config ?
             nets[index].settings.ipam.config.map(item => ({
-              subnet: item.subnet,
+              subnet: item.subnet || '',
               gateway: item.gateway || ''
-        })) : []
+        })) : [{ subnet: '', gateway: '' }]
     };
   }
 }));
@@ -290,7 +290,7 @@
             Object.entries(nets[index].settings.options).map(([name, value]) => ({
             name,
             value
-        })) : []
+        })) : [{ name: '', value: '' }]
     };
   }
 }));
