@@ -59,7 +59,7 @@ def get_auth_jwt():
         data = res.json().get("jwt", None)
     return status, data
 
-def create_exec(nid, cid, cmd, start=False, attach=True, tty=True):
+def create_exec(nid, cid, cmd, start=True, attach=True, tty=False):
     data = {"node": nid,
             "container": cid,
             "Cmd": shlex.split(cmd),
