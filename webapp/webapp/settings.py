@@ -176,12 +176,13 @@ LOGGING = {
 }
 
 SECURE_CROSS_ORIGIN_OPENER_POLICY = None
-PORTAINER_WS = os.getenv("PORTAINER_WS", "ws://localhost:9000")
 CTRL_HOST = os.getenv("JANUS_WEB_CTRL_HOST", "localhost")
 CTRL_PORT = os.getenv("JANUS_WEB_CTRL_PORT", "5000")
 CTRL_HTTP_PROTOCOL = os.getenv("CTRL_HTTP_PROTOCOL", "https")
+CTRL_WS_PROTOCOL = os.getenv("CTRL_WS_PROTOCOL", "wss")
 CTRL_SSL_VERIFY = False if os.getenv("CTRL_SSL_VERIFY", "False") == "False" else True
 JANUS_CONTROLLER_URL = "{}://{}:{}/".format(CTRL_HTTP_PROTOCOL, CTRL_HOST, CTRL_PORT)
+JANUS_CONTROLLER_WS_URL = "{}://{}:{}".format(CTRL_WS_PROTOCOL, CTRL_HOST, CTRL_PORT)
 
 JANUS_USER = os.getenv("JANUS_USER", "admin")
 JANUS_PASSWORD = os.getenv("JANUS_PASSWORD", "admin")

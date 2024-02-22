@@ -33,7 +33,7 @@
               {% for data in nodes|dictsort:"name" %}
               <tr data-toggle="collapse" data-target="#row-{{ data.id }}" class="accordion-toggle">
                 <td><span class="fa-solid fa-chevron-right"></span></td>
-	        <td>
+	        <td class="col-sm-1">
 		  {% if not data.status %}
 		  <span class="status-na">●</span>
 		  {% elif data.status == 1 %}
@@ -48,11 +48,11 @@
                   <span><img width="20px" src="{% static 'img/kube.png' %}" alt="..." class="rounded"/></span>
                   {% endif %}
 	        </td>
-		<td> {{ data.name }} </td>
-                <td> {{ data.url }} </td>
-                <td> {{ data.cpu_model }} </td>
-                <td> {{ data.cpu_core }} </td>
-                <td> {{ data.memory_str }} </td>
+		<td class="col-sm-3"> {{ data.name }} </td>
+                <td class="col-sm-2"> {{ data.url }} </td>
+                <td class="col-sm-4"> {{ data.cpu_model }} </td>
+                <td class="col-sm-1"> {{ data.cpu_core }} </td>
+                <td class="col-sm-1"> {{ data.memory_str }} </td>
                 {% if is_admin %}
                 <td class="d-flex justify-content-center">
                   <a href= "{% url 'janus:remove_node' nname=data.name %}" class="btn btn-sm btn-danger">
