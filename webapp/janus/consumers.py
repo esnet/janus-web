@@ -1,9 +1,11 @@
+import ssl
 import json
 import time
 import threading
 import websocket
+from django.conf import settings
 from .services import create_exec, get_auth_jwt
-from webapp.settings import PORTAINER_WS
+#from webapp.settings import PORTAINER_WS
 from asgiref.sync import sync_to_async
 from channels.generic.websocket import JsonWebsocketConsumer, AsyncJsonWebsocketConsumer
 
@@ -38,8 +40,8 @@ class PerfConsumer(JsonWebsocketConsumer):
         if tool == "iperf3":
             cmd = f"{tool} -s -D"
             if dst_node:
-                _, exec_id = create_exec(dst_node, dst_cid, cmd, start=True)
-            cmd = f"{tool} -c {dst_host} -i 2"
+                _, exec_id = create_exec(dst_node, dst_cid, cmd)
+            cmd = f"stdbuf -o0 {tool} -c {dst_host} -i 2"
             if duration:
                 cmd += f" -t {duration}"
             if dst_port:
@@ -56,7 +58,7 @@ class PerfConsumer(JsonWebsocketConsumer):
         elif tool == "xfer_test" and img.endswith("dtnaas/tools"):
             cmd = f"{tool} -s"
             if dst_node:
-                _, exec_id = create_exec(dst_node, dst_cid, cmd, start=True, attach=False, tty=False)
+                _, exec_id = create_exec(dst_node, dst_cid, cmd)
             cmd = f"{tool} -c {dst_host} -t 20 -i 2 -a 1 -o 20"
             if duration:
                 cmd += f" -t {duration}"
@@ -65,7 +67,7 @@ class PerfConsumer(JsonWebsocketConsumer):
         elif tool == "xfer_test" and img.endswith("dtnaas/ofed"):
             cmd = f"{tool} -s -r -d 128"
             if dst_node:
-                _, exec_id = create_exec(dst_node, dst_cid, cmd, start=True, attach=False, tty=False)
+                _, exec_id = create_exec(dst_node, dst_cid, cmd)
             cmd = f"{tool} -c {dst_host} -t 20 -i 2 -a 1 -o 24 -d 128 -r"
             if duration:
                 cmd += f" -t {duration}"
@@ -74,7 +76,7 @@ class PerfConsumer(JsonWebsocketConsumer):
         elif tool == "ib_write_bw":
             cmd = "ib_write_bw -R -a"
             if dst_node:
-                _, exec_id = create_exec(dst_node, dst_cid, cmd, start=True, attach=False, tty=False)
+                _, exec_id = create_exec(dst_node, dst_cid, cmd)
             cmd = f"ib_write_bw --report_gbits -n 10000 -F -a -t 2048 -R {dst_host}"
         else:
             cmd = tool
@@ -96,9 +98,17 @@ class PerfConsumer(JsonWebsocketConsumer):
             tool = msg.get("tool")
             create = list()
 
-            allocations = sess.get("allocations")
+            has_dest = False
             services = sess.get("services")
-            if len(allocations.keys()) < 2 and not host:
+            allocations = sess.get("allocations")
+            if len(allocations.keys()) > 1:
+                has_dest = True
+            else:
+                for k,v in allocations.items():
+                    if len(v) > 1:
+                        has_dest = True
+
+            if not has_dest and not host:
                 return self.send_done(msg["sid"], "Cannot run test without destination")
 
             src_node = list(allocations.keys())[0]
@@ -109,8 +119,14 @@ class PerfConsumer(JsonWebsocketConsumer):
                 dst_node = list(allocations.keys())[1]
                 dst_cid = allocations.get(dst_node)[0]
                 dst_nid = services.get(dst_node)[0].get("node_id")
-                dst_host = services.get(dst_node)[0].get('ctrl_host')
+                dst_host = services.get(dst_node)[0].get("ctrl_host")
                 dst_port = services.get(dst_node)[0].get("ctrl_port")
+            elif has_dest:
+                dst_node = src_node
+                dst_cid = allocations.get(src_node)[1]
+                dst_nid = services.get(src_node)[1].get("node_id")
+                dst_host = services.get(src_node)[1].get("ctrl_host")
+                dst_port = services.get(src_node)[1].get("ctrl_port")
             else:
                 dst_node = None
                 dst_cid = None
@@ -133,19 +149,33 @@ class PerfConsumer(JsonWebsocketConsumer):
                 dst_port = None
 
             cmd = self.create_cmd(tool, dst_host, dst_port, sess, src_node, src_cid, dst_node, dst_cid, duration)
-            _, exec_id = create_exec(src_node, src_cid, cmd)
-            create.append({'node_id': src_nid,
-                           'exec_id': exec_id})
+            _, exec_id = create_exec(src_node, src_cid, cmd, start=False)
+            create.append({'node': src_node,
+                           'node_id': src_nid,
+                           'exec_id': exec_id,
+                           'cont_id': src_cid})
         except Exception as e:
             import traceback
             traceback.print_exc()
             return self.send_done(msg["sid"], f"Error running test: {e}")
 
-        _, jwt = get_auth_jwt()
+        #_, jwt = get_auth_jwt()
+        node = create[0]["node"]
         node_id = create[0]["node_id"]
         exec_id = create[0]["exec_id"]
-        ws_url = f"{PORTAINER_WS}/api/websocket/exec?token={jwt}&id={exec_id}&endpointId={node_id}"
-        ws = websocket.create_connection(ws_url)
+        cont_id = create[0]["cont_id"]
+        #ws_url = f"{PORTAINER_WS}/api/websocket/exec?token={jwt}&id={exec_id}&endpointId={node_id}"
+        #ws = websocket.create_connection(ws_url)
+
+        ws_url = f"{settings.JANUS_CONTROLLER_WS_URL}/ws"
+        ws = websocket.create_connection(ws_url, sslopt={"cert_reqs": ssl.CERT_NONE})
+        # send the message to get the active exec stream from the controller
+        msg = {"type": 0,
+               "node": node,
+               "node_id": node_id,
+               "container": cont_id,
+               "exec_id": exec_id}
+        ws.send(json.dumps(msg))
 
         rmsg = dict()
         rmsg["sid"] = sid
