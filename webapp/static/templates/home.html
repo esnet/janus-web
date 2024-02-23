@@ -108,7 +108,7 @@
                             <td class="col-sm-2">
                               {% for k,v in data.data.services.items %}
                               {% for srv in v %}
-                              <div class="janus-pre">{{ srv.data_ipv4|default:"" }}{% if srv.data_ipv4 %}, {% endif %}{{ srv.data_ipv6|default:"" }}</div>
+                              <div class="janus-pre">{{ srv.data_ipv4|default:"" }}{% if srv.data_ipv6 %}, {% endif %}{{ srv.data_ipv6|default:"" }}</div>
                               {% endfor %}
                               {% endfor %}
                             </td>
