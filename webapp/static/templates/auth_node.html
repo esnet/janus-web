@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %} Access Control - Nodes {% endblock title %}
+{% block title %} Access Control - Endpoints {% endblock title %}
 {% block content %}
 
 <div class="panel panel-default">
@@ -12,7 +12,7 @@
   {% endif %}
 
   <div class="panel-heading">
-    <h1 class="text-center"><strong><i>Provides Access for Nodes to Users/Groups </i></strong></h1>
+    <h1 class="text-center"><strong><i>Provides Access for Endpoints to Users/Groups </i></strong></h1>
   </div>
   <div class="panel-body">
     <div align="center">
@@ -20,7 +20,7 @@
 	{% csrf_token %}
         <div class="rows" style="padding-top: 2%">
 	  <div>
-	    <label>Select Node:</label>
+	    <label>Select Endpoint:</label>
 	    <select class="form-control" name="node" id="node">
 	      {% for item in nodes %}
 	      <option value="{{ item.name }}" label="{{ item.name }}"></option>
