@@ -6,7 +6,7 @@
     <div class="container" style="padding-top: 2%">
       <div class="card bg-light mb-3">
         <div class="card-header d-flex justify-content-between align-items-center">
-	  <b>Available Nodes</b>
+	  <b>Available Endpoints</b>
           <div>
             <a class="btn btn-primary btn-md" role="button" href="{% url 'janus:refresh_node' %}">Refresh</a>
             <a class="btn btn-primary btn-md" role="button" href="{% url 'janus:add_node' %}">Add</a>
@@ -46,6 +46,8 @@
                   <span><img width="20px" src="{% static 'img/docker.svg' %}" alt="..." class="rounded"/></span>
                   {% elif data.data.endpoint_type == 2 %}
                   <span><img width="20px" src="{% static 'img/kube.png' %}" alt="..." class="rounded"/></span>
+                  {% elif data.data.endpoint_type == 4 %}
+                  <span><img width="20px" src="{% static 'img/slurm.svg' %}" alt="..." class="rounded"/></span>
                   {% endif %}
 	        </td>
 		<td class="col-sm-3"> {{ data.name }} </td>
@@ -63,7 +65,7 @@
               <tr>
                 <td colspan="12" class="hiddenRow">
                   <div class="accordian-body collapse" id="row-{{ data.id }}">
-                    {% if data.data.endpoint_type == 2 %}
+                    {% if data.data.endpoint_type == 2 or data.data.endpoint_type == 4 %}
                     <div align="center">
                       <table class="table table-condensed" style="width: 1024px;">
                         <tr data-toggle="collapse" id="logrow-{{data.id}}" data-target="#logdisp-{{ data.id }}" class="accordion-toggle table-ok">
@@ -78,13 +80,13 @@
                               <table class="table table-condensed table-bordered" style="width: 1024px;">
                                 <thead>
                                   <th>Node</th>
-                                  <th>IP</th>
+                                  <th>Addresses</th>
                                 </thead>
                                 <tbody>
                                   {% for n in data.data.cluster_nodes %}
                                   <tr class="table-muted">
                                     <td>{{ n.name }}</td>
-                                    <td></td>
+                                    <td>{% for a in n.addresses %}{{ a }}{% endfor %}</td>
                                   </tr>
                                   {% endfor %}
                               </table>
