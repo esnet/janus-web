@@ -198,7 +198,7 @@
                   </td>
                 </tr>
                 {% endfor %}
-                {{ nets|json_script:"nets" }}
+                {{ nets|dictsort:"name"|json_script:"nets" }}
               </tbody>
             </table>
           </div>

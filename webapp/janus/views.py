@@ -405,17 +405,28 @@ def create_profile(request, resource=Constants.HOST):
                     data['memory'] = 0
                 data['memory'] = int(data['memory'])
 
-                data['mgmt_net'] = request.POST.get('mgmt_net', "bridge")
+                mgmt_net = dict()
+                mgmt_net_name = request.POST.get('mgmt_net', "bridge")
+                mgmt_net_ipv4 = request.POST.get('mgmt_net_ipv4', None)
+                mgmt_net_ipv6 = request.POST.get('mgmt_net_ipv6', None)
+                mgmt_net.update({'name': mgmt_net_name})
+                mgmt_net.update({'ipv4_addr': mgmt_net_ipv4})
+                mgmt_net.update({'ipv6_addr': mgmt_net_ipv6})
+                data['mgmt_net'] = mgmt_net
+
+                data_net = dict()
+                data_net_name = request.POST.get('data_net', "bridge")
+                data_net_ipv4 = request.POST.get('data_net_ipv4', None)
+                data_net_ipv6 = request.POST.get('data_net_ipv6', None)
+                data_net.update({'name': data_net_name})
+                data_net.update({'ipv4_addr': data_net_ipv4})
+                data_net.update({'ipv6_addr': data_net_ipv6})
+                data['data_net'] = data_net
 
                 data['internal_port'] = request.POST.get('internal_port', None)
                 if not data['internal_port']:
                     data['internal_port'] = None
                 data['internal_port'] = int(data['internal_port']) if data['internal_port'] else None
-
-                data['mgmt_net_ipv4'] = request.POST.get('mgmt_net_ipv4', None)
-                data['mgmt_net_ipv6'] = request.POST.get('mgmt_net_ipv6', None)
-                data['data_net_ipv4'] = request.POST.get('data_net_ipv4', None)
-                data['data_net_ipv6'] = request.POST.get('data_net_ipv6', None)
 
                 data['ctrl_port_range'] = request.POST.get('ctrl_port_range', None)
                 data['data_port_range'] = request.POST.get('data_port_range', None)
