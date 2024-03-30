@@ -310,3 +310,80 @@ class ContainerProfileForm(forms.Form):
                                          onclick="window.location.href = '{}';".format(reverse('janus:list_profiles'))))
             self.helper.form_action = reverse('janus:create_profile', args=[Constants.HOST])
 
+
+class SessionCreateForm(forms.Form):
+    def __init__(self, *args, **kwargs):
+        sfields = kwargs.pop('sfields')
+        nodes = kwargs.pop('nodes_list')
+        profiles = kwargs.pop('profiles_list')
+        images = kwargs.pop('images_list')
+        super(SessionCreateForm, self).__init__(*args, **kwargs)
+        bools = {'remove_container': 'Remove container when stopped'}
+        selects = {'node': 'Select Nodes:',
+                   'image': 'Select Image:',
+                   'profile': 'Select Profile:'}
+        anytext = {'image_tag': 'Image tag:',
+            'arguments': 'Arguments:',
+            'ssh_user_name': 'SSH User Name:',
+            'ssh_public_key': 'SSH Public Key:'}
+
+        # name = sfields.get('name') if sfields else "new"
+        for key, label in {**bools, **selects, **anytext}.items():
+            value = None
+            if sfields and key in sfields.get('settings'):
+                value = sfields['settings'].get(key)
+
+            if key in bools:
+                self.fields[key] = forms.BooleanField(
+                    # widget=forms.CheckboxInput(attrs={'id': f"{name}-{key}"}),
+                    widget=forms.CheckboxInput(attrs={'id': f"{key}"}),
+                    required=False, label=bools[key],
+                    initial=False if value == "default" else value)
+            elif key in anytext:
+                self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
+                                                   initial=value, required=False, label=anytext[key],
+                                                   max_length=255)
+            elif key in selects:
+                if key == 'node':
+                    choices_list = [(node, node) for node in nodes]
+                elif key == 'image':
+                    choices_list = [(image, image) for image in images]
+                elif key == 'profile':
+                    choices_list = [(profile, profile) for profile in profiles]
+                else:
+                    choices_list = []
+                self.fields[key] = forms.ChoiceField(choices=choices_list,
+                                                     initial=Constants.NONE,
+                                                     required=False, label=selects[key] if key != 'node' else False)
+
+        self.helper = FormHelper()
+        self.helper.layout = Layout(HTML("<p>Select Nodes:</p>"),
+            Div(
+            Div(
+                Field('node', wrapper_class='col-sm-7', v_model='row.subnet'),
+                HTML('<a v-on:click="rows.push({})" class="btn btn-sm btn-success"><span class="fa-solid fa-plus"></span></a>'),
+                HTML('<a v-on:click="rows.splice(index, 1)" class="btn btn-sm btn-danger"><span class="fa-solid fa-xmark"></span></a>'),
+                css_class='form-row align-items-center d-flex justify-content-center',
+                v_for='row in rows', style="margin-bottom: 10px;"
+            ),
+            id=f"nodes-app", css_class="nodes-app",
+            ),
+        )
+        self.helper.layout.append(
+            Div(
+                Div('image', css_class='col-sm-7'),
+                Div('image_tag', css_class='col-sm-5'),
+                Div('profile', css_class='col-sm-5'),
+                Div('arguments', css_class='col-sm-7'),
+                Div('ssh_user_name', css_class='col-sm-3'),
+                Div('ssh_public_key', css_class='col-sm-9'),
+                Div('remove_container', css_class='col-7'),
+                css_class='row justify-content-center', style="margin-bottom: 10px;"
+
+            )
+        )
+        self.helper.add_input(Submit('submit', 'Create', css_class='btn btn-primary'))
+        self.helper.form_method = 'POST'
+        self.helper.add_input(Button('cancel', 'Cancel', css_class='btn btn-primary',
+                                         onclick="window.location.href = '{}';".format(reverse('janus:list_sessions'))))
+        self.helper.form_action = reverse('janus:create_session')

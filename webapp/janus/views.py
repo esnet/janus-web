@@ -234,12 +234,13 @@ def create_session(request):
         if ssh_public_key is not None:
             data['kwargs']['PUBLIC_KEY'] = ssh_public_key
 
-        data['remove_container'] = request.POST.get('remove_container', None)
+        remove_container = request.POST.get('remove_container', None)
+        data['remove_container'] = True if remove_container is not None else False
 
         # XXX use django Forms...
         if not len(data['errors']):
             status, res = services.create_session(data, quser, qgroups)
-            # look for errors for earch created service
+            # look for errors for each created service
             errs = dict()
             for sid,s in res.items():
                 if 'services' in s:
@@ -256,17 +257,20 @@ def create_session(request):
     _, profiles = services.get_profiles(quser, qgroups)
     _, images = services.get_images(quser, qgroups)
 
+    kwargs = {'nodes_list': [k.get('name') for k in nodes],
+              'profiles_list': profiles,
+              'images_list': [k.get('name') for k in images]}
+
+    forms = SessionCreateForm(sfields=None, **kwargs)
     content = {
         'data': data,
-        'nodes': nodes,
-        'profiles': sorted(profiles),
-        'images': images,
         'login': request.user.is_authenticated,
-        'is_admin': user.is_staff
+        'is_admin': user.is_staff,
+        'forms': forms
     }
 
     logger.debug(content)
-    return render(request, 'create_session.html', content)
+    return render(request, 'session_create.html', content)
 
 
 def update_profile(request, resource=Constants.HOST):
