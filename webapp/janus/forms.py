@@ -217,7 +217,6 @@ class ContainerProfileForm(forms.Form):
         mgmt_net_choices = sorted(tuple(zip(mgmt_net_choices, mgmt_net_choices)))
         data_net_choices = mgmt_net_choices
         volumes_choices = sorted(tuple(zip(volumes_choices, volumes_choices)))
-        print(f"========volumes_choices in forms.py============={volumes_choices}")
 
         name = pfields.get('name') if pfields else "new"
         for key, label in {**bools, **selects, **selects_none, **multichoice, **textareas, **anytext, **ranges}.items():
@@ -317,17 +316,11 @@ class SessionCreateForm(forms.Form):
         global choices_list
         sfields = kwargs.pop('sfields')
         nodes = kwargs.pop('nodes_list')
-        print(f"======nodes in sessioncreate in forms.py============{nodes}")
         profiles = kwargs.pop('profiles_list')
         images = kwargs.pop('images_list')
         clusters = kwargs.pop('clusters', {})
-        print(f"=======clusters  in sessioncreate in forms.py=========={clusters}")
         super(SessionCreateForm, self).__init__(*args, **kwargs)
         bools = {'remove_container': 'Remove container when stopped'}
-        # selects = {'node': 'Select Nodes:',
-        #            'clusters': 'Select Clusters:',
-        #            'image': 'Select Image:',
-        #            'profile': 'Select Profile:'}
         selects = {'node': '',
                    'clusters': '',
                    'image': 'Select Image:',
@@ -337,10 +330,6 @@ class SessionCreateForm(forms.Form):
             'ssh_user_name': 'SSH User Name:',
             'ssh_public_key': 'SSH Public Key:'}
 
-        # name = sfields.get('name') if sfields else "new"
-        # Setup clusters field with empty choices initially
-        # self.fields['clusters'] = forms.ChoiceField(choices=[], required=False, label='Select Cluster:')
-
         for key, label in {**bools, **selects, **anytext}.items():
             value = None
             if sfields and key in sfields.get('settings'):
@@ -348,7 +337,6 @@ class SessionCreateForm(forms.Form):
 
             if key in bools:
                 self.fields[key] = forms.BooleanField(
-                    # widget=forms.CheckboxInput(attrs={'id': f"{name}-{key}"}),
                     widget=forms.CheckboxInput(attrs={'id': f"{key}"}),
                     required=False, label=bools[key],
                     initial=False if value == "default" else value)
@@ -373,9 +361,6 @@ class SessionCreateForm(forms.Form):
                                                      required=False, label=selects[key] if key != 'node' or 'clusters' else False)
 
         self.helper = FormHelper()
-
-        # self.helper.layout = Layout(HTML("<p>Select Nodes/Clusters:</p>"))
-
         self.helper.layout = Layout(HTML("""
                 <div class='form-row align-items-center d-flex justify-content-center'>
                   <div class='col-sm-4'><i>Select Endpoint:</i></div>

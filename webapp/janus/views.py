@@ -78,7 +78,6 @@ def list_profiles(request, extra_content=dict(), refresh=False):
     _, qos_choices = services.get_profiles(quser, qgroups, resource=Constants.QOS, verbose=True, refresh=refresh)
     _, net_choices = services.get_profiles(quser, qgroups, resource=Constants.NET, verbose=True, refresh=refresh)
     _, vol_choices = services.get_profiles(quser, qgroups, resource=Constants.VOL, verbose=True, refresh=refresh)
-    # print(f"========vol_choices in views.py============={vol_choices}")
     kwargs = {Constants.QOS: [k.get('name') for k in qos_choices],
               Constants.NET: [k.get('name') for k in net_choices],
               Constants.VOL: [k.get('name') for k in vol_choices]}
@@ -215,7 +214,6 @@ def create_session(request):
             else:
                 instances = [{'name': node_value, 'nodeName': cluster_value} for node_value, cluster_value in
                              zip(node, clusters)]
-                print(f"=====instances in create_session in views.py in POST====={instances}")
                 data['instances'] = instances
 
 
@@ -246,8 +244,6 @@ def create_session(request):
         remove_container = request.POST.get('remove_container', None)
         data['remove_container'] = True if remove_container is not None else False
 
-        print(f"=====data in create_session in views.py in POST====={data}")
-
         # XXX use django Forms...
         if not len(data['errors']):
             status, res = services.create_session(data, quser, qgroups)
@@ -267,16 +263,7 @@ def create_session(request):
     _, nodes = services.get_nodes(quser, qgroups, verbose=True)
     _, profiles = services.get_profiles(quser, qgroups)
     _, images = services.get_images(quser, qgroups)
-
-    clusters = dict()
-    for k in nodes:
-        n_clusters = k.get('data').get('cluster_nodes')
-        print(f"======n_clusters in views.py==========={n_clusters}")
-        if n_clusters is not None:
-            clusters.update({k['name']: [k.get('name') for k in n_clusters]})
-        else:
-            clusters.update({k['name']: []})
-    print(f"======clusters in views.py==========={clusters}")
+    clusters = {k['name']: [node['name'] for node in k.get('data', {}).get('cluster_nodes', [])] for k in nodes}
 
     kwargs = {'nodes_list': [k.get('name') for k in nodes],
               'profiles_list': profiles,
@@ -344,24 +331,13 @@ def update_profile(request, resource=Constants.HOST):
         opt_name = None if not len(request.POST.getlist('opt_name')) else request.POST.getlist('opt_name')
         opt_value = None if not len(request.POST.getlist('opt_value')) else request.POST.getlist('opt_value')
         if subnet:
-            config = list()
-            ipam = dict()
-            idx = 0
-            while idx < (len(subnet)):
-                addrs_dict = dict()
-                addrs_dict.update({'subnet': subnet[idx]})
-                addrs_dict.update({'gateway': gateway[idx]})
-                config.append(addrs_dict)
-                idx += 1
-            ipam.update({'config': config})
+            config = [{'subnet': subnet_val, 'gateway': gateway_val} for subnet_val, gateway_val in
+                      zip(subnet, gateway)]
+            ipam = {'config': config}
             s['ipam'] = ipam
 
         if opt_name:
-            options = dict()
-            idx = 0
-            while idx < (len(opt_name)):
-                options.update({opt_name[idx]: opt_value[idx]})
-                idx += 1
+            options = {name: value for name, value in zip(opt_name, opt_value)}
             s['options'] = options
 
         pfields['settings'] = s
@@ -550,28 +526,17 @@ def create_profile(request, resource=Constants.HOST):
                 data['ipam'] = None
                 subnet = request.POST.getlist('subnet', None)
                 gateway = request.POST.getlist('gateway', None)
-                config = list()
                 if subnet[0]:
-                    ipam = dict()
-                    idx = 0
-                    while idx < (len(subnet)):
-                        addrs_dict = dict()
-                        addrs_dict.update({'subnet': subnet[idx]})
-                        addrs_dict.update({'gateway': gateway[idx]})
-                        config.append(addrs_dict)
-                        idx += 1
-                    ipam.update({'config': config})
+                    config = [{'subnet': subnet_val, 'gateway': gateway_val} for subnet_val, gateway_val in
+                              zip(subnet, gateway)]
+                    ipam = {'config': config}
                     data['ipam'] = ipam
 
                 data['options'] = None
                 opts = request.POST.getlist('opt_name', None)
                 opts_values = request.POST.getlist('opt_value', None)
                 if len(opts) != 0:
-                    options = dict()
-                    idx = 0
-                    while idx < (len(opts)):
-                        options.update({opts[idx]: opts_values[idx]})
-                        idx += 1
+                    options = {name: value for name, value in zip(opts, opts_values)}
                     data['options'] = options
 
                 network = {
