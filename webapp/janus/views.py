@@ -78,6 +78,7 @@ def list_profiles(request, extra_content=dict(), refresh=False):
     _, qos_choices = services.get_profiles(quser, qgroups, resource=Constants.QOS, verbose=True, refresh=refresh)
     _, net_choices = services.get_profiles(quser, qgroups, resource=Constants.NET, verbose=True, refresh=refresh)
     _, vol_choices = services.get_profiles(quser, qgroups, resource=Constants.VOL, verbose=True, refresh=refresh)
+    # print(f"========vol_choices in views.py============={vol_choices}")
     kwargs = {Constants.QOS: [k.get('name') for k in qos_choices],
               Constants.NET: [k.get('name') for k in net_choices],
               Constants.VOL: [k.get('name') for k in vol_choices]}
@@ -207,8 +208,16 @@ def create_session(request):
     data = {"errors": list()}
     if request.method == 'POST':
         node = request.POST.getlist('node', None)
+        clusters = request.POST.getlist('clusters')
         if node is not None:
-            data['instances'] = node
+            if not clusters:
+                data['instances'] = node
+            else:
+                instances = [{'name': node_value, 'nodeName': cluster_value} for node_value, cluster_value in
+                             zip(node, clusters)]
+                print(f"=====instances in create_session in views.py in POST====={instances}")
+                data['instances'] = instances
+
 
         image = request.POST.get('image', None)
         if image is not None:
@@ -237,6 +246,8 @@ def create_session(request):
         remove_container = request.POST.get('remove_container', None)
         data['remove_container'] = True if remove_container is not None else False
 
+        print(f"=====data in create_session in views.py in POST====={data}")
+
         # XXX use django Forms...
         if not len(data['errors']):
             status, res = services.create_session(data, quser, qgroups)
@@ -257,9 +268,20 @@ def create_session(request):
     _, profiles = services.get_profiles(quser, qgroups)
     _, images = services.get_images(quser, qgroups)
 
+    clusters = dict()
+    for k in nodes:
+        n_clusters = k.get('data').get('cluster_nodes')
+        print(f"======n_clusters in views.py==========={n_clusters}")
+        if n_clusters is not None:
+            clusters.update({k['name']: [k.get('name') for k in n_clusters]})
+        else:
+            clusters.update({k['name']: []})
+    print(f"======clusters in views.py==========={clusters}")
+
     kwargs = {'nodes_list': [k.get('name') for k in nodes],
               'profiles_list': profiles,
-              'images_list': [k.get('name') for k in images]}
+              'images_list': [k.get('name') for k in images],
+              'clusters': clusters}
 
     forms = SessionCreateForm(sfields=None, **kwargs)
     content = {
