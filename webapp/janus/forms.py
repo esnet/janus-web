@@ -217,6 +217,7 @@ class ContainerProfileForm(forms.Form):
         mgmt_net_choices = sorted(tuple(zip(mgmt_net_choices, mgmt_net_choices)))
         data_net_choices = mgmt_net_choices
         volumes_choices = sorted(tuple(zip(volumes_choices, volumes_choices)))
+        print(f"========volumes_choices in forms.py============={volumes_choices}")
 
         name = pfields.get('name') if pfields else "new"
         for key, label in {**bools, **selects, **selects_none, **multichoice, **textareas, **anytext, **ranges}.items():
@@ -313,13 +314,22 @@ class ContainerProfileForm(forms.Form):
 
 class SessionCreateForm(forms.Form):
     def __init__(self, *args, **kwargs):
+        global choices_list
         sfields = kwargs.pop('sfields')
         nodes = kwargs.pop('nodes_list')
+        print(f"======nodes in sessioncreate in forms.py============{nodes}")
         profiles = kwargs.pop('profiles_list')
         images = kwargs.pop('images_list')
+        clusters = kwargs.pop('clusters', {})
+        print(f"=======clusters  in sessioncreate in forms.py=========={clusters}")
         super(SessionCreateForm, self).__init__(*args, **kwargs)
         bools = {'remove_container': 'Remove container when stopped'}
-        selects = {'node': 'Select Nodes:',
+        # selects = {'node': 'Select Nodes:',
+        #            'clusters': 'Select Clusters:',
+        #            'image': 'Select Image:',
+        #            'profile': 'Select Profile:'}
+        selects = {'node': '',
+                   'clusters': '',
                    'image': 'Select Image:',
                    'profile': 'Select Profile:'}
         anytext = {'image_tag': 'Image tag:',
@@ -328,6 +338,9 @@ class SessionCreateForm(forms.Form):
             'ssh_public_key': 'SSH Public Key:'}
 
         # name = sfields.get('name') if sfields else "new"
+        # Setup clusters field with empty choices initially
+        # self.fields['clusters'] = forms.ChoiceField(choices=[], required=False, label='Select Cluster:')
+
         for key, label in {**bools, **selects, **anytext}.items():
             value = None
             if sfields and key in sfields.get('settings'):
@@ -346,6 +359,9 @@ class SessionCreateForm(forms.Form):
             elif key in selects:
                 if key == 'node':
                     choices_list = [(node, node) for node in nodes]
+                elif key == 'clusters':
+                    for node in nodes:
+                        choices_list = [(cluster, cluster) for cluster in clusters.get(node, [])]
                 elif key == 'image':
                     choices_list = [(image, image) for image in images]
                 elif key == 'profile':
@@ -354,17 +370,27 @@ class SessionCreateForm(forms.Form):
                     choices_list = []
                 self.fields[key] = forms.ChoiceField(choices=choices_list,
                                                      initial=Constants.NONE,
-                                                     required=False, label=selects[key] if key != 'node' else False)
+                                                     required=False, label=selects[key] if key != 'node' or 'clusters' else False)
 
         self.helper = FormHelper()
-        self.helper.layout = Layout(HTML("<p>Select Nodes:</p>"),
+
+        # self.helper.layout = Layout(HTML("<p>Select Nodes/Clusters:</p>"))
+
+        self.helper.layout = Layout(HTML("""
+                <div class='form-row align-items-center d-flex justify-content-center'>
+                  <div class='col-sm-4'><i>Select Endpoint:</i></div>
+                  <div class='col-sm-6'><i>Select Cluster Node:</i></div>
+                </div>
+                """))
+        self.helper.layout.append(
             Div(
             Div(
-                Field('node', wrapper_class='col-sm-7', v_model='row.subnet'),
+                Field('node', wrapper_class='col-sm-4', v_model='row.node'),
+                Field('clusters', wrapper_class='col-sm-6', v_model='row.clusters'),
                 HTML('<a v-on:click="rows.push({})" class="btn btn-sm btn-success"><span class="fa-solid fa-plus"></span></a>'),
                 HTML('<a v-on:click="rows.splice(index, 1)" class="btn btn-sm btn-danger"><span class="fa-solid fa-xmark"></span></a>'),
                 css_class='form-row align-items-center d-flex justify-content-center',
-                v_for='row in rows', style="margin-bottom: 10px;"
+                v_for='row in rows'
             ),
             id=f"nodes-app", css_class="nodes-app",
             ),
