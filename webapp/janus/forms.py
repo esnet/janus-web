@@ -348,8 +348,7 @@ class SessionCreateForm(forms.Form):
                 if key == 'node':
                     choices_list = [(node, node) for node in nodes]
                 elif key == 'clusters':
-                    for node in nodes:
-                        choices_list = [(cluster, cluster) for cluster in clusters.get(node, [])]
+                    choices_list = [(cluster, cluster) for cluster_list in clusters.values() for cluster in cluster_list]
                 elif key == 'image':
                     choices_list = [(image, image) for image in images]
                 elif key == 'profile':
