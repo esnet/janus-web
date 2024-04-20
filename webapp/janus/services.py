@@ -144,7 +144,6 @@ def get_session_info(user=None, groups=None, session_id=None):
                     "data": entry,
                 }
                 data.append(temp)
-
     return status, data
 
 def create_session(data, user=None, groups=None):
