@@ -50,7 +50,6 @@ def list_sessions(request, data=None):
         content['sessions'] = res
     else:
         data['errors'].append(res)
-
     return render(request, 'home.html', content)
 
 
@@ -571,11 +570,13 @@ def start_session(request, session_id):
         status, res = services.start_session(session_id, quser, qgroups)
         if status:
             _get_res_errors(data, res)
-        else:
-            data['errors'].append(res)
-        return list_sessions(request, data)
+            if data['errors']:
+                return list_sessions(request, data)
+            else:
+                return HttpResponseRedirect('/')
     else:
         return HttpResponseRedirect('/')
+
 
 def stop_session(request, session_id):
     if request.user.is_authenticated:
@@ -584,11 +585,13 @@ def stop_session(request, session_id):
         status, res = services.stop_session(session_id, quser, qgroups)
         if status:
             _get_res_errors(data, res)
-        else:
-            data['errors'].append(res)
-        return list_sessions(request, data)
+            if data['errors']:
+                return list_sessions(request, data)
+            else:
+                return HttpResponseRedirect('/')
     else:
         return HttpResponseRedirect('/')
+
 
 def delete_session(request, session_id):
     if request.user.is_authenticated:
@@ -597,9 +600,10 @@ def delete_session(request, session_id):
         status, res = services.delete_session(session_id, quser, qgroups)
         if status:
             _get_res_errors(data, res)
-        else:
-            data['errors'].append(res)
-        return list_sessions(request, data)
+            if data['errors']:
+                return list_sessions(request, data)
+            else:
+                return HttpResponseRedirect('/')
     else:
         return HttpResponseRedirect('/')
 
