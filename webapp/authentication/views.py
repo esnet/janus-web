@@ -78,7 +78,6 @@ def image_access_control(request):
         qgroups = None
 
         status, images = get_images(quser, qgroups)
-        # print(status, images)
         users = User.objects.filter(is_active=True).values_list('username', flat=True)
         groups = Group.objects.all().values_list('name', flat=True)
         data = {"errors": list()}
@@ -131,7 +130,6 @@ def node_access_control(request):
         users = User.objects.filter(is_active=True).values_list('username', flat=True)
         groups = Group.objects.all().values_list('name', flat=True)
 
-        # print(f'users: {users}\ngroups: {groups}')
         data = {"errors": list()}
 
         if request.method == 'POST':
@@ -147,7 +145,6 @@ def node_access_control(request):
             selected_groups = request.POST.getlist('group', [])
             data['groups'] = selected_groups
 
-            # print(data)
             if not len(data['errors']):
                 status, res = set_access("nodes", data, remove)
                 if status:
@@ -197,7 +194,6 @@ def profile_access_control(request):
             selected_groups = request.POST.getlist('group', [])
             data['groups'] = selected_groups
 
-            # print(data)
             if not len(data['errors']):
                 status, res = set_access("profiles", data, remove)
                 if status:
@@ -247,7 +243,6 @@ def sessions_access_control(request):
             selected_groups = request.POST.getlist('group', [])
             data['groups'] = selected_groups
 
-            print(data)
             if not len(data['errors']):
                 status, res = set_access("active", data, remove)
                 if status:
