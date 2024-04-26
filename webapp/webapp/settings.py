@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'mozilla_django_oidc',  # Load after auth
 ]
 
 MIDDLEWARE = [
@@ -57,6 +58,11 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'mozilla_django_oidc.middleware.SessionRefresh',
+]
+
+AUTHENTICATION_BACKENDS = [
+    'mozilla_django_oidc.auth.OIDCAuthenticationBackend',
 ]
 
 ROOT_URLCONF = 'webapp.urls'
@@ -170,10 +176,27 @@ LOGGING = {
             'level': os.getenv('DJANGO_LOG_LEVEL', 'DEBUG'),
             'propagate': False,
         },
+        'mozilla_django_oidc': {
+            'handlers': ['console'],
+            'level': 'DEBUG'
+        },
         # Default runserver request logging
         'django.server': DEFAULT_LOGGING['loggers']['django.server'],
     },
 }
+
+# BEGIN SSO OIDC
+OIDC_CREATE_USER = True
+OIDC_RP_CLIENT_ID = os.getenv('OIDC_RP_CLIENT_ID')
+OIDC_RP_CLIENT_SECRET = os.getenv('OIDC_RP_CLIENT_SECRET')
+
+OIDC_OP_AUTHORIZATION_ENDPOINT = "<URL of the OIDC OP authorization endpoint>"
+OIDC_OP_TOKEN_ENDPOINT = "<URL of the OIDC OP token endpoint>"
+OIDC_OP_USER_ENDPOINT = "<URL of the OIDC OP userinfo endpoint>"
+
+LOGIN_REDIRECT_URL = "<URL path to redirect to after login>"
+LOGOUT_REDIRECT_URL = "<URL path to redirect to after logout>"
+# END SSO OIDC
 
 SECURE_CROSS_ORIGIN_OPENER_POLICY = None
 CTRL_HOST = os.getenv("JANUS_WEB_CTRL_HOST", "localhost")
