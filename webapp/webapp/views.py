@@ -1,6 +1,7 @@
 import logging
 from django.shortcuts import HttpResponseRedirect
 
+
 logger = logging.getLogger(__name__)
 
 def index(request):
