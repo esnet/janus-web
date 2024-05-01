@@ -63,7 +63,8 @@ MIDDLEWARE = [
 
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
-    'mozilla_django_oidc.auth.OIDCAuthenticationBackend',
+    'authentication.oidc.JanusWebOIDCBackend',
+#    'mozilla_django_oidc.auth.OIDCAuthenticationBackend',
 ]
 
 ROOT_URLCONF = 'webapp.urls'
@@ -187,16 +188,19 @@ LOGGING = {
 }
 
 # BEGIN SSO OIDC
+OIDC_USERNAME_ALGO = 'authentication.oidc.generate_username'
 OIDC_CREATE_USER = True
 OIDC_RP_CLIENT_ID = os.getenv('OIDC_RP_CLIENT_ID')
 OIDC_RP_CLIENT_SECRET = os.getenv('OIDC_RP_CLIENT_SECRET')
+OIDC_RP_SIGN_ALGO = "RS256"
 
-OIDC_OP_AUTHORIZATION_ENDPOINT = "<URL of the OIDC OP authorization endpoint>"
-OIDC_OP_TOKEN_ENDPOINT = "<URL of the OIDC OP token endpoint>"
-OIDC_OP_USER_ENDPOINT = "<URL of the OIDC OP userinfo endpoint>"
+OIDC_OP_AUTHORIZATION_ENDPOINT = "https://cilogon.org/authorize"
+OIDC_OP_TOKEN_ENDPOINT = "https://cilogon.org/oauth2/token"
+OIDC_OP_USER_ENDPOINT = "https://cilogon.org/oauth2/userinfo"
+OIDC_OP_JWKS_ENDPOINT= "https://cilogon.org/oauth2/certs"
 
-LOGIN_REDIRECT_URL = "<URL path to redirect to after login>"
-LOGOUT_REDIRECT_URL = "<URL path to redirect to after logout>"
+LOGIN_REDIRECT_URL = "http://localhost:8000"
+LOGOUT_REDIRECT_URL = "http://localhost:8000"
 # END SSO OIDC
 
 SECURE_CROSS_ORIGIN_OPENER_POLICY = None
@@ -211,3 +215,4 @@ JANUS_CONTROLLER_WS_URL = "{}://{}:{}".format(CTRL_WS_PROTOCOL, CTRL_HOST, CTRL_
 JANUS_USER = os.getenv("JANUS_USER", "admin")
 JANUS_PASSWORD = os.getenv("JANUS_PASSWORD", "admin")
 JANUS_CONTROLLER_AUTH = (JANUS_USER, JANUS_PASSWORD)
+
