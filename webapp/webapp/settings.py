@@ -41,12 +41,14 @@ INSTALLED_APPS = [
     'crispy_bootstrap4',
     'crispy_forms',
     'janus',
+    'django_extensions',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'mozilla_django_oidc',  # Load after auth
 ]
 
 MIDDLEWARE = [
@@ -57,6 +59,13 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'mozilla_django_oidc.middleware.SessionRefresh',
+]
+
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'authentication.oidc.JanusWebOIDCBackend',
+#    'mozilla_django_oidc.auth.OIDCAuthenticationBackend',
 ]
 
 ROOT_URLCONF = 'webapp.urls'
@@ -170,10 +179,30 @@ LOGGING = {
             'level': os.getenv('DJANGO_LOG_LEVEL', 'DEBUG'),
             'propagate': False,
         },
+        'mozilla_django_oidc': {
+            'handlers': ['console'],
+            'level': 'DEBUG'
+        },
         # Default runserver request logging
         'django.server': DEFAULT_LOGGING['loggers']['django.server'],
     },
 }
+
+# BEGIN SSO OIDC
+OIDC_USERNAME_ALGO = 'authentication.oidc.generate_username'
+OIDC_CREATE_USER = True
+OIDC_RP_CLIENT_ID = os.getenv('OIDC_RP_CLIENT_ID')
+OIDC_RP_CLIENT_SECRET = os.getenv('OIDC_RP_CLIENT_SECRET')
+OIDC_RP_SIGN_ALGO = "RS256"
+
+OIDC_OP_AUTHORIZATION_ENDPOINT = "https://cilogon.org/authorize"
+OIDC_OP_TOKEN_ENDPOINT = "https://cilogon.org/oauth2/token"
+OIDC_OP_USER_ENDPOINT = "https://cilogon.org/oauth2/userinfo"
+OIDC_OP_JWKS_ENDPOINT= "https://cilogon.org/oauth2/certs"
+
+LOGIN_REDIRECT_URL = "http://localhost:8000"
+LOGOUT_REDIRECT_URL = "http://localhost:8000"
+# END SSO OIDC
 
 SECURE_CROSS_ORIGIN_OPENER_POLICY = None
 CTRL_HOST = os.getenv("JANUS_WEB_CTRL_HOST", "localhost")
@@ -187,3 +216,4 @@ JANUS_CONTROLLER_WS_URL = "{}://{}:{}".format(CTRL_WS_PROTOCOL, CTRL_HOST, CTRL_
 JANUS_USER = os.getenv("JANUS_USER", "admin")
 JANUS_PASSWORD = os.getenv("JANUS_PASSWORD", "admin")
 JANUS_CONTROLLER_AUTH = (JANUS_USER, JANUS_PASSWORD)
+

@@ -20,10 +20,11 @@ from django.conf.urls.static import static
 from . import views
 
 urlpatterns = [
+    path('oidc/', include('mozilla_django_oidc.urls')),
     path('janus/', include('janus.urls')),
     path('authentication/', include('authentication.urls')),
-    path('', views.index, name='home'),
     path('admin/', admin.site.urls),
+    path('', views.index, name='home'),
 ]
 
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

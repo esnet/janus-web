@@ -124,6 +124,10 @@
               <input class="form-control mr-sm-2" type="password" name="password" placeholder="Password">
               <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Login</button>
             </form>
+            <form class="form-inline my-2 my-lg-0" action="{% url 'oidc_authentication_init' %}" method="get">
+              {% csrf_token %}
+              <button class="btn btn-outline-success my-2 my-sm-0" type="submit">SSO Login</button>
+            </form>
           {% endif %}
       <!-- </div> -->
     </nav>
