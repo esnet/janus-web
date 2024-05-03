@@ -41,7 +41,7 @@ class PerfConsumer(JsonWebsocketConsumer):
             cmd = f"{tool} -s -D"
             if dst_node:
                 _, exec_id = create_exec(dst_node, dst_cid, cmd)
-            cmd = f"stdbuf -o0 {tool} -c {dst_host} -i 2"
+            cmd = f"{tool} -c {dst_host} -i 2"
             if duration:
                 cmd += f" -t {duration}"
             if dst_port:
@@ -53,7 +53,7 @@ class PerfConsumer(JsonWebsocketConsumer):
         elif tool == "escp":
             dst_port = dst_port if dst_port else "22"
             cmd = 'dd if=/dev/zero of=/tmp/10T bs=1 count=1 seek=10T'
-            _, exec_id = create_exec(src_node, src_cid, cmd, start=True)
+            _, exec_id = create_exec(src_node, src_cid, cmd)
             cmd = f'escp -P {dst_port} --bits --direct --args_src="--engine=dummy -t 16 -b 1M" --args_dst="--engine=dummy -t 16 -b 1M" /tmp/10T {dst_host}:/tmp'
         elif tool == "xfer_test" and img.endswith("dtnaas/tools"):
             cmd = f"{tool} -s"
@@ -80,7 +80,7 @@ class PerfConsumer(JsonWebsocketConsumer):
             cmd = f"ib_write_bw --report_gbits -n 10000 -F -a -t 2048 -R {dst_host}"
         else:
             cmd = tool
-        return cmd
+        return f"stdbuf -o0 -e0 {cmd}"
 
     def send_done(self, sid, msg=None):
         rmsg = dict()
@@ -149,7 +149,7 @@ class PerfConsumer(JsonWebsocketConsumer):
                 dst_port = None
 
             cmd = self.create_cmd(tool, dst_host, dst_port, sess, src_node, src_cid, dst_node, dst_cid, duration)
-            _, exec_id = create_exec(src_node, src_cid, cmd, start=False)
+            _, exec_id = create_exec(src_node, src_cid, cmd, tty=True, start=False)
             create.append({'node': src_node,
                            'node_id': src_nid,
                            'exec_id': exec_id,
