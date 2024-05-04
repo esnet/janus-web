@@ -173,7 +173,6 @@ class ContainerProfileForm(forms.Form):
                         'mgmt_net': 'Management Network:',
                         'data_net': 'Dataplane Network:'}
         multichoice = {'volumes': 'Volumes:'}
-        textareas = {'environment': 'Environment Variables'}
         anytext = {
                    'arguments': 'Arguments (Container Cmd):',
                    'mgmt_net_ipv4': 'Management IPv4 Address:',
@@ -219,7 +218,7 @@ class ContainerProfileForm(forms.Form):
         volumes_choices = sorted(tuple(zip(volumes_choices, volumes_choices)))
 
         name = pfields.get('name') if pfields else "new"
-        for key, label in {**bools, **selects, **selects_none, **multichoice, **textareas, **anytext, **ranges}.items():
+        for key, label in {**bools, **selects, **selects_none, **multichoice, **anytext, **ranges}.items():
             value = None
             if pfields and key in pfields.get('settings'):
                 value = pfields['settings'].get(key)
@@ -236,7 +235,7 @@ class ContainerProfileForm(forms.Form):
 
             elif key in selects_none:
                 self.fields[key] = forms.ChoiceField(choices=locals().get(f"{key}_choices", tuple()),
-                                                     initial=Constants.NONE if not value else value,
+                                                     initial=value,
                                                      required=False, label=selects_none[key])
 
             elif key in selects:
@@ -249,10 +248,6 @@ class ContainerProfileForm(forms.Form):
                 self.fields[key] = forms.ChoiceField(choices=locals().get(f"{key}_choices", tuple()),
                                                      initial=0 if value=="default" else value,
                                                      required=False, label=selects[key])
-
-            elif key in textareas:
-                self.fields[key] = forms.CharField(widget=forms.Textarea(attrs={'rows': 4, 'readonly':'readonly'}),
-                                                   initial=value, required=False, label=textareas[key])
 
             elif key in ranges:
                 self.fields[f"{key}_start"] = forms.CharField(widget=forms.TextInput(attrs={'type': 'number'}),
@@ -356,7 +351,7 @@ class SessionCreateForm(forms.Form):
                 else:
                     choices_list = []
                 self.fields[key] = forms.ChoiceField(choices=choices_list,
-                                                     initial=Constants.NONE,
+                                                     initial=value,
                                                      required=False, label=selects[key] if key != 'node' or 'clusters' else False)
 
         self.helper = FormHelper()
