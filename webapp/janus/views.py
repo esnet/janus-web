@@ -407,7 +407,9 @@ def create_profile(request, resource=Constants.HOST):
                 data['memory'] = int(data['memory'])
 
                 mgmt_net = dict()
-                mgmt_net_name = request.POST.get('mgmt_net', "bridge")
+                mgmt_net_name = request.POST.get('mgmt_net')
+                if mgmt_net_name == Constants.NONE:
+                    mgmt_net_name = None
                 mgmt_net_ipv4 = request.POST.get('mgmt_net_ipv4', None)
                 mgmt_net_ipv6 = request.POST.get('mgmt_net_ipv6', None)
                 mgmt_net.update({'name': mgmt_net_name})
@@ -416,7 +418,9 @@ def create_profile(request, resource=Constants.HOST):
                 data['mgmt_net'] = mgmt_net
 
                 data_net = dict()
-                data_net_name = request.POST.get('data_net', "bridge")
+                data_net_name = request.POST.get('data_net')
+                if data_net_name == Constants.NONE:
+                    data_net_name = None
                 data_net_ipv4 = request.POST.get('data_net_ipv4', None)
                 data_net_ipv6 = request.POST.get('data_net_ipv6', None)
                 data_net.update({'name': data_net_name})
@@ -444,7 +448,7 @@ def create_profile(request, resource=Constants.HOST):
                 data['volumes'] = request.POST.getlist('volumes', None)
 
                 data['qos'] = request.POST.get('qos', None)
-                if not data['qos']:
+                if data['qos'] == Constants.NONE:
                     data["qos"] = None
 
                 data['environment'] = request.POST.getlist('environment', None)
