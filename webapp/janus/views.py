@@ -1,4 +1,5 @@
 import logging
+import ast
 from . import services
 from .constants import Constants
 from .forms import *
@@ -297,8 +298,8 @@ def update_profile(request, resource=Constants.HOST):
         s['privileged'] = True if request.POST.get('privileged') else False
         s['systemd'] = True if request.POST.get('systemd') else False
         s['pull_image'] = True if request.POST.get('pull_image') else False
-        s['cpu'] = False if not int(request.POST.get('cpu')) else int(request.POST.get('cpu'))
-        s['memory'] = False if not int(request.POST.get('memory'))*1024*1024*1024 else int(request.POST.get('memory'))*1024*1024*1024
+        s['cpu'] = 0 if not int(request.POST.get('cpu')) else int(request.POST.get('cpu'))
+        s['memory'] = 0 if not int(request.POST.get('memory'))*1024*1024*1024 else int(request.POST.get('memory'))*1024*1024*1024
         s['mgmt_net'] = None if request.POST.get('mgmt_net') == Constants.NONE else request.POST.get('mgmt_net')
         s['data_net'] = None if request.POST.get('data_net') == Constants.NONE else request.POST.get('data_net')
         s['mgmt_net_ipv4'] = None if not len(request.POST.get('mgmt_net_ipv4')) else request.POST.get('mgmt_net_ipv4')
@@ -312,7 +313,7 @@ def update_profile(request, resource=Constants.HOST):
         s['arguments'] = None if not len(request.POST.get('arguments')) else request.POST.get('arguments')
         s['qos'] = None if request.POST.get('qos') == Constants.NONE else request.POST.get('qos')
         s['volumes'] = request.POST.getlist('volumes')
-        #s['environment'] = list() if not len(request.POST.get('environment')) else request.POST.get('environment')
+        s['environment'] = list() if not len(request.POST.get('environment')) else ast.literal_eval(request.POST.get('environment'))
         pfields['settings'] = s
         return pfields
 
@@ -370,6 +371,7 @@ def update_profile(request, resource=Constants.HOST):
         content = {
             'data': data
         }
+
         status, res = services.update_profile(resource, pfields, quser, qgroups)
         if status:
             return HttpResponseRedirect(reverse('janus:list_profiles'))
@@ -410,8 +412,10 @@ def create_profile(request, resource=Constants.HOST):
                 mgmt_net_name = request.POST.get('mgmt_net')
                 if mgmt_net_name == Constants.NONE:
                     mgmt_net_name = None
-                mgmt_net_ipv4 = request.POST.get('mgmt_net_ipv4', None)
-                mgmt_net_ipv6 = request.POST.get('mgmt_net_ipv6', None)
+                mgmt_net_ipv4 = None if not len(request.POST.get('mgmt_net_ipv4')) else request.POST.get(
+                    'mgmt_net_ipv4')
+                mgmt_net_ipv6 = None if not len(request.POST.get('mgmt_net_ipv6')) else request.POST.get(
+                    'mgmt_net_ipv6')
                 mgmt_net.update({'name': mgmt_net_name})
                 mgmt_net.update({'ipv4_addr': mgmt_net_ipv4})
                 mgmt_net.update({'ipv6_addr': mgmt_net_ipv6})
@@ -421,8 +425,10 @@ def create_profile(request, resource=Constants.HOST):
                 data_net_name = request.POST.get('data_net')
                 if data_net_name == Constants.NONE:
                     data_net_name = None
-                data_net_ipv4 = request.POST.get('data_net_ipv4', None)
-                data_net_ipv6 = request.POST.get('data_net_ipv6', None)
+                data_net_ipv4 = None if not len(request.POST.get('data_net_ipv4')) else request.POST.get(
+                    'data_net_ipv4')
+                data_net_ipv6 = None if not len(request.POST.get('data_net_ipv6')) else request.POST.get(
+                    'data_net_ipv6')
                 data_net.update({'name': data_net_name})
                 data_net.update({'ipv4_addr': data_net_ipv4})
                 data_net.update({'ipv6_addr': data_net_ipv6})
@@ -437,13 +443,11 @@ def create_profile(request, resource=Constants.HOST):
                 data['data_port_range'] = request.POST.get('data_port_range', None)
                 data['serv_port_range'] = request.POST.get('serv_port_range', None)
 
+                data['affinity'] = "network" if not len(request.POST.get('affinity')) else request.POST.get(
+                    'affinity')
 
-                data['affinity'] = request.POST.get('affinity', "network")
-                if not data['affinity']:
-                    data['affinity'] = 'network'
-
-
-                data['arguments'] = request.POST.get('arguments', None)
+                data['arguments'] = None if not len(request.POST.get('arguments')) else request.POST.get(
+                    'arguments')
 
                 data['volumes'] = request.POST.getlist('volumes', None)
 
@@ -452,8 +456,9 @@ def create_profile(request, resource=Constants.HOST):
                     data["qos"] = None
 
                 data['environment'] = request.POST.getlist('environment', None)
-                if not data['environment']:
+                if '' in data['environment']:
                     data['environment'] = list()
+
 
                 profile = {
                     'name': name,
