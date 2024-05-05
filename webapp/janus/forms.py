@@ -164,9 +164,9 @@ class ContainerProfileForm(forms.Form):
         volumes_choices = kwargs.pop('volume').copy()
         super(ContainerProfileForm, self).__init__(*args, **kwargs)
 
-        bools = {'privileged': 'Privileged Container:',
-                 'systemd': 'Systemd Container:',
-                 'pull_image': 'Pull Image on Create:'}
+        bools = {'privileged': 'Privileged Container',
+                 'systemd': 'Systemd Container',
+                 'pull_image': 'Pull Image on Create'}
         selects = {'cpu': 'Cores:',
                    'memory': 'Memory:'}
         selects_none = {'qos': 'Quality of Service:',
@@ -183,7 +183,7 @@ class ContainerProfileForm(forms.Form):
                    'environment': 'Environment Variables:'}
 
         if not pfields:
-            anytext.update({'name': 'Name'})
+            anytext.update({'name': 'Name:'})
 
         ranges = {'ctrl_port_range': 'Control Port Range',
                   'serv_port_range': 'Service Port Range',
