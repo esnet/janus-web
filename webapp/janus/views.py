@@ -406,7 +406,7 @@ def create_profile(request, resource=Constants.HOST):
                 data['memory'] = request.POST.get('memory', 0)
                 if not data['memory']:
                     data['memory'] = 0
-                data['memory'] = int(data['memory'])
+                data['memory'] = int(data['memory'])*1024*1024*1024
 
                 mgmt_net = dict()
                 mgmt_net_name = request.POST.get('mgmt_net')
