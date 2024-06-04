@@ -221,8 +221,12 @@
 {{ block.super}}
 <script>
   const sessions = JSON.parse(document.getElementById('data').textContent);
+  var wsProtocol = 'ws://';
+  if (window.location.protocol === 'https:') {
+    wsProtocol = 'wss://';
+  }
   const sock = new WebSocket(
-    'ws://'
+    wsProtocol
       + window.location.host
       + '/ws/perf/'
   );
