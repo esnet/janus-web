@@ -164,16 +164,15 @@ class ContainerProfileForm(forms.Form):
         volumes_choices = kwargs.pop('volume').copy()
         super(ContainerProfileForm, self).__init__(*args, **kwargs)
 
-        bools = {'privileged': 'Privileged Container:',
-                 'systemd': 'Systemd Container:',
-                 'pull_image': 'Pull Image on Create:'}
+        bools = {'privileged': 'Privileged Container',
+                 'systemd': 'Systemd Container',
+                 'pull_image': 'Pull Image on Create'}
         selects = {'cpu': 'Cores:',
                    'memory': 'Memory:'}
         selects_none = {'qos': 'Quality of Service:',
                         'mgmt_net': 'Management Network:',
                         'data_net': 'Dataplane Network:'}
         multichoice = {'volumes': 'Volumes:'}
-        textareas = {'environment': 'Environment Variables'}
         anytext = {
                    'arguments': 'Arguments (Container Cmd):',
                    'mgmt_net_ipv4': 'Management IPv4 Address:',
@@ -184,7 +183,7 @@ class ContainerProfileForm(forms.Form):
                    'environment': 'Environment Variables:'}
 
         if not pfields:
-            anytext.update({'name': 'Name'})
+            anytext.update({'name': 'Name:'})
 
         ranges = {'ctrl_port_range': 'Control Port Range',
                   'serv_port_range': 'Service Port Range',
@@ -219,7 +218,7 @@ class ContainerProfileForm(forms.Form):
         volumes_choices = sorted(tuple(zip(volumes_choices, volumes_choices)))
 
         name = pfields.get('name') if pfields else "new"
-        for key, label in {**bools, **selects, **selects_none, **multichoice, **textareas, **anytext, **ranges}.items():
+        for key, label in {**bools, **selects, **selects_none, **multichoice, **anytext, **ranges}.items():
             value = None
             if pfields and key in pfields.get('settings'):
                 value = pfields['settings'].get(key)
@@ -236,7 +235,7 @@ class ContainerProfileForm(forms.Form):
 
             elif key in selects_none:
                 self.fields[key] = forms.ChoiceField(choices=locals().get(f"{key}_choices", tuple()),
-                                                     initial=Constants.NONE if not value else value,
+                                                     initial=value,
                                                      required=False, label=selects_none[key])
 
             elif key in selects:
@@ -249,10 +248,6 @@ class ContainerProfileForm(forms.Form):
                 self.fields[key] = forms.ChoiceField(choices=locals().get(f"{key}_choices", tuple()),
                                                      initial=0 if value=="default" else value,
                                                      required=False, label=selects[key])
-
-            elif key in textareas:
-                self.fields[key] = forms.CharField(widget=forms.Textarea(attrs={'rows': 4, 'readonly':'readonly'}),
-                                                   initial=value, required=False, label=textareas[key])
 
             elif key in ranges:
                 self.fields[f"{key}_start"] = forms.CharField(widget=forms.TextInput(attrs={'type': 'number'}),
@@ -310,3 +305,90 @@ class ContainerProfileForm(forms.Form):
                                          onclick="window.location.href = '{}';".format(reverse('janus:list_profiles'))))
             self.helper.form_action = reverse('janus:create_profile', args=[Constants.HOST])
 
+
+class SessionCreateForm(forms.Form):
+    def __init__(self, *args, **kwargs):
+        global choices_list
+        sfields = kwargs.pop('sfields')
+        nodes = kwargs.pop('nodes_list')
+        profiles = kwargs.pop('profiles_list')
+        images = kwargs.pop('images_list')
+        clusters = kwargs.pop('clusters', {})
+        super(SessionCreateForm, self).__init__(*args, **kwargs)
+        bools = {'remove_container': 'Remove container when stopped'}
+        selects = {'node': '',
+                   'clusters': '',
+                   'image': 'Select Image:',
+                   'profile': 'Select Profile:'}
+        anytext = {'image_tag': 'Image tag:',
+            'arguments': 'Arguments:',
+            'ssh_user_name': 'SSH User Name:',
+            'ssh_public_key': 'SSH Public Key:'}
+
+        for key, label in {**bools, **selects, **anytext}.items():
+            value = None
+            if sfields and key in sfields.get('settings'):
+                value = sfields['settings'].get(key)
+
+            if key in bools:
+                self.fields[key] = forms.BooleanField(
+                    widget=forms.CheckboxInput(attrs={'id': f"{key}"}),
+                    required=False, label=bools[key],
+                    initial=False if value == "default" else value)
+            elif key in anytext:
+                self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
+                                                   initial=value, required=False, label=anytext[key],
+                                                   max_length=255)
+            elif key in selects:
+                if key == 'node':
+                    choices_list = [(node, node) for node in nodes]
+                elif key == 'clusters':
+                    choices_list = [(cluster, cluster) for cluster_list in clusters.values() for cluster in cluster_list]
+                elif key == 'image':
+                    choices_list = [(image, image) for image in images]
+                elif key == 'profile':
+                    choices_list = [(profile, profile) for profile in profiles]
+                else:
+                    choices_list = []
+                self.fields[key] = forms.ChoiceField(choices=choices_list,
+                                                     initial=value,
+                                                     required=False, label=selects[key] if key != 'node' or 'clusters' else False)
+
+        self.helper = FormHelper()
+        self.helper.layout = Layout(HTML("""
+                <div class='form-row align-items-center d-flex justify-content-center'>
+                  <div class='col-sm-4'><i>Select Endpoint:</i></div>
+                  <div class='col-sm-6'><i>Select Cluster Node:</i></div>
+                </div>
+                """))
+        self.helper.layout.append(
+            Div(
+            Div(
+                Field('node', wrapper_class='col-sm-4', v_model='row.node'),
+                Field('clusters', wrapper_class='col-sm-6', v_model='row.clusters'),
+                HTML('<a v-on:click="rows.push({})" class="btn btn-sm btn-success"><span class="fa-solid fa-plus"></span></a>'),
+                HTML('<a v-on:click="rows.splice(index, 1)" class="btn btn-sm btn-danger"><span class="fa-solid fa-xmark"></span></a>'),
+                css_class='form-row align-items-center d-flex justify-content-center',
+                v_for='row in rows'
+            ),
+            id=f"nodes-app", css_class="nodes-app",
+            ),
+        )
+        self.helper.layout.append(
+            Div(
+                Div('image', css_class='col-sm-7'),
+                Div('image_tag', css_class='col-sm-5'),
+                Div('profile', css_class='col-sm-5'),
+                Div('arguments', css_class='col-sm-7'),
+                Div('ssh_user_name', css_class='col-sm-3'),
+                Div('ssh_public_key', css_class='col-sm-9'),
+                Div('remove_container', css_class='col-7'),
+                css_class='row justify-content-center', style="margin-bottom: 10px;"
+
+            )
+        )
+        self.helper.add_input(Submit('submit', 'Create', css_class='btn btn-primary'))
+        self.helper.form_method = 'POST'
+        self.helper.add_input(Button('cancel', 'Cancel', css_class='btn btn-primary',
+                                         onclick="window.location.href = '{}';".format(reverse('janus:list_sessions'))))
+        self.helper.form_action = reverse('janus:create_session')

@@ -1,4 +1,5 @@
 import logging
+import ast
 from . import services
 from .constants import Constants
 from .forms import *
@@ -50,7 +51,6 @@ def list_sessions(request, data=None):
         content['sessions'] = res
     else:
         data['errors'].append(res)
-
     return render(request, 'home.html', content)
 
 
@@ -207,8 +207,15 @@ def create_session(request):
     data = {"errors": list()}
     if request.method == 'POST':
         node = request.POST.getlist('node', None)
+        clusters = request.POST.getlist('clusters')
         if node is not None:
-            data['instances'] = node
+            if not clusters:
+                data['instances'] = node
+            else:
+                instances = [{'name': node_value, 'nodeName': cluster_value} for node_value, cluster_value in
+                             zip(node, clusters)]
+                data['instances'] = instances
+
 
         image = request.POST.get('image', None)
         if image is not None:
@@ -234,12 +241,13 @@ def create_session(request):
         if ssh_public_key is not None:
             data['kwargs']['PUBLIC_KEY'] = ssh_public_key
 
-        data['remove_container'] = request.POST.get('remove_container', None)
+        remove_container = request.POST.get('remove_container', None)
+        data['remove_container'] = True if remove_container is not None else False
 
         # XXX use django Forms...
         if not len(data['errors']):
             status, res = services.create_session(data, quser, qgroups)
-            # look for errors for earch created service
+            # look for errors for each created service
             errs = dict()
             for sid,s in res.items():
                 if 'services' in s:
@@ -255,18 +263,23 @@ def create_session(request):
     _, nodes = services.get_nodes(quser, qgroups, verbose=True)
     _, profiles = services.get_profiles(quser, qgroups)
     _, images = services.get_images(quser, qgroups)
+    clusters = {k['name']: [node['name'] for node in k.get('data', {}).get('cluster_nodes', [])] for k in nodes}
 
+    kwargs = {'nodes_list': [k.get('name') for k in nodes],
+              'profiles_list': profiles,
+              'images_list': [k.get('name') for k in images],
+              'clusters': clusters}
+
+    forms = SessionCreateForm(sfields=None, **kwargs)
     content = {
         'data': data,
-        'nodes': nodes,
-        'profiles': sorted(profiles),
-        'images': images,
         'login': request.user.is_authenticated,
-        'is_admin': user.is_staff
+        'is_admin': user.is_staff,
+        'forms': forms
     }
 
     logger.debug(content)
-    return render(request, 'create_session.html', content)
+    return render(request, 'session_create.html', content)
 
 
 def update_profile(request, resource=Constants.HOST):
@@ -285,8 +298,8 @@ def update_profile(request, resource=Constants.HOST):
         s['privileged'] = True if request.POST.get('privileged') else False
         s['systemd'] = True if request.POST.get('systemd') else False
         s['pull_image'] = True if request.POST.get('pull_image') else False
-        s['cpu'] = False if not int(request.POST.get('cpu')) else int(request.POST.get('cpu'))
-        s['memory'] = False if not int(request.POST.get('memory'))*1024*1024*1024 else int(request.POST.get('memory'))*1024*1024*1024
+        s['cpu'] = 0 if not int(request.POST.get('cpu')) else int(request.POST.get('cpu'))
+        s['memory'] = 0 if not int(request.POST.get('memory'))*1024*1024*1024 else int(request.POST.get('memory'))*1024*1024*1024
         s['mgmt_net'] = None if request.POST.get('mgmt_net') == Constants.NONE else request.POST.get('mgmt_net')
         s['data_net'] = None if request.POST.get('data_net') == Constants.NONE else request.POST.get('data_net')
         s['mgmt_net_ipv4'] = None if not len(request.POST.get('mgmt_net_ipv4')) else request.POST.get('mgmt_net_ipv4')
@@ -300,7 +313,7 @@ def update_profile(request, resource=Constants.HOST):
         s['arguments'] = None if not len(request.POST.get('arguments')) else request.POST.get('arguments')
         s['qos'] = None if request.POST.get('qos') == Constants.NONE else request.POST.get('qos')
         s['volumes'] = request.POST.getlist('volumes')
-        #s['environment'] = list() if not len(request.POST.get('environment')) else request.POST.get('environment')
+        s['environment'] = list() if not len(request.POST.get('environment')) else ast.literal_eval(request.POST.get('environment'))
         pfields['settings'] = s
         return pfields
 
@@ -318,24 +331,13 @@ def update_profile(request, resource=Constants.HOST):
         opt_name = None if not len(request.POST.getlist('opt_name')) else request.POST.getlist('opt_name')
         opt_value = None if not len(request.POST.getlist('opt_value')) else request.POST.getlist('opt_value')
         if subnet:
-            config = list()
-            ipam = dict()
-            idx = 0
-            while idx < (len(subnet)):
-                addrs_dict = dict()
-                addrs_dict.update({'subnet': subnet[idx]})
-                addrs_dict.update({'gateway': gateway[idx]})
-                config.append(addrs_dict)
-                idx += 1
-            ipam.update({'config': config})
+            config = [{'subnet': subnet_val, 'gateway': gateway_val} for subnet_val, gateway_val in
+                      zip(subnet, gateway)]
+            ipam = {'config': config}
             s['ipam'] = ipam
 
         if opt_name:
-            options = dict()
-            idx = 0
-            while idx < (len(opt_name)):
-                options.update({opt_name[idx]: opt_value[idx]})
-                idx += 1
+            options = {name: value for name, value in zip(opt_name, opt_value)}
             s['options'] = options
 
         pfields['settings'] = s
@@ -369,6 +371,7 @@ def update_profile(request, resource=Constants.HOST):
         content = {
             'data': data
         }
+
         status, res = services.update_profile(resource, pfields, quser, qgroups)
         if status:
             return HttpResponseRedirect(reverse('janus:list_profiles'))
@@ -403,21 +406,29 @@ def create_profile(request, resource=Constants.HOST):
                 data['memory'] = request.POST.get('memory', 0)
                 if not data['memory']:
                     data['memory'] = 0
-                data['memory'] = int(data['memory'])
+                data['memory'] = int(data['memory'])*1024*1024*1024
 
                 mgmt_net = dict()
-                mgmt_net_name = request.POST.get('mgmt_net', "bridge")
-                mgmt_net_ipv4 = request.POST.get('mgmt_net_ipv4', None)
-                mgmt_net_ipv6 = request.POST.get('mgmt_net_ipv6', None)
+                mgmt_net_name = request.POST.get('mgmt_net')
+                if mgmt_net_name == Constants.NONE:
+                    mgmt_net_name = None
+                mgmt_net_ipv4 = None if not len(request.POST.get('mgmt_net_ipv4')) else request.POST.get(
+                    'mgmt_net_ipv4')
+                mgmt_net_ipv6 = None if not len(request.POST.get('mgmt_net_ipv6')) else request.POST.get(
+                    'mgmt_net_ipv6')
                 mgmt_net.update({'name': mgmt_net_name})
                 mgmt_net.update({'ipv4_addr': mgmt_net_ipv4})
                 mgmt_net.update({'ipv6_addr': mgmt_net_ipv6})
                 data['mgmt_net'] = mgmt_net
 
                 data_net = dict()
-                data_net_name = request.POST.get('data_net', "bridge")
-                data_net_ipv4 = request.POST.get('data_net_ipv4', None)
-                data_net_ipv6 = request.POST.get('data_net_ipv6', None)
+                data_net_name = request.POST.get('data_net')
+                if data_net_name == Constants.NONE:
+                    data_net_name = None
+                data_net_ipv4 = None if not len(request.POST.get('data_net_ipv4')) else request.POST.get(
+                    'data_net_ipv4')
+                data_net_ipv6 = None if not len(request.POST.get('data_net_ipv6')) else request.POST.get(
+                    'data_net_ipv6')
                 data_net.update({'name': data_net_name})
                 data_net.update({'ipv4_addr': data_net_ipv4})
                 data_net.update({'ipv6_addr': data_net_ipv6})
@@ -432,23 +443,22 @@ def create_profile(request, resource=Constants.HOST):
                 data['data_port_range'] = request.POST.get('data_port_range', None)
                 data['serv_port_range'] = request.POST.get('serv_port_range', None)
 
+                data['affinity'] = "network" if not len(request.POST.get('affinity')) else request.POST.get(
+                    'affinity')
 
-                data['affinity'] = request.POST.get('affinity', "network")
-                if not data['affinity']:
-                    data['affinity'] = 'network'
-
-
-                data['arguments'] = request.POST.get('arguments', None)
+                data['arguments'] = None if not len(request.POST.get('arguments')) else request.POST.get(
+                    'arguments')
 
                 data['volumes'] = request.POST.getlist('volumes', None)
 
                 data['qos'] = request.POST.get('qos', None)
-                if not data['qos']:
+                if data['qos'] == Constants.NONE:
                     data["qos"] = None
 
                 data['environment'] = request.POST.getlist('environment', None)
-                if not data['environment']:
+                if '' in data['environment']:
                     data['environment'] = list()
+
 
                 profile = {
                     'name': name,
@@ -524,28 +534,17 @@ def create_profile(request, resource=Constants.HOST):
                 data['ipam'] = None
                 subnet = request.POST.getlist('subnet', None)
                 gateway = request.POST.getlist('gateway', None)
-                config = list()
                 if subnet[0]:
-                    ipam = dict()
-                    idx = 0
-                    while idx < (len(subnet)):
-                        addrs_dict = dict()
-                        addrs_dict.update({'subnet': subnet[idx]})
-                        addrs_dict.update({'gateway': gateway[idx]})
-                        config.append(addrs_dict)
-                        idx += 1
-                    ipam.update({'config': config})
+                    config = [{'subnet': subnet_val, 'gateway': gateway_val} for subnet_val, gateway_val in
+                              zip(subnet, gateway)]
+                    ipam = {'config': config}
                     data['ipam'] = ipam
 
                 data['options'] = None
                 opts = request.POST.getlist('opt_name', None)
                 opts_values = request.POST.getlist('opt_value', None)
                 if len(opts) != 0:
-                    options = dict()
-                    idx = 0
-                    while idx < (len(opts)):
-                        options.update({opts[idx]: opts_values[idx]})
-                        idx += 1
+                    options = {name: value for name, value in zip(opts, opts_values)}
                     data['options'] = options
 
                 network = {
@@ -580,11 +579,13 @@ def start_session(request, session_id):
         status, res = services.start_session(session_id, quser, qgroups)
         if status:
             _get_res_errors(data, res)
-        else:
-            data['errors'].append(res)
-        return list_sessions(request, data)
+            if data['errors']:
+                return list_sessions(request, data)
+            else:
+                return HttpResponseRedirect('/')
     else:
         return HttpResponseRedirect('/')
+
 
 def stop_session(request, session_id):
     if request.user.is_authenticated:
@@ -593,11 +594,13 @@ def stop_session(request, session_id):
         status, res = services.stop_session(session_id, quser, qgroups)
         if status:
             _get_res_errors(data, res)
-        else:
-            data['errors'].append(res)
-        return list_sessions(request, data)
+            if data['errors']:
+                return list_sessions(request, data)
+            else:
+                return HttpResponseRedirect('/')
     else:
         return HttpResponseRedirect('/')
+
 
 def delete_session(request, session_id):
     if request.user.is_authenticated:
@@ -606,9 +609,10 @@ def delete_session(request, session_id):
         status, res = services.delete_session(session_id, quser, qgroups)
         if status:
             _get_res_errors(data, res)
-        else:
-            data['errors'].append(res)
-        return list_sessions(request, data)
+            if data['errors']:
+                return list_sessions(request, data)
+            else:
+                return HttpResponseRedirect('/')
     else:
         return HttpResponseRedirect('/')
 
