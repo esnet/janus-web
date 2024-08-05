@@ -43,26 +43,25 @@
   }));
 
   document.addEventListener('DOMContentLoaded', function() {
-      const nodeSelect = document.querySelectorAll('select[name="node"]');
       const clustersData = JSON.parse(document.getElementById('clusters-data').textContent);
 
-      nodeSelect.forEach(select => {
-        select.addEventListener('change', function() {
-          const selectedNode = select.value;
-          const clusterSelect = select.closest('.form-row').querySelector('select[name="clusters"]');
-          const clusters = clustersData[selectedNode] || [];
+      document.addEventListener('change', function(event) {
+          if (event.target && event.target.name === 'node') {
+              const selectedNode = event.target.value;
+              const clusterSelect = event.target.closest('.form-row').querySelector('select[name="clusters"]');
+              const clusters = clustersData[selectedNode] || [];
 
-          // Clear existing options
-          clusterSelect.innerHTML = '';
+              // Clear existing options
+              clusterSelect.innerHTML = '';
 
-          // Add new options
-          clusters.forEach(cluster => {
-              const option = document.createElement('option');
-              option.value = cluster;
-              option.textContent = cluster;
-              clusterSelect.appendChild(option);
-          });
-        });
+              // Add new options
+              clusters.forEach(cluster => {
+                  const option = document.createElement('option');
+                  option.value = cluster;
+                  option.textContent = cluster;
+                  clusterSelect.appendChild(option);
+              });
+          }
       });
   });
 

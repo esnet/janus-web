@@ -344,7 +344,6 @@ class SessionCreateForm(forms.Form):
                     choices_list = [(node, node) for node in nodes]
                 elif key == 'clusters':
                     choices_list = [(cluster, cluster) for cluster_list in clusters.values() for cluster in cluster_list]
-                    print(f"choices_list for clusters in SessionCreateForm in forms.py==========={choices_list}")
                 elif key == 'image':
                     choices_list = [(image, image) for image in images]
                 elif key == 'profile':
