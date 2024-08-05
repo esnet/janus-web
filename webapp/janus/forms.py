@@ -332,11 +332,11 @@ class SessionCreateForm(forms.Form):
 
             if key in bools:
                 self.fields[key] = forms.BooleanField(
-                    widget=forms.CheckboxInput(attrs={'id': f"{key}"}),
+                    widget=forms.CheckboxInput(attrs={'id': f"id_{key}"}),
                     required=False, label=bools[key],
                     initial=False if value == "default" else value)
             elif key in anytext:
-                self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
+                self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'id': f"id_{key}"}),
                                                    initial=value, required=False, label=anytext[key],
                                                    max_length=255)
             elif key in selects:
@@ -344,6 +344,7 @@ class SessionCreateForm(forms.Form):
                     choices_list = [(node, node) for node in nodes]
                 elif key == 'clusters':
                     choices_list = [(cluster, cluster) for cluster_list in clusters.values() for cluster in cluster_list]
+                    print(f"choices_list for clusters in SessionCreateForm in forms.py==========={choices_list}")
                 elif key == 'image':
                     choices_list = [(image, image) for image in images]
                 elif key == 'profile':

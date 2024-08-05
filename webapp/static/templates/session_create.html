@@ -27,6 +27,10 @@
     </div>
 </div>
 
+<script id="clusters-data" type="application/json">
+  {{ clusters|safe }}
+</script>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/1.0.26/vue.js"></script>
 <script>
   document.querySelectorAll('div.nodes-app').forEach(x => new Vue({
@@ -37,6 +41,30 @@
       };
     }
   }));
+
+  document.addEventListener('DOMContentLoaded', function() {
+      const nodeSelect = document.querySelectorAll('select[name="node"]');
+      const clustersData = JSON.parse(document.getElementById('clusters-data').textContent);
+
+      nodeSelect.forEach(select => {
+        select.addEventListener('change', function() {
+          const selectedNode = select.value;
+          const clusterSelect = select.closest('.form-row').querySelector('select[name="clusters"]');
+          const clusters = clustersData[selectedNode] || [];
+
+          // Clear existing options
+          clusterSelect.innerHTML = '';
+
+          // Add new options
+          clusters.forEach(cluster => {
+              const option = document.createElement('option');
+              option.value = cluster;
+              option.textContent = cluster;
+              clusterSelect.appendChild(option);
+          });
+        });
+      });
+  });
 
 </script>
 
