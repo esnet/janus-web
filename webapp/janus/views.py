@@ -265,7 +265,6 @@ def create_session(request):
     _, profiles = services.get_profiles(quser, qgroups)
     _, images = services.get_images(quser, qgroups)
     clusters = {k['name']: [node['name'] for node in k.get('data', {}).get('cluster_nodes', [])] for k in nodes}
-    print(f"clusters in create_Session in views.py==========={clusters}")
     clusters_json = json.dumps(clusters)  # Serialize clusters data to JSON
 
     kwargs = {'nodes_list': [k.get('name') for k in nodes],
