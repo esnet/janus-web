@@ -1,4 +1,3 @@
-import logging
 import ast
 import json
 from . import services
@@ -8,8 +7,6 @@ from django.contrib.auth.models import User
 from django.shortcuts import render, HttpResponseRedirect
 from django.http import HttpResponseServerError, HttpResponseNotFound, JsonResponse
 from django.urls import reverse
-
-logger = logging.getLogger(__name__)
 
 def _get_res_errors(data, res):
     try:
@@ -122,7 +119,6 @@ def view_session(request, session_id):
                 'is_admin': user.is_staff
             }
 
-            # logger.debug(content)
             return render(request, 'session_view.html', content)
         else:
             return HttpResponseNotFound()
@@ -281,7 +277,6 @@ def create_session(request):
         'clusters': clusters_json
     }
 
-    logger.debug(content)
     return render(request, 'session_create.html', content)
 
 
@@ -490,7 +485,6 @@ def create_profile(request, resource=Constants.HOST):
                 'is_admin': user.is_staff,
                 'forms': forms
             }
-            logger.debug(content)
             return render(request, 'profile_create.html', content)
 
         elif resource == Constants.VOL:
@@ -521,7 +515,6 @@ def create_profile(request, resource=Constants.HOST):
                 'is_admin': user.is_staff,
                 'forms': forms
             }
-            logger.debug(content)
             return render(request, 'create_volume.html', content)
 
 
