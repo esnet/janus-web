@@ -1,5 +1,5 @@
-import logging
 import ast
+import json
 from . import services
 from .constants import Constants
 from .forms import *
@@ -7,8 +7,6 @@ from django.contrib.auth.models import User
 from django.shortcuts import render, HttpResponseRedirect
 from django.http import HttpResponseServerError, HttpResponseNotFound, JsonResponse
 from django.urls import reverse
-
-logger = logging.getLogger(__name__)
 
 def _get_res_errors(data, res):
     try:
@@ -121,7 +119,6 @@ def view_session(request, session_id):
                 'is_admin': user.is_staff
             }
 
-            # logger.debug(content)
             return render(request, 'session_view.html', content)
         else:
             return HttpResponseNotFound()
@@ -264,6 +261,7 @@ def create_session(request):
     _, profiles = services.get_profiles(quser, qgroups)
     _, images = services.get_images(quser, qgroups)
     clusters = {k['name']: [node['name'] for node in k.get('data', {}).get('cluster_nodes', [])] for k in nodes}
+    clusters_json = json.dumps(clusters)  # Serialize clusters data to JSON
 
     kwargs = {'nodes_list': [k.get('name') for k in nodes],
               'profiles_list': profiles,
@@ -275,10 +273,10 @@ def create_session(request):
         'data': data,
         'login': request.user.is_authenticated,
         'is_admin': user.is_staff,
-        'forms': forms
+        'forms': forms,
+        'clusters': clusters_json
     }
 
-    logger.debug(content)
     return render(request, 'session_create.html', content)
 
 
@@ -487,7 +485,6 @@ def create_profile(request, resource=Constants.HOST):
                 'is_admin': user.is_staff,
                 'forms': forms
             }
-            logger.debug(content)
             return render(request, 'profile_create.html', content)
 
         elif resource == Constants.VOL:
@@ -518,7 +515,6 @@ def create_profile(request, resource=Constants.HOST):
                 'is_admin': user.is_staff,
                 'forms': forms
             }
-            logger.debug(content)
             return render(request, 'create_volume.html', content)
 
 
