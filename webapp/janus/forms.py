@@ -332,11 +332,11 @@ class SessionCreateForm(forms.Form):
 
             if key in bools:
                 self.fields[key] = forms.BooleanField(
-                    widget=forms.CheckboxInput(attrs={'id': f"{key}"}),
+                    widget=forms.CheckboxInput(attrs={'id': f"id_{key}"}),
                     required=False, label=bools[key],
                     initial=False if value == "default" else value)
             elif key in anytext:
-                self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
+                self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={'id': f"id_{key}"}),
                                                    initial=value, required=False, label=anytext[key],
                                                    max_length=255)
             elif key in selects:
