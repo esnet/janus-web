@@ -100,30 +100,29 @@ class PerfConsumer(JsonWebsocketConsumer):
 
             has_dest = False
             services = sess.get("services")
-            allocations = sess.get("allocations")
-            if len(allocations.keys()) > 1:
+            if len(services.keys()) > 1:
                 has_dest = True
             else:
-                for k,v in allocations.items():
+                for k,v in services.items():
                     if len(v) > 1:
                         has_dest = True
 
             if not has_dest and not host:
                 return self.send_done(msg["sid"], "Cannot run test without destination")
 
-            src_node = list(allocations.keys())[0]
-            src_cid = allocations.get(src_node)[0]
+            src_node = list(services.keys())[0]
+            src_cid = services.get(src_node)[0].get('container_id')
             src_nid = services.get(src_node)[0].get("node_id")
 
-            if len(allocations.keys()) > 1:
-                dst_node = list(allocations.keys())[1]
-                dst_cid = allocations.get(dst_node)[0]
+            if len(services.keys()) > 1:
+                dst_node = list(services.keys())[1]
+                dst_cid = services.get(dst_node)[0].get('container_id')
                 dst_nid = services.get(dst_node)[0].get("node_id")
                 dst_host = services.get(dst_node)[0].get("ctrl_host")
                 dst_port = services.get(dst_node)[0].get("ctrl_port")
             elif has_dest:
                 dst_node = src_node
-                dst_cid = allocations.get(src_node)[1]
+                dst_cid = services.get(src_node)[1].get('container_id')
                 dst_nid = services.get(src_node)[1].get("node_id")
                 dst_host = services.get(src_node)[1].get("ctrl_host")
                 dst_port = services.get(src_node)[1].get("ctrl_port")
