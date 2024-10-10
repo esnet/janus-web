@@ -231,7 +231,7 @@ class ContainerProfileForm(forms.Form):
             elif key in anytext:
                 self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
                                                    initial=value, required=False, label=anytext[key],
-                                                   max_length=255)
+                                                   max_length=400)
 
             elif key in selects_none:
                 self.fields[key] = forms.ChoiceField(choices=locals().get(f"{key}_choices", tuple()),
