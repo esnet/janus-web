@@ -27,7 +27,7 @@ key = 'django-insecure-ln=t4x7)$lo8#xkl@o)!8qk_#c+pg!*sa1i@&hs93l&p)2xu7o'
 SECRET_KEY = os.getenv("JANUS_WEB_SECRET_KEY", key)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DEBUG", False)
 
 ALLOWED_HOSTS = ["*"]
 
@@ -141,6 +141,7 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = (
     os.path.join(os.path.dirname(BASE_DIR),'webapp','static','static'),
 )
+STATIC_ROOT = os.getenv("STATIC_ROOT", STATIC_URL)
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
@@ -204,6 +205,7 @@ LOGIN_REDIRECT_URL = "http://localhost:8000"
 LOGOUT_REDIRECT_URL = "http://localhost:8000"
 # END SSO OIDC
 
+CSRF_TRUSTED_ORIGINS = [os.getenv("CSRF_TRUSTED_ORIGIN", "")]
 SECURE_CROSS_ORIGIN_OPENER_POLICY = None
 CTRL_HOST = os.getenv("JANUS_WEB_CTRL_HOST", "localhost")
 CTRL_PORT = os.getenv("JANUS_WEB_CTRL_PORT", "5000")
