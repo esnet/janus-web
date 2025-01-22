@@ -100,7 +100,12 @@ class PerfConsumer(JsonWebsocketConsumer):
 
             has_dest = False
             services = sess.get("services")
-            if len(services.keys()) > 1:
+            peer = sess.get("peer")
+
+            if peer and isinstance(peer, list):
+                peer = peer[0]
+
+            if peer or len(services.keys()) > 1:
                 has_dest = True
             else:
                 for k,v in services.items():
@@ -114,18 +119,36 @@ class PerfConsumer(JsonWebsocketConsumer):
             src_cid = services.get(src_node)[0].get('container_id')
             src_nid = services.get(src_node)[0].get("node_id")
 
-            if len(services.keys()) > 1:
+            if peer:
+                peer_service = peer.get("services")[0]
+                dst_node = peer_service.get("node")
+                dst_cid = peer_service.get("container_id")
+                dst_nid = peer_service.get("node_id")
+                dst_host = peer_service.get("data_ipv4") if peer_service.get("data_ipv4") else peer_service.get("data_ipv6")
+                dst_port = None
+            elif len(services.keys()) > 1:
                 dst_node = list(services.keys())[1]
-                dst_cid = services.get(dst_node)[0].get('container_id')
-                dst_nid = services.get(dst_node)[0].get("node_id")
-                dst_host = services.get(dst_node)[0].get("ctrl_host")
-                dst_port = services.get(dst_node)[0].get("ctrl_port")
+                service = services.get(dst_node)[0]
+                dst_cid = service.get("container_id")
+                dst_nid = service.get("node_id")
+
+                if service.get("mgnt_net"):
+                   dst_host = service.get("ctrl_host")
+                   dst_port = service.get("ctrl_port")
+                else:
+                   dst_host = service.get("data_ipv4") if service.get("data_ipv4") else service.get("data_ipv6")
+                   dst_port = None
             elif has_dest:
                 dst_node = src_node
-                dst_cid = services.get(src_node)[1].get('container_id')
-                dst_nid = services.get(src_node)[1].get("node_id")
-                dst_host = services.get(src_node)[1].get("ctrl_host")
-                dst_port = services.get(src_node)[1].get("ctrl_port")
+                service = services.get(src_node)[1]
+                dst_cid = service.get('container_id')
+                dst_nid = service.get("node_id")
+                if service.get("mgnt_net"):
+                   dst_host = service.get("ctrl_host")
+                   dst_port = services.get("ctrl_port")
+                else:
+                   dst_host = service.get("data_ipv4") if service.get("data_ipv4") else service.get("data_ipv6")
+                   dst_port = None
             else:
                 dst_node = None
                 dst_cid = None
