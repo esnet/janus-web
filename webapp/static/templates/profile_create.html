@@ -16,35 +16,9 @@
     </div>
     {% endif %}
 	<h1 class="text-center"><strong><i>New Profile</i></strong></h1>
-<!--    <form class="form-group" action="{% url 'janus:create_profile' resource='host' %}" method="post" id="session_post_form" style="width:60%">-->
         <div class="card bg-light mb-3">
         {% csrf_token %}
         {% crispy forms %}
-<!--        <div style="padding-left:10%; padding-right:10%; padding-top: 2%">-->
-<!--            {{ forms.privileged.label }}-->
-<!--            {{ forms.privileged }}-->
-<!--        </div>-->
-<!--        <div style="padding-left:10%; padding-right:10%; padding-top: 2%">-->
-<!--            {{ forms.name.label }}-->
-<!--            {{ forms.name }}-->
-<!--        </div>-->
-
-<!--        <div style="padding-left:10%; padding-right:10%; padding-top: 2%">-->
-<!--            {{ forms.volumes.label }}-->
-<!--            {{ forms.volumes }}-->
-<!--        </div>-->
-<!--        <div class="row" style="padding-left:20%; padding-right:20%; padding-top: 2%">-->
-<!--            <div class="col-sm-4">-->
-<!--              <button class="btn btn-lg btn-block btn-success" type="submit"><i class="glyphicon glyphicon-ok-sign"></i>Create</button>-->
-<!--            </div>-->
-<!--            <div class="col-sm-4">-->
-<!--              <button class="btn btn-lg btn-block btn-warning" type="reset"><i class="glyphicon glyphicon-repeat"></i>Reset</button>-->
-<!--            </div>-->
-<!--            <div class="col-sm-4">-->
-<!--              <a class="btn btn-lg btn-block btn-secondary" href="../"><i class="glyphicon glyphicon-repeat"></i>Cancel</a>-->
-<!--            </div>-->
-<!--          </div>-->
-<!--    </form>-->
             </div>
     </div>
 </div>
