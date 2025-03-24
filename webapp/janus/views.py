@@ -311,7 +311,8 @@ def update_profile(request, resource=Constants.HOST):
         s['arguments'] = None if not len(request.POST.get('arguments')) else request.POST.get('arguments')
         s['qos'] = None if request.POST.get('qos') == Constants.NONE else request.POST.get('qos')
         s['volumes'] = request.POST.getlist('volumes')
-        s['environment'] = list() if not len(request.POST.get('environment')) else ast.literal_eval(request.POST.get('environment'))
+        env_str = request.POST.get('environment', '')
+        s['environment'] = [line.strip() for line in env_str.splitlines() if line.strip()]
         pfields['settings'] = s
         return pfields
 
@@ -453,10 +454,8 @@ def create_profile(request, resource=Constants.HOST):
                 if data['qos'] == Constants.NONE:
                     data["qos"] = None
 
-                data['environment'] = request.POST.getlist('environment', None)
-                if '' in data['environment']:
-                    data['environment'] = list()
-
+                env_str = request.POST.get('environment', '')
+                data['environment'] = [line.strip() for line in env_str.splitlines() if line.strip()]
 
                 profile = {
                     'name': name,
