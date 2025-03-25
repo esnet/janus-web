@@ -235,9 +235,12 @@ class ContainerProfileForm(forms.Form):
                             'rows': 2,
                             'placeholder': 'VAR1=VALUE1\nVAR2=VALUE2\n'
                         }),
-                        initial='\n'.join(value) if value else '',
+                        initial='\n'.join(value) if isinstance(value, list) else value,
                         required=False,
-                        label=anytext[key])
+                        label=anytext[key],
+                        max_length=None,
+                        help_text='Enter one environment variable per line as KEY=VALUE'
+                    )
                 else:
                     self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
                                                        initial=value, required=False, label=anytext[key],
