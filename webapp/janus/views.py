@@ -1,7 +1,6 @@
-import ast
 import json
+import re
 from . import services
-from .constants import Constants
 from .forms import *
 from django.contrib.auth.models import User
 from django.shortcuts import render, HttpResponseRedirect
@@ -69,6 +68,8 @@ def list_nodes(request):
         return HttpResponseServerError()
 
 def list_profiles(request, extra_content=dict(), refresh=False):
+    if extra_content is None:
+        extra_content = {}
     if not request.user.is_authenticated:
         return HttpResponseRedirect('/')
     (user,_,quser,qgroups) = _get_user(request)
@@ -98,6 +99,8 @@ def list_profiles(request, extra_content=dict(), refresh=False):
             'forms': forms
         }
         content.update(extra_content)
+        if 'data' not in content:
+            content['data'] = {'errors': []}
         return render(request, 'profile.html', content)
     else:
         return HttpResponseServerError()
@@ -312,7 +315,11 @@ def update_profile(request, resource=Constants.HOST):
         s['qos'] = None if request.POST.get('qos') == Constants.NONE else request.POST.get('qos')
         s['volumes'] = request.POST.getlist('volumes')
         env_str = request.POST.get('environment', '')
-        s['environment'] = [line.strip() for line in env_str.splitlines() if line.strip()]
+        valid_vars, env_errors = validate_environment_vars(env_str)
+        if env_errors:
+            data["errors"].extend(env_errors)
+        else:
+            s['environment'] = valid_vars
         pfields['settings'] = s
         return pfields
 
@@ -359,6 +366,7 @@ def update_profile(request, resource=Constants.HOST):
     (user,_,quser,qgroups) = _get_user(request)
 
     if request.method == 'POST':
+        data = {"errors": list()}
         if resource == Constants.HOST:
             pfields = handle_host(request)
         elif resource == Constants.NET:
@@ -366,17 +374,19 @@ def update_profile(request, resource=Constants.HOST):
         elif resource == Constants.VOL:
             pfields = handle_vol(request)
 
-        data = {"errors": list()}
         content = {
             'data': data
         }
 
-        status, res = services.update_profile(resource, pfields, quser, qgroups)
-        if status:
-            return HttpResponseRedirect(reverse('janus:list_profiles'))
-        else:
-            data["errors"].append(res)
+        if not data["errors"]:
+            status, res = services.update_profile(resource, pfields, quser, qgroups)
+            if status:
+                return HttpResponseRedirect(reverse('janus:list_profiles'))
+            else:
+                data["errors"].append(res)
         return list_profiles(request, content)
+
+    return HttpResponseRedirect(reverse('janus:list_profiles'))
 
 
 def create_profile(request, resource=Constants.HOST):
@@ -455,7 +465,11 @@ def create_profile(request, resource=Constants.HOST):
                     data["qos"] = None
 
                 env_str = request.POST.get('environment', '')
-                data['environment'] = [line.strip() for line in env_str.splitlines() if line.strip()]
+                valid_vars, env_errors = validate_environment_vars(env_str)
+                if env_errors:
+                    data["errors"].extend(env_errors)
+                else:
+                    data['environment'] = valid_vars
 
                 profile = {
                     'name': name,
@@ -631,3 +645,28 @@ def view_log(request, session_id, nname):
     else:
         return JsonResponse({"error": "Could not find logs"})
 
+
+def validate_environment_vars(env_str):
+    errors = []
+    valid_vars = []
+    for i, line in enumerate(env_str.splitlines(), start=1):
+        line = line.strip()
+        if not line:
+            continue
+        if line.count('=') != 1:
+            if '=' not in line:
+                errors.append(f"Line {i}: Missing '=' operator in environment variable")
+            else:
+                errors.append(f"Line {i}: Multiple '=' operator detected in environment variable")
+            continue
+        key, value = line.split('=', 1)
+        key = key.strip()
+        if not key:
+            errors.append(f"Line {i}: Empty environment variable name before '='")
+            continue
+        if not re.match(r'^[A-Z_][A-Z0-9_]*$', key, re.I):
+            errors.append(
+                f"Line {i}: Invalid environment variable name format '{key}'. Must start with letter/underscore and contain only alphanumerics/underscores")
+            continue
+        valid_vars.append(f"{key}={value.strip()}")
+    return valid_vars, errors
