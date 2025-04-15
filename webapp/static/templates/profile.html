@@ -6,15 +6,14 @@
 {% load crispy_forms_tags %}
 {% block content %}
 
+  {% if data.errors|length %}
+  <div class="alert alert-danger" role="alert">
+    {% for err in data.errors %}
+    <b>{{ err }}</b><br/>
+    {% endfor %}
+  </div>
+  {% endif %}
   <div class="container" style="padding-top: 2%" >
-    {% if data.errors|length %}
-    <div class="alert alert-danger" role="alert">
-      {% for err in data.errors %}
-      <b>{{ err }}</b><br/>
-      {% endfor %}
-    </div>
-    {% endif %}
-
     <div class="card bg-light mb-3">
       <ul class="nav nav-tabs justify-content-center" id="myTab" role="tablist">
         <li class="nav-item">
