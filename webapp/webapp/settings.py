@@ -205,7 +205,7 @@ LOGIN_REDIRECT_URL = "http://localhost:8000"
 LOGOUT_REDIRECT_URL = "http://localhost:8000"
 # END SSO OIDC
 
-CSRF_TRUSTED_ORIGINS = [os.getenv("CSRF_TRUSTED_ORIGIN", "")]
+CSRF_TRUSTED_ORIGINS = [n for n in os.getenv("CSRF_TRUSTED_ORIGIN", [])]
 SECURE_CROSS_ORIGIN_OPENER_POLICY = None
 CTRL_HOST = os.getenv("JANUS_WEB_CTRL_HOST", "localhost")
 CTRL_PORT = os.getenv("JANUS_WEB_CTRL_PORT", "5000")
