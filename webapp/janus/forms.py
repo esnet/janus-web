@@ -229,9 +229,22 @@ class ContainerProfileForm(forms.Form):
                     initial=False if value == "default" else value)
 
             elif key in anytext:
-                self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
-                                                   initial=value, required=False, label=anytext[key],
-                                                   max_length=400)
+                if key == 'environment':
+                    self.fields[key] = forms.CharField(
+                        widget=forms.Textarea(attrs={
+                            'rows': 2,
+                            'placeholder': 'VAR1=VALUE1\nVAR2=VALUE2\n'
+                        }),
+                        initial='\n'.join(value) if isinstance(value, list) else value,
+                        required=False,
+                        label=anytext[key],
+                        max_length=None,
+                        help_text='Enter one environment variable per line as KEY=VALUE'
+                    )
+                else:
+                    self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
+                                                       initial=value, required=False, label=anytext[key],
+                                                       max_length=400)
 
             elif key in selects_none:
                 self.fields[key] = forms.ChoiceField(choices=locals().get(f"{key}_choices", tuple()),
@@ -292,7 +305,7 @@ class ContainerProfileForm(forms.Form):
                 Div('arguments', css_class='col-sm-6'),
                 Div('volumes', css_class='col-sm-6'),
                 Div('qos', css_class='col-sm-6'),
-                Div('environment', css_class='col-sm-12 justify-content-center'),
+                Div('environment', css_class='col-sm-6 justify-content-center'),
                 css_class='row'
             )
         )
