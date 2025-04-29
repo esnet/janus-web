@@ -92,6 +92,7 @@ class PerfConsumer(JsonWebsocketConsumer):
     def run_handler(self, msg):
         try:
             sess = msg.get("sess").get("data")
+            overrides = sess.get('overrides')
             sid = msg.get("sid")
             host = msg.get("hostname")
             duration = msg.get("duration")
@@ -120,12 +121,26 @@ class PerfConsumer(JsonWebsocketConsumer):
                 dst_nid = services.get(dst_node)[0].get("node_id")
                 dst_host = services.get(dst_node)[0].get("ctrl_host")
                 dst_port = services.get(dst_node)[0].get("ctrl_port")
+
+                service = services.get(dst_node)[0]
+                if service.get("data_net"):
+                   dst_host = service.get("data_ipv4") if service.get("data_ipv4") else service.get("data_ipv6")
+
+                if overrides and overrides.get(dst_host) and overrides[dst_host].get('ip_addr'):
+                    dst_host = overrides[dst_host]['ip_addr']
             elif has_dest:
                 dst_node = src_node
                 dst_cid = services.get(src_node)[1].get('container_id')
                 dst_nid = services.get(src_node)[1].get("node_id")
                 dst_host = services.get(src_node)[1].get("ctrl_host")
                 dst_port = services.get(src_node)[1].get("ctrl_port")
+
+                service = services.get(src_node)[1]
+                if service.get("data_net"):
+                   dst_host = service.get("data_ipv4") if service.get("data_ipv4") else service.get("data_ipv6")
+
+                if overrides and overrides.get(dst_host) and overrides[dst_host].get('ip_addr'):
+                    dst_host = overrides[dst_host]['ip_addr']
             else:
                 dst_node = None
                 dst_cid = None
