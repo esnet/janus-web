@@ -291,27 +291,17 @@ def create_storage_gateway(request):
     data = {"errors": list()}
 
     if request.method == 'POST':
-        if not name:
-            data["errors"].append("Invalid name")
+        print(f"-===========request====================={request}")
         data['endpoint_id'] = request.POST.get('endpoint_id', None)
         data['gcs_manager_domain_name'] = None if not len(request.POST.get('gcs_manager_domain_name')) else request.POST.get('gcs_manager_domain_name')
         data['display_name'] = None if not len(request.POST.get('display_name')) else request.POST.get('display_name')
-        data['root'] = None if not len(request.POST.get('root')) else request.POST.get('root')
-        data['allowed_domains'] = None if not len(request.POST.get('allowed_domains')) else request.POST.get('allowed_domains')
-        data['users_deny'] = None if not len(request.POST.get('users_deny')) else request.POST.get('users_deny')
-        connector_id = "145812c8-decc-41f1-83cf-bb2a85a2a70b" if request.POST.get('connector_type') == "POSIX" else None
+        data['root'] = None if not len(request.POST.getlist('root')) else request.POST.getlist('root')
+        data['allowed_domains'] = None if not len(request.POST.getlist('allowed_domains')) else request.POST.getlist('allowed_domains')
+        data['users_deny'] = None if not len(request.POST.getlist('users_deny')) else request.POST.getlist('users_deny')
+        print(f"===========request.POST.get('connector_type')=================={request.POST.get('connector_type')}")
+        connector_id = "145812c8-decc-41f1-83cf-bb2a85a2a70b" if request.POST.get('connector_type') == "posix" else None
         if connector_id is not None:
             data['connector_id'] = connector_id
-
-        # globus_manager = GlobusManager(
-        #     endpoint_id=data['endpoint_id'],
-        #     client_id="68c19eed-8872-4107-b85c-e11be12db9ad",
-        #     client_secret="wzLRg4s3pW2XNgboHRfl515nlaTAgVu044blO7D5t1w=",
-        #     gcs_manager_domain_name=data['gcs_manager_domain_name'],
-        #     app_name="janus-web-service-account",
-        #     local_username="53a0368f-e1fb-473f-b380-262d94d58cc9",
-        #     local_userid="kvasu@es.net",
-        # )
         globus_manager = get_gcs_manager(data['endpoint_id'],data['gcs_manager_domain_name'])
 
         # XXX use django Forms...
@@ -320,11 +310,14 @@ def create_storage_gateway(request):
                 display_name=data['display_name'],
                 connector_id=connector_id,
                 root=data['root'],
-                groups_allow=groups_allow.split(",") if groups_allow else None,
-                groups_deny=groups_deny.split(",") if groups_deny else None,
-                high_assurance=high_assurance,
-                require_mfa=require_mfa, )
+                allowed_domains=data['allowed_domains'],
+                users_deny=data['users_deny'],
+                # groups_allow=groups_allow.split(",") if groups_allow else None,
+                # groups_deny=groups_deny.split(",") if groups_deny else None,
+                )
 
+            print(f"============status==========={status}")
+            print(f"============res==========={res}")
             if status:
                 return HttpResponseRedirect(reverse('janus:list_sessions'))
             else:
@@ -734,7 +727,7 @@ def get_gcs_manager(endpoint_id,gcs_manager_domain_name):
     gcs_manager = GlobusManager(
         endpoint_id=endpoint_id,
         client_id="68c19eed-8872-4107-b85c-e11be12db9ad",
-        client_secret="wzLRg4s3pW2XNgboHRfl515nlaTAgVu044blO7D5t1w=",
+        client_secret="",
         gcs_manager_domain_name=gcs_manager_domain_name,
         app_name="janus-web-service-account",
         local_username="53a0368f-e1fb-473f-b380-262d94d58cc9",
