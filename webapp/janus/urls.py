@@ -20,4 +20,5 @@ urlpatterns = [
     path('nodes/add/', views.add_node, name='add_node'),
     path('nodes/refresh/', views.refresh_node, name='refresh_node'),
     path('nodes/remove/<str:nname>', views.remove_node, name='remove_node'),
+    path('services/globus_storage_gateway/create/', views.create_storage_gateway, name='create_storage_gateway'),
 ]

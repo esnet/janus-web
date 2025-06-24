@@ -86,6 +86,20 @@
                 <a class="nav-link text-info" href="{% url 'home' %}"><h3><strong><em>Janus Web</em></strong></h3></a>
             </li>
             {% if login %}
+
+              <li class="nav-item">
+              <div class="dropdown">
+                <a class="nav-link" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" >
+                  <h3><strong><em>Services</em></strong></h3>
+                </a>
+                <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                  <a class="dropdown-item" href="{% url 'janus:create_storage_gateway' %}"><h5><strong><em>Create Globus Storage-Gateway</em></strong></h5></a>
+                    <a class="dropdown-item" href="{% url 'auth_images' %}"><h5><strong><em>Create Globus Collection</em></strong></h5></a>
+                </div>
+              </div>
+            </li>
+
+
             <li class="nav-item">
               <a class="nav-link" href="{% url 'janus:list_sessions' %}"><h3><strong><em>Sessions</em></strong></h3></a>
             </li>

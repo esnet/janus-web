@@ -405,3 +405,68 @@ class SessionCreateForm(forms.Form):
         self.helper.add_input(Button('cancel', 'Cancel', css_class='btn btn-primary',
                                          onclick="window.location.href = '{}';".format(reverse('janus:list_sessions'))))
         self.helper.form_action = reverse('janus:create_session')
+
+
+class StorageGatewayCreateForm(forms.Form):
+    # endpoint_id = forms.CharField(max_length=255, required=True, label="Endpoint ID")
+    # gcs_manager_domain_name = forms.CharField(max_length=255, required=True, label="GCS Manager Domain Name")
+    # display_name = forms.CharField(max_length=255, required=True, label="Display Name")
+    # connector_id = forms.CharField(max_length=255, required=True, label="Connector ID")
+    # root = forms.CharField(max_length=255, required=True, label="Root Path")
+    # allowed_domains = forms.CharField(max_length=255, required=True, label="Allowed Domains")
+    # users_deny = forms.CharField(max_length=255, required=True, label="User Deny")
+    # groups_allow = forms.CharField(
+    #     max_length=255, required=False, label="Allowed Groups (comma-separated)"
+    # )
+    # groups_deny = forms.CharField(
+    #     max_length=255, required=False, label="Denied Groups (comma-separated)"
+    # )
+    # high_assurance = forms.BooleanField(required=False, label="High Assurance Required")
+    # require_mfa = forms.BooleanField(required=False, label="Require MFA")
+
+    def __init__(self, *args, **kwargs):
+        # gfields = kwargs.pop('gfields')
+        super(StorageGatewayCreateForm, self).__init__(*args, **kwargs)
+        anytext = {'endpoint_id': 'Endpoint ID:',
+                   'gcs_manager_domain_name': 'GCS Manager Domain Name:',
+                   'display_name': 'Display Name:',
+                   'root': 'Root Path:'}
+        selects = {'connector_type': 'Connector Type'}
+        connector_type_choices = (
+            ('posix', 'POSIX'),
+            ('aws', 'AWS')
+        )
+        # if not gfields:
+        #     anytext.update({'name': 'Name'})
+
+        for key, label in {**selects, **anytext}.items():
+            value = None
+            # if gfields and key in gfields.get('settings'):
+            #     value = gfields['settings'].get(key)
+            if key in anytext:
+                self.fields[key] = forms.CharField(widget=forms.TextInput(attrs={}),
+                                               initial=value, required=True, label=label,
+                                               max_length=255)
+            elif key in selects:
+                self.fields[key] = forms.ChoiceField(choices=locals().get(f"{key}_choices", tuple()),
+                                                     initial=value,
+                                                     required=True, label=selects[key])
+
+        self.helper = FormHelper()
+        # name_layout = Hidden('name', value=gfields["name"]) if gfields else Div('name', css_class='col-sm-6')
+        self.helper.layout = Layout(
+            # name_layout,
+            Div(
+                Div('endpoint_id', css_class='col-sm-8'),
+                Div('gcs_manager_domain_name', css_class='col-sm-8'),
+                Div('display_name', css_class='col-sm-8'),
+                Div('connector_type', css_class='col-sm-8'),
+                Div('root', css_class='col-sm-8'),
+                css_class='row justify-content-center', style="margin-bottom: 10px;"
+            ),
+        )
+        self.helper.add_input(Submit('submit', 'Create', css_class='btn btn-primary'))
+        self.helper.form_method = 'POST'
+        self.helper.add_input(Button('cancel', 'Cancel', css_class='btn btn-primary',
+                                     onclick="window.location.href = '{}';".format(reverse('janus:list_sessions'))))
+        self.helper.form_action = reverse('janus:create_storage_gateway')

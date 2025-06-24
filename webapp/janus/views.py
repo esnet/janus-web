@@ -6,6 +6,7 @@ from django.contrib.auth.models import User
 from django.shortcuts import render, HttpResponseRedirect
 from django.http import HttpResponseServerError, HttpResponseNotFound, JsonResponse
 from django.urls import reverse
+from .gcs_manager import GlobusManager
 
 def _get_res_errors(data, res):
     try:
@@ -281,6 +282,63 @@ def create_session(request):
     }
 
     return render(request, 'session_create.html', content)
+
+def create_storage_gateway(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect('/')
+
+    (user,_,quser,qgroups) = _get_user(request)
+    data = {"errors": list()}
+
+    if request.method == 'POST':
+        if not name:
+            data["errors"].append("Invalid name")
+        data['endpoint_id'] = request.POST.get('endpoint_id', None)
+        data['gcs_manager_domain_name'] = None if not len(request.POST.get('gcs_manager_domain_name')) else request.POST.get('gcs_manager_domain_name')
+        data['display_name'] = None if not len(request.POST.get('display_name')) else request.POST.get('display_name')
+        data['root'] = None if not len(request.POST.get('root')) else request.POST.get('root')
+        data['allowed_domains'] = None if not len(request.POST.get('allowed_domains')) else request.POST.get('allowed_domains')
+        data['users_deny'] = None if not len(request.POST.get('users_deny')) else request.POST.get('users_deny')
+        connector_id = "145812c8-decc-41f1-83cf-bb2a85a2a70b" if request.POST.get('connector_type') == "POSIX" else None
+        if connector_id is not None:
+            data['connector_id'] = connector_id
+
+        # globus_manager = GlobusManager(
+        #     endpoint_id=data['endpoint_id'],
+        #     client_id="68c19eed-8872-4107-b85c-e11be12db9ad",
+        #     client_secret="wzLRg4s3pW2XNgboHRfl515nlaTAgVu044blO7D5t1w=",
+        #     gcs_manager_domain_name=data['gcs_manager_domain_name'],
+        #     app_name="janus-web-service-account",
+        #     local_username="53a0368f-e1fb-473f-b380-262d94d58cc9",
+        #     local_userid="kvasu@es.net",
+        # )
+        globus_manager = get_gcs_manager(data['endpoint_id'],data['gcs_manager_domain_name'])
+
+        # XXX use django Forms...
+        if not len(data['errors']):
+            status, res = globus_manager.create_storage_gateway(
+                display_name=data['display_name'],
+                connector_id=connector_id,
+                root=data['root'],
+                groups_allow=groups_allow.split(",") if groups_allow else None,
+                groups_deny=groups_deny.split(",") if groups_deny else None,
+                high_assurance=high_assurance,
+                require_mfa=require_mfa, )
+
+            if status:
+                return HttpResponseRedirect(reverse('janus:list_sessions'))
+            else:
+                print(f"===storage_gateway creation failed=============")
+                data["errors"].append(res)
+
+    forms = StorageGatewayCreateForm()
+    content = {
+        'data': data,
+        'login': request.user.is_authenticated,
+        'is_admin': user.is_staff,
+        'forms': forms
+    }
+    return render(request, 'create_storage_gateway.html', content)
 
 
 def update_profile(request, resource=Constants.HOST):
@@ -656,17 +714,30 @@ def validate_environment_vars(env_str):
         if line.count('=') != 1:
             if '=' not in line:
                 errors.append(f"Line {i}: Missing '=' operator in environment variable")
-            else:
-                errors.append(f"Line {i}: Multiple '=' operator detected in environment variable")
+            # else:
+            #     errors.append(f"Line {i}: Multiple '=' operator detected in environment variable")
             continue
         key, value = line.split('=', 1)
         key = key.strip()
         if not key:
             errors.append(f"Line {i}: Empty environment variable name before '='")
             continue
-        if not re.match(r'^[A-Z_][A-Z0-9_]*$', key, re.I):
-            errors.append(
-                f"Line {i}: Invalid environment variable name format '{key}'. Must start with letter/underscore and contain only alphanumerics/underscores")
-            continue
+        # if not re.match(r'^[A-Z_][A-Z0-9_]*$', key, re.I):
+        #     errors.append(
+        #         f"Line {i}: Invalid environment variable name format '{key}'. Must start with letter/underscore and contain only alphanumerics/underscores")
+        #     continue
         valid_vars.append(f"{key}={value.strip()}")
     return valid_vars, errors
+
+
+def get_gcs_manager(endpoint_id,gcs_manager_domain_name):
+    gcs_manager = GlobusManager(
+        endpoint_id=endpoint_id,
+        client_id="68c19eed-8872-4107-b85c-e11be12db9ad",
+        client_secret="wzLRg4s3pW2XNgboHRfl515nlaTAgVu044blO7D5t1w=",
+        gcs_manager_domain_name=gcs_manager_domain_name,
+        app_name="janus-web-service-account",
+        local_username="53a0368f-e1fb-473f-b380-262d94d58cc9",
+        local_userid="kvasu@es.net",
+    )
+    return gcs_manager

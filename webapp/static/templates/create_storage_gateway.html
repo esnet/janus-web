@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% load bootstrap4 %}
+{% bootstrap_css %}
+{% bootstrap_javascript jquery='full' %}
+{% load crispy_forms_tags %}
+{% block content %}
+
+<div class="panel panel-default">
+    <div align="center">
+      {% if data.errors|length %}
+    <div class="alert alert-danger" role="alert">
+      {% for err in data.errors %}
+      <b>{{ err }}</b><br/>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card bg-light mb-3" style="width: 60%">
+      <div class="card-header align-items-center">
+	<b>Create Storage Gateway</b>
+      </div>
+      <div class="card-body">
+        {% csrf_token %}
+        {% crispy forms %}
+      </div>
+    </div>
+    </div>
+</div>
+
+{% endblock content %}
