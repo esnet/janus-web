@@ -23,8 +23,12 @@ urlpatterns = [
     path('oidc/', include('mozilla_django_oidc.urls')),
     path('janus/', include('janus.urls')),
     path('authentication/', include('authentication.urls')),
-    path('admin/', admin.site.urls),
     path('', views.index, name='home'),
 ]
+
+if settings.ADMIN_ENABLED:
+    urlpatterns += [
+        path('admin/', admin.site.urls)
+    ]
 
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
