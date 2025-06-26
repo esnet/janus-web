@@ -31,7 +31,6 @@ DEBUG = os.getenv("DEBUG", False)
 
 ALLOWED_HOSTS = ["*"]
 
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -42,7 +41,6 @@ INSTALLED_APPS = [
     'crispy_forms',
     'janus',
     'django_extensions',
-    'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -50,6 +48,10 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'mozilla_django_oidc',  # Load after auth
 ]
+
+ADMIN_ENABLED = False if os.getenv("ADMIN_ENABLED", "True").lower() == "false" else True
+if ADMIN_ENABLED:
+    INSTALLED_APPS.append('django.contrib.admin')
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -143,6 +145,7 @@ STATICFILES_DIRS = (
 )
 STATIC_ROOT = os.getenv("STATIC_ROOT", STATIC_URL)
 
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
 
@@ -189,6 +192,9 @@ LOGGING = {
     },
 }
 
+# Enable or disable local login form on landing page
+LOCAL_LOGIN_ENABLED = False if os.getenv("LOCAL_LOGIN_ENABLED", "True").lower() == "false" else True
+
 # BEGIN SSO OIDC
 OIDC_USERNAME_ALGO = 'authentication.oidc.generate_username'
 OIDC_CREATE_USER = True
@@ -211,7 +217,7 @@ CTRL_HOST = os.getenv("JANUS_WEB_CTRL_HOST", "localhost")
 CTRL_PORT = os.getenv("JANUS_WEB_CTRL_PORT", "5000")
 CTRL_HTTP_PROTOCOL = os.getenv("CTRL_HTTP_PROTOCOL", "https")
 CTRL_WS_PROTOCOL = os.getenv("CTRL_WS_PROTOCOL", "wss")
-CTRL_SSL_VERIFY = False if os.getenv("CTRL_SSL_VERIFY", "False") == "False" else True
+CTRL_SSL_VERIFY = False if os.getenv("CTRL_SSL_VERIFY", "False").lower() == "false" else True
 JANUS_CONTROLLER_URL = "{}://{}:{}/".format(CTRL_HTTP_PROTOCOL, CTRL_HOST, CTRL_PORT)
 JANUS_CONTROLLER_WS_URL = "{}://{}:{}".format(CTRL_WS_PROTOCOL, CTRL_HOST, CTRL_PORT)
 
