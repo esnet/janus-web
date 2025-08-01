@@ -48,6 +48,8 @@
                   <span><img width="20px" src="{% static 'img/kube.png' %}" alt="..." class="rounded"/></span>
                   {% elif data.data.endpoint_type == 4 %}
                   <span><img width="20px" src="{% static 'img/slurm.svg' %}" alt="..." class="rounded"/></span>
+                  {% elif data.data.endpoint_type == 100 %}
+                  <span><img width="20px" src="{% static 'img/janus_edge_transparent.png' %}" alt="..." class="rounded"/></span>
                   {% endif %}
 	        </td>
 		<td class="col-sm-3"> {{ data.name }} </td>
