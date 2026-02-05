@@ -290,7 +290,7 @@ def update_profile(request, resource=Constants.HOST):
         if not len(start) or not len(end):
             return None
         else:
-            return [int(start), int(end)]
+            return [[int(start), int(end)]]
 
     def handle_host(request):
         pfields = dict()
@@ -307,9 +307,9 @@ def update_profile(request, resource=Constants.HOST):
         s['mgmt_net_ipv6'] = None if not len(request.POST.get('mgmt_net_ipv6')) else request.POST.get('mgmt_net_ipv6')
         s['data_net_ipv4'] = None if not len(request.POST.get('data_net_ipv4')) else request.POST.get('data_net_ipv4')
         s['data_net_ipv6'] = None if not len(request.POST.get('data_net_ipv6')) else request.POST.get('data_net_ipv6')
-        s['ctrl_port_range'] = get_range(request.POST, 'ctrl_port_range')
-        s['serv_port_range'] = get_range(request.POST, 'serv_port_range')
-        s['data_port_range'] = get_range(request.POST, 'data_port_range')
+        s['ctrl_ports'] = get_range(request.POST, 'ctrl_ports')
+        s['serv_ports'] = get_range(request.POST, 'serv_ports')
+        s['data_ports'] = get_range(request.POST, 'data_ports')
         s['affinity'] = None if not len(request.POST.get('affinity')) else request.POST.get('affinity')
         s['arguments'] = None if not len(request.POST.get('arguments')) else request.POST.get('arguments')
         s['qos'] = None if request.POST.get('qos') == Constants.NONE else request.POST.get('qos')
@@ -394,6 +394,14 @@ def create_profile(request, resource=Constants.HOST):
         return HttpResponseRedirect('/')
     (user,_,quser,qgroups) = _get_user(request)
     if user.is_staff:
+        def get_range(r, key):
+            start = r.get(f"{key}_start")
+            end = r.get(f"{key}_end")
+            if not start or not end or not len(start) or not len(end):
+                return None
+            else:
+                return [[int(start), int(end)]]
+
         data = {"errors": list()}
         name = request.POST.get('name', None)
         if resource == Constants.HOST:
@@ -448,9 +456,9 @@ def create_profile(request, resource=Constants.HOST):
                     data['internal_port'] = None
                 data['internal_port'] = int(data['internal_port']) if data['internal_port'] else None
 
-                data['ctrl_port_range'] = request.POST.get('ctrl_port_range', None)
-                data['data_port_range'] = request.POST.get('data_port_range', None)
-                data['serv_port_range'] = request.POST.get('serv_port_range', None)
+                data['ctrl_ports'] = get_range(request.POST, 'ctrl_ports')
+                data['data_ports'] = get_range(request.POST, 'data_ports')
+                data['serv_ports'] = get_range(request.POST, 'serv_ports')
 
                 data['affinity'] = "network" if not len(request.POST.get('affinity')) else request.POST.get(
                     'affinity')
