@@ -185,9 +185,9 @@ class ContainerProfileForm(forms.Form):
         if not pfields:
             anytext.update({'name': 'Name:'})
 
-        ranges = {'ctrl_port_range': 'Control Port Range',
-                  'serv_port_range': 'Service Port Range',
-                  'data_port_range': 'Data Port Range'}
+        ranges = {'ctrl_ports': 'Control Port Range',
+                  'serv_ports': 'Service Port Range',
+                  'data_ports': 'Data Port Range'}
 
         cpu_choices = (
             ('0', 'default'),
@@ -263,11 +263,24 @@ class ContainerProfileForm(forms.Form):
                                                      required=False, label=selects[key])
 
             elif key in ranges:
+                v_start = ""
+                v_end = ""
+                if value and len(value) > 0:
+                    first = value[0]
+                    if isinstance(first, (list, tuple)):
+                        v_start = first[0]
+                        if len(first) > 1:
+                            v_end = first[1]
+                    else:
+                        v_start = first
+                        if len(value) > 1:
+                            v_end = value[1]
+
                 self.fields[f"{key}_start"] = forms.CharField(widget=forms.TextInput(attrs={'type': 'number'}),
-                                                              initial=value[0] if value else "",
+                                                              initial=v_start,
                                                               required=False, label = f"{ranges[key]} Start:")
                 self.fields[f"{key}_end"] = forms.CharField(widget=forms.TextInput(attrs={'type': 'number'}),
-                                                            initial=value[1] if value else "",
+                                                            initial=v_end,
                                                             required=False, label = f"{ranges[key]} End:")
 
             elif key in multichoice.keys():
@@ -294,12 +307,12 @@ class ContainerProfileForm(forms.Form):
                 Div('data_net', css_class='col-sm-4'),
                 Div('data_net_ipv4', css_class='col-sm-4'),
                 Div('data_net_ipv6', css_class='col-sm-4'),
-                Div('ctrl_port_range_start', css_class='col-sm-6'),
-                Div('ctrl_port_range_end', css_class='col-sm-6'),
-                Div('data_port_range_start', css_class='col-sm-6'),
-                Div('data_port_range_end', css_class='col-sm-6'),
-                Div('serv_port_range_start', css_class='col-sm-6'),
-                Div('serv_port_range_end', css_class='col-sm-6'),
+                Div('ctrl_ports_start', css_class='col-sm-6'),
+                Div('ctrl_ports_end', css_class='col-sm-6'),
+                Div('data_ports_start', css_class='col-sm-6'),
+                Div('data_ports_end', css_class='col-sm-6'),
+                Div('serv_ports_start', css_class='col-sm-6'),
+                Div('serv_ports_end', css_class='col-sm-6'),
                 Div('affinity', css_class='col-sm-6'),
                 # Div('features', css_class='col-sm-6'),
                 Div('arguments', css_class='col-sm-6'),
