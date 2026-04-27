@@ -1,4 +1,4 @@
-import requests
+import httpx
 import logging
 from django.conf import settings
 
@@ -21,8 +21,9 @@ def set_access(resource, data, remove=False):
 
     post_body = {"users": data["users"], "groups": data["groups"]}
 
-    fn = requests.delete if remove else requests.post
-    res = fn(
+    method = "DELETE" if remove else "POST"
+    res = httpx.request(
+        method=method,
         url=base_url + f"auth/{resource}/{identifier}",
         json=post_body,
         auth=settings.JANUS_CONTROLLER_AUTH,
