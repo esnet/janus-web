@@ -1,6 +1,6 @@
 # Session management API call to Janus Controller
 
-import requests
+import httpx
 import shlex
 from django.conf import settings
 from .utils import convert_size
@@ -17,7 +17,7 @@ def get_node_types():
 
 def add_node(data, user=None, groups=None):
     params = get_params(user, groups)
-    res = requests.post(
+    res = httpx.post(
         url=base_url + "nodes",
         json=data,
         auth=settings.JANUS_CONTROLLER_AUTH,
@@ -34,7 +34,7 @@ def add_node(data, user=None, groups=None):
 
 
 def remove_node(nname, user=None, groups=None):
-    res = requests.delete(
+    res = httpx.delete(
         url=base_url + f"nodes/{nname}",
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
@@ -49,7 +49,7 @@ def remove_node(nname, user=None, groups=None):
 
 
 def get_auth_jwt():
-    res = requests.get(
+    res = httpx.get(
         url=f"{base_url}auth/jwt",
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
@@ -72,7 +72,7 @@ def create_exec(nid, cid, cmd, start=True, attach=True, tty=False):
         "start": start,
     }
 
-    res = requests.post(
+    res = httpx.post(
         url=f"{base_url}exec",
         json=data,
         auth=settings.JANUS_CONTROLLER_AUTH,
@@ -98,7 +98,7 @@ def get_session_info(user=None, groups=None, session_id=None):
 
     # also get profile info
     params = get_params(user, groups)
-    res = requests.get(
+    res = httpx.get(
         url=f"{base_url}profiles",
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
@@ -112,7 +112,7 @@ def get_session_info(user=None, groups=None, session_id=None):
     else:
         profiles = None
 
-    res = requests.get(
+    res = httpx.get(
         url=url,
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
@@ -161,7 +161,7 @@ def create_session(data, user=None, groups=None):
     """
     url = base_url + "create"
     params = get_params(user, groups)
-    res = requests.post(
+    res = httpx.post(
         url=url,
         json=data,
         auth=settings.JANUS_CONTROLLER_AUTH,
@@ -181,7 +181,7 @@ def start_session(session_id, user=None, groups=None):
     :param session_id int:
     :return:
     """
-    res = requests.put(
+    res = httpx.put(
         url=base_url + "start/" + str(session_id),
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
@@ -199,7 +199,7 @@ def stop_session(session_id, user=None, groups=None):
     :param session_id int:
     :return:
     """
-    res = requests.put(
+    res = httpx.put(
         url=base_url + "stop/" + str(session_id),
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
@@ -217,7 +217,7 @@ def delete_session(session_id, user=None, groups=None):
     :param session_id int:
     :return:
     """
-    res = requests.delete(
+    res = httpx.delete(
         url=base_url + "active/" + str(session_id) + "?force=true",
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
@@ -241,7 +241,7 @@ def get_profiles(
         profile_url += f"/{pname}"
     params = get_params(user, groups, refresh)
 
-    res = requests.get(
+    res = httpx.get(
         url=profile_url,
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
@@ -291,7 +291,7 @@ def create_profile(resource, data, user=None, groups=None):
     """
     name = data["name"]
     params = get_params(user, groups)
-    res = requests.post(
+    res = httpx.post(
         url=base_url + f"profiles/{resource}/{name}",
         json=data,
         auth=settings.JANUS_CONTROLLER_AUTH,
@@ -322,7 +322,7 @@ def update_profile(resource, data, user=None, groups=None):
             }
             del s[f"{k}_ipv4"]
             del s[f"{k}_ipv6"]
-    res = requests.put(
+    res = httpx.put(
         url=base_url + f"profiles/{resource}/{name}",
         json=data,
         auth=settings.JANUS_CONTROLLER_AUTH,
@@ -337,7 +337,7 @@ def update_profile(resource, data, user=None, groups=None):
 
 def delete_profile(resource, pname, user=None, groups=None):
     """Delete profile from Janus Controller"""
-    res = requests.delete(
+    res = httpx.delete(
         url=base_url + f"profiles/{resource}/{pname}",
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
@@ -381,7 +381,7 @@ def get_nodes(user=None, groups=None, verbose=False, nname=None, refresh=False):
     """
     url = "nodes" if nname is None else "nodes/" + nname
     params = get_params(user, groups, refresh)
-    res = requests.get(
+    res = httpx.get(
         url=base_url + url,
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
@@ -410,7 +410,7 @@ def get_images(user=None, groups=None, iname=None):
     if iname:
         url += f"/{iname}"
     params = get_params(user, groups)
-    res = requests.get(
+    res = httpx.get(
         url=url,
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
@@ -430,7 +430,7 @@ def get_qos():
     Get QoS list from Janus Controller
     :return:
     """
-    res = requests.get(
+    res = httpx.get(
         url=base_url + "qos",
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
@@ -452,7 +452,7 @@ def get_log(sid, nname, timestamps=0):
     params = dict()
     params["timestamps"] = timestamps
     url = f"{base_url}active/{sid}/logs/{nname}"
-    res = requests.get(
+    res = httpx.get(
         url=url,
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
