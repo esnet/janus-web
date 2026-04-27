@@ -9,20 +9,20 @@ from .constants import Constants
 
 base_url = settings.JANUS_CONTROLLER_URL + "api/janus/controller/"
 
+
 def get_node_types():
-    ntypes = {1: "1: Portainer Agent",
-              2: "2: Docker",
-              3: "3: Kubernetes"}
+    ntypes = {1: "1: Portainer Agent", 2: "2: Docker", 3: "3: Kubernetes"}
     return ntypes
 
+
 def add_node(data, user=None, groups=None):
-    params = get_params(user,groups)
+    params = get_params(user, groups)
     res = requests.post(
         url=base_url + "nodes",
         json=data,
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
-        params=params
+        params=params,
     )
     status, data = False, []
     if res.status_code in [200, 204]:
@@ -31,12 +31,13 @@ def add_node(data, user=None, groups=None):
         status = False
         data = res.json()
     return status, data
+
 
 def remove_node(nname, user=None, groups=None):
     res = requests.delete(
         url=base_url + f"nodes/{nname}",
         auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY
+        verify=settings.CTRL_SSL_VERIFY,
     )
     status, data = False, []
     if res.status_code in [200, 204]:
@@ -46,11 +47,12 @@ def remove_node(nname, user=None, groups=None):
         data = res.json()
     return status, data
 
+
 def get_auth_jwt():
     res = requests.get(
-        url = f"{base_url}auth/jwt",
+        url=f"{base_url}auth/jwt",
         auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY
+        verify=settings.CTRL_SSL_VERIFY,
     )
 
     status, data = False, []
@@ -59,25 +61,29 @@ def get_auth_jwt():
         data = res.json().get("jwt", None)
     return status, data
 
+
 def create_exec(nid, cid, cmd, start=True, attach=True, tty=False):
-    data = {"node": nid,
-            "container": cid,
-            "Cmd": shlex.split(cmd),
-            "attach": attach,
-            "tty": tty,
-            "start": start}
+    data = {
+        "node": nid,
+        "container": cid,
+        "Cmd": shlex.split(cmd),
+        "attach": attach,
+        "tty": tty,
+        "start": start,
+    }
 
     res = requests.post(
         url=f"{base_url}exec",
         json=data,
         auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY
+        verify=settings.CTRL_SSL_VERIFY,
     )
     status, data = False, []
     if res.status_code in [200, 204]:
         status = True
         data = res.json().get("Id", None)
     return status, data
+
 
 def get_session_info(user=None, groups=None, session_id=None):
     """
@@ -91,12 +97,12 @@ def get_session_info(user=None, groups=None, session_id=None):
         url += f"/{session_id}"
 
     # also get profile info
-    params = get_params(user,groups)
+    params = get_params(user, groups)
     res = requests.get(
-        url = f"{base_url}profiles",
+        url=f"{base_url}profiles",
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
-        params=params
+        params=params,
     )
     if res.status_code == 200:
         data = res.json()
@@ -107,10 +113,10 @@ def get_session_info(user=None, groups=None, session_id=None):
         profiles = None
 
     res = requests.get(
-        url = url,
+        url=url,
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
-        params=params
+        params=params,
     )
 
     status, data = False, []
@@ -129,7 +135,7 @@ def get_session_info(user=None, groups=None, session_id=None):
                 if profiles:
                     try:
                         tools = profiles[prof]["settings"]["tools"].get(simg, list())
-                    except:
+                    except Exception:
                         pass
                 if not entry:
                     continue
@@ -146,6 +152,7 @@ def get_session_info(user=None, groups=None, session_id=None):
                 data.append(temp)
     return status, data
 
+
 def create_session(data, user=None, groups=None):
     """
     Create session on Janus Controller
@@ -159,7 +166,7 @@ def create_session(data, user=None, groups=None):
         json=data,
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
-        params=params
+        params=params,
     )
 
     if res.status_code == 200:
@@ -177,7 +184,7 @@ def start_session(session_id, user=None, groups=None):
     res = requests.put(
         url=base_url + "start/" + str(session_id),
         auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY
+        verify=settings.CTRL_SSL_VERIFY,
     )
 
     if res.status_code == 200:
@@ -195,7 +202,7 @@ def stop_session(session_id, user=None, groups=None):
     res = requests.put(
         url=base_url + "stop/" + str(session_id),
         auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY
+        verify=settings.CTRL_SSL_VERIFY,
     )
 
     if res.status_code == 200:
@@ -213,7 +220,7 @@ def delete_session(session_id, user=None, groups=None):
     res = requests.delete(
         url=base_url + "active/" + str(session_id) + "?force=true",
         auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY
+        verify=settings.CTRL_SSL_VERIFY,
     )
 
     if res.status_code == 204:
@@ -222,7 +229,9 @@ def delete_session(session_id, user=None, groups=None):
         return False, res.json()
 
 
-def get_profiles(user=None, groups=None, verbose=False, resource="host", pname=None, refresh=False):
+def get_profiles(
+    user=None, groups=None, verbose=False, resource="host", pname=None, refresh=False
+):
     """
     Get profiles list from Janus Controller
     :return:
@@ -233,10 +242,10 @@ def get_profiles(user=None, groups=None, verbose=False, resource="host", pname=N
     params = get_params(user, groups, refresh)
 
     res = requests.get(
-        url = profile_url,
+        url=profile_url,
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
-        params=params
+        params=params,
     )
 
     status, profiles = False, []
@@ -247,19 +256,23 @@ def get_profiles(user=None, groups=None, verbose=False, resource="host", pname=N
         else:
             for entry in res.json():
                 if verbose:
-                    if not entry.get('settings'):
+                    if not entry.get("settings"):
                         entry["settings"] = dict()
                     else:
                         ps = dict()
-                        for k,v in entry["settings"].items():
-                            if v == False:
+                        for k, v in entry["settings"].items():
+                            if not v:
                                 ps[k] = "default"
                             elif k == "memory":
                                 ps[k] = convert_size(v)
                             elif k == "mgmt_net" or k == "data_net":
-                                ps[k] = v.get('name') if isinstance(v, dict) else v
-                                ps[f"{k}_ipv4"] = v.get('ipv4_addr') if isinstance(v, dict) else None
-                                ps[f"{k}_ipv6"] = v.get('ipv6_addr') if isinstance(v, dict) else None
+                                ps[k] = v.get("name") if isinstance(v, dict) else v
+                                ps[f"{k}_ipv4"] = (
+                                    v.get("ipv4_addr") if isinstance(v, dict) else None
+                                )
+                                ps[f"{k}_ipv6"] = (
+                                    v.get("ipv6_addr") if isinstance(v, dict) else None
+                                )
                             else:
                                 ps[k] = v
                         entry["settings"] = ps
@@ -277,18 +290,19 @@ def create_profile(resource, data, user=None, groups=None):
     :return:
     """
     name = data["name"]
-    params = get_params(user,groups)
+    params = get_params(user, groups)
     res = requests.post(
         url=base_url + f"profiles/{resource}/{name}",
         json=data,
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
-        params=params
+        params=params,
     )
     if res.status_code == 200:
         return True, res.json()
     else:
         return False, res.json()
+
 
 def update_profile(resource, data, user=None, groups=None):
     """
@@ -296,21 +310,23 @@ def update_profile(resource, data, user=None, groups=None):
     :param data dict:
     :return:
     """
-    name = data.get('name')
-    s = data.get('settings')
+    name = data.get("name")
+    s = data.get("settings")
     # Convert networks into fully-specified dict syntax
     if resource == Constants.HOST:
-        for k in ['mgmt_net', 'data_net']:
-            s[k] = {'name': s.get(k),
-                    'ipv4_addr': s.get(f"{k}_ipv4"),
-                    'ipv6_addr': s.get(f"{k}_ipv6")}
+        for k in ["mgmt_net", "data_net"]:
+            s[k] = {
+                "name": s.get(k),
+                "ipv4_addr": s.get(f"{k}_ipv4"),
+                "ipv6_addr": s.get(f"{k}_ipv6"),
+            }
             del s[f"{k}_ipv4"]
             del s[f"{k}_ipv6"]
     res = requests.put(
         url=base_url + f"profiles/{resource}/{name}",
         json=data,
         auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY
+        verify=settings.CTRL_SSL_VERIFY,
     )
 
     if res.status_code == 200:
@@ -320,11 +336,11 @@ def update_profile(resource, data, user=None, groups=None):
 
 
 def delete_profile(resource, pname, user=None, groups=None):
-    """ Delete profile from Janus Controller """
+    """Delete profile from Janus Controller"""
     res = requests.delete(
         url=base_url + f"profiles/{resource}/{pname}",
         auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY
+        verify=settings.CTRL_SSL_VERIFY,
     )
 
     if res.status_code == 204:
@@ -349,7 +365,7 @@ def process_nodes(nodes):
         temp["cpu_model"] = node["host"]["cpu"]["brand_raw"] if "host" in node else None
         temp["cpu_core"] = node["host"]["cpu"]["count"] if "host" in node else None
         temp["memory"] = node["host"]["mem"]["total"] if "host" in node else None
-        temp["memory_str"] = convert_size(temp['memory']) if "host" in node else None
+        temp["memory_str"] = convert_size(temp["memory"]) if "host" in node else None
         temp["image"] = len(node["images"]) if "images" in node else None
         temp["networks"] = len(node["networks"]) if "networks" in node else None
         temp["data"] = node
@@ -366,10 +382,10 @@ def get_nodes(user=None, groups=None, verbose=False, nname=None, refresh=False):
     url = "nodes" if nname is None else "nodes/" + nname
     params = get_params(user, groups, refresh)
     res = requests.get(
-        url = base_url+url,
+        url=base_url + url,
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
-        params=params
+        params=params,
     )
 
     status, nodes = False, []
@@ -380,7 +396,7 @@ def get_nodes(user=None, groups=None, verbose=False, nname=None, refresh=False):
             nodes = process_nodes(res.json())
         else:
             for entry in res.json():
-                nodes.append(entry['name'])
+                nodes.append(entry["name"])
 
     return (status, nodes)
 
@@ -393,12 +409,12 @@ def get_images(user=None, groups=None, iname=None):
     url = f"{base_url}images"
     if iname:
         url += f"/{iname}"
-    params = get_params(user,groups)
+    params = get_params(user, groups)
     res = requests.get(
-        url = url,
+        url=url,
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
-        params=params
+        params=params,
     )
 
     status, images = False, []
@@ -408,15 +424,16 @@ def get_images(user=None, groups=None, iname=None):
 
     return (status, images)
 
+
 def get_qos():
     """
     Get QoS list from Janus Controller
     :return:
     """
     res = requests.get(
-        url = base_url + "qos",
+        url=base_url + "qos",
         auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY
+        verify=settings.CTRL_SSL_VERIFY,
     )
 
     status, qos = False, []
@@ -426,19 +443,20 @@ def get_qos():
 
     return (status, qos)
 
+
 def get_log(sid, nname, timestamps=0):
     """
     Get container logs from Janus Controller
     :return:
     """
     params = dict()
-    params['timestamps'] = timestamps
-    url = f"{base_url}/active/{sid}/logs/{nname}"
+    params["timestamps"] = timestamps
+    url = f"{base_url}active/{sid}/logs/{nname}"
     res = requests.get(
-        url = url,
+        url=url,
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
-        params=params
+        params=params,
     )
     status, log = False, dict()
     if res.status_code == 200:
@@ -447,14 +465,14 @@ def get_log(sid, nname, timestamps=0):
     return (status, log)
 
 
-def get_params(user=None, groups=None, refresh=False,  timestamps=0):
+def get_params(user=None, groups=None, refresh=False, timestamps=0):
     params = dict()
     if user:
-        params['user'] = user
+        params["user"] = user
     if groups:
-	    params['group'] = ','.join(groups)
+        params["group"] = ",".join(groups)
     if refresh:
-	    params['refresh'] = "true"
+        params["refresh"] = "true"
     if timestamps:
-	    params['timestamps'] = timestamps
+        params["timestamps"] = timestamps
     return params

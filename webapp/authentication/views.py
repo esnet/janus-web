@@ -8,10 +8,11 @@ from .services import set_access
 
 logger = logging.getLogger(__name__)
 
+
 def login_view(request):
-    if request.method == 'POST':
-        username = request.POST.get('username', None)
-        password = request.POST.get('password', None)
+    if request.method == "POST":
+        username = request.POST.get("username", None)
+        password = request.POST.get("password", None)
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
@@ -19,58 +20,58 @@ def login_view(request):
         else:
             logout(request)
 
-    return HttpResponseRedirect('/')
+    return HttpResponseRedirect("/")
 
 
 def logout_view(request):
     logout(request)
-    return HttpResponseRedirect('/')
+    return HttpResponseRedirect("/")
 
 
 def signup_view(request):
     errors = []
-    if request.method == 'POST':
-        username = request.POST.get('username', None)
-        password = request.POST.get('password', None)
-        email = request.POST.get('email', None)
+    if request.method == "POST":
+        username = request.POST.get("username", None)
+        password = request.POST.get("password", None)
+        email = request.POST.get("email", None)
 
         if username is not None:
             if User.objects.filter(username=username).exists():
-                errors.append('Username already exists!')
+                errors.append("Username already exists!")
         else:
-            errors.append('Must provide username!')
+            errors.append("Must provide username!")
 
         if password is not None:
             if len(password) < 8:
-                errors.append('Password must be at least 8 characters!')
+                errors.append("Password must be at least 8 characters!")
         else:
-            errors.append('Must provide password!')
+            errors.append("Must provide password!")
 
         if email is not None:
             if User.objects.filter(email=email).exists():
-                errors.append('Email already exists!')
+                errors.append("Email already exists!")
         else:
-            errors.append('Must provide email!')
+            errors.append("Must provide email!")
 
         if not errors:
             try:
-                user = User.objects.create_user(username=username, password=password, email=email)
+                user = User.objects.create_user(
+                    username=username, password=password, email=email
+                )
                 if user is not None:
                     login(request, user)
-                    return HttpResponseRedirect('/')
+                    return HttpResponseRedirect("/")
             except Exception as e:
                 errors.append(str(e))
 
-    content = {
-        'errors': errors
-    }
+    content = {"errors": errors}
 
-    return render(request, 'signup.html', content)
+    return render(request, "signup.html", content)
 
 
 def image_access_control(request):
     if not request.user.is_authenticated:
-        return HttpResponseRedirect('/')
+        return HttpResponseRedirect("/")
 
     user = User.objects.get(username=request.user)
     if user.is_staff:
@@ -78,25 +79,25 @@ def image_access_control(request):
         qgroups = None
 
         status, images = get_images(quser, qgroups)
-        users = User.objects.filter(is_active=True).values_list('username', flat=True)
-        groups = Group.objects.all().values_list('name', flat=True)
+        users = User.objects.filter(is_active=True).values_list("username", flat=True)
+        groups = Group.objects.all().values_list("name", flat=True)
         data = {"errors": list()}
 
-        if request.method == 'POST':
+        if request.method == "POST":
             remove = True if "remove" in request.POST else False
-            image = request.POST.get('image', None)
+            image = request.POST.get("image", None)
             if image is None:
-                data['errors'].append('Image not found!')
+                data["errors"].append("Image not found!")
 
-            data['image'] = image
+            data["image"] = image
 
-            selected_users = request.POST.getlist('user', [])
-            data['users'] = selected_users
+            selected_users = request.POST.getlist("user", [])
+            data["users"] = selected_users
 
-            selected_groups = request.POST.getlist('group', [])
-            data['groups'] = selected_groups
+            selected_groups = request.POST.getlist("group", [])
+            data["groups"] = selected_groups
 
-            if not len(data['errors']):
+            if not len(data["errors"]):
                 status, res = set_access("images", data, remove)
                 if status:
                     return HttpResponseRedirect(reverse("auth_images"))
@@ -106,20 +107,20 @@ def image_access_control(request):
         if status:
             content = {
                 "data": data,
-                'images': images,
-                'login': request.user.is_authenticated,
-                'is_admin': user.is_staff,
-                'users': users,
-                'groups': groups
+                "images": images,
+                "login": request.user.is_authenticated,
+                "is_admin": user.is_staff,
+                "users": users,
+                "groups": groups,
             }
-            return render(request, 'auth_image.html', content)
+            return render(request, "auth_image.html", content)
 
-    return HttpResponseRedirect('/')
+    return HttpResponseRedirect("/")
 
 
 def node_access_control(request):
     if not request.user.is_authenticated:
-        return HttpResponseRedirect('/')
+        return HttpResponseRedirect("/")
 
     user = User.objects.get(username=request.user)
     if user.is_staff:
@@ -127,48 +128,48 @@ def node_access_control(request):
         qgroups = None
 
         status, nodes = get_nodes(quser, qgroups, verbose=True)
-        users = User.objects.filter(is_active=True).values_list('username', flat=True)
-        groups = Group.objects.all().values_list('name', flat=True)
+        users = User.objects.filter(is_active=True).values_list("username", flat=True)
+        groups = Group.objects.all().values_list("name", flat=True)
 
         data = {"errors": list()}
 
-        if request.method == 'POST':
+        if request.method == "POST":
             remove = True if "remove" in request.POST else False
-            node = request.POST.get('node', None)
+            node = request.POST.get("node", None)
             if node is None:
-                data['errors'].append('Node not found!')
+                data["errors"].append("Node not found!")
 
-            data['node'] = node
-            selected_users = request.POST.getlist('user', [])
-            data['users'] = selected_users
+            data["node"] = node
+            selected_users = request.POST.getlist("user", [])
+            data["users"] = selected_users
 
-            selected_groups = request.POST.getlist('group', [])
-            data['groups'] = selected_groups
+            selected_groups = request.POST.getlist("group", [])
+            data["groups"] = selected_groups
 
-            if not len(data['errors']):
+            if not len(data["errors"]):
                 status, res = set_access("nodes", data, remove)
                 if status:
-                    return HttpResponseRedirect(reverse('auth_nodes'))
+                    return HttpResponseRedirect(reverse("auth_nodes"))
                 else:
                     data["errors"].append(res)
 
         if status:
             content = {
                 "data": data,
-                'nodes': nodes,
-                'login': request.user.is_authenticated,
-                'is_admin': user.is_staff,
-                'users': users,
-                'groups': groups
+                "nodes": nodes,
+                "login": request.user.is_authenticated,
+                "is_admin": user.is_staff,
+                "users": users,
+                "groups": groups,
             }
-            return render(request, 'auth_node.html', content)
+            return render(request, "auth_node.html", content)
 
-    return HttpResponseRedirect('/')
+    return HttpResponseRedirect("/")
 
 
 def profile_access_control(request):
     if not request.user.is_authenticated:
-        return HttpResponseRedirect('/')
+        return HttpResponseRedirect("/")
 
     user = User.objects.get(username=request.user)
     if user.is_staff:
@@ -176,25 +177,25 @@ def profile_access_control(request):
         qgroups = None
 
         status, profiles = get_profiles(quser, qgroups, verbose=True)
-        users = User.objects.filter(is_active=True).values_list('username', flat=True)
-        groups = Group.objects.all().values_list('name', flat=True)
+        users = User.objects.filter(is_active=True).values_list("username", flat=True)
+        groups = Group.objects.all().values_list("name", flat=True)
         data = {"errors": list()}
 
-        if request.method == 'POST':
+        if request.method == "POST":
             remove = True if "remove" in request.POST else False
-            profile = request.POST.get('profile', None)
+            profile = request.POST.get("profile", None)
             if profile is None:
-                data['errors'].append('Profile not found!')
+                data["errors"].append("Profile not found!")
 
-            data['profile'] = profile
+            data["profile"] = profile
 
-            selected_users = request.POST.getlist('user', [])
-            data['users'] = selected_users
+            selected_users = request.POST.getlist("user", [])
+            data["users"] = selected_users
 
-            selected_groups = request.POST.getlist('group', [])
-            data['groups'] = selected_groups
+            selected_groups = request.POST.getlist("group", [])
+            data["groups"] = selected_groups
 
-            if not len(data['errors']):
+            if not len(data["errors"]):
                 status, res = set_access("profiles", data, remove)
                 if status:
                     return HttpResponseRedirect(reverse("auth_profiles"))
@@ -204,20 +205,20 @@ def profile_access_control(request):
         if status:
             content = {
                 "data": data,
-                'profiles': profiles,
-                'login': request.user.is_authenticated,
-                'is_admin': user.is_staff,
-                'users': users,
-                'groups': groups
+                "profiles": profiles,
+                "login": request.user.is_authenticated,
+                "is_admin": user.is_staff,
+                "users": users,
+                "groups": groups,
             }
-            return render(request, 'auth_profile.html', content)
+            return render(request, "auth_profile.html", content)
 
-    return HttpResponseRedirect('/')
+    return HttpResponseRedirect("/")
 
 
 def sessions_access_control(request):
     if not request.user.is_authenticated:
-        return HttpResponseRedirect('/')
+        return HttpResponseRedirect("/")
 
     user = User.objects.get(username=request.user)
     if user.is_staff:
@@ -225,25 +226,25 @@ def sessions_access_control(request):
         qgroups = None
 
         status, sessions = get_session_info(quser, qgroups)
-        users = User.objects.filter(is_active=True).values_list('username', flat=True)
-        groups = Group.objects.all().values_list('name', flat=True)
+        users = User.objects.filter(is_active=True).values_list("username", flat=True)
+        groups = Group.objects.all().values_list("name", flat=True)
         data = {"errors": list()}
 
-        if request.method == 'POST':
+        if request.method == "POST":
             remove = True if "remove" in request.POST else False
-            session_id = request.POST.get('id', None)
+            session_id = request.POST.get("id", None)
             if session_id is None:
-                data['errors'].append('Active Session not found!')
+                data["errors"].append("Active Session not found!")
 
-            data['session_id'] = session_id
+            data["session_id"] = session_id
 
-            selected_users = request.POST.getlist('user', [])
-            data['users'] = selected_users
+            selected_users = request.POST.getlist("user", [])
+            data["users"] = selected_users
 
-            selected_groups = request.POST.getlist('group', [])
-            data['groups'] = selected_groups
+            selected_groups = request.POST.getlist("group", [])
+            data["groups"] = selected_groups
 
-            if not len(data['errors']):
+            if not len(data["errors"]):
                 status, res = set_access("active", data, remove)
                 if status:
                     return HttpResponseRedirect(reverse("auth_sessions"))
@@ -253,13 +254,13 @@ def sessions_access_control(request):
         if status:
             content = {
                 "data": data,
-                'sessions': sessions,
-                'login': request.user.is_authenticated,
-                'is_admin': user.is_staff,
-                'users': users,
-                'groups': groups
+                "sessions": sessions,
+                "login": request.user.is_authenticated,
+                "is_admin": user.is_staff,
+                "users": users,
+                "groups": groups,
             }
 
-            return render(request, 'auth_session.html', content)
+            return render(request, "auth_session.html", content)
 
-    return HttpResponseRedirect('/')
+    return HttpResponseRedirect("/")
