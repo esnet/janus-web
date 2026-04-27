@@ -11,7 +11,7 @@ base_url = settings.JANUS_CONTROLLER_URL + "api/janus/controller/"
 
 
 def get_node_types():
-    ntypes = {1: "1: Portainer Agent", 2: "2: Docker", 3: "3: Kubernetes"}
+    ntypes = {1: "1: Portainer Agent", 2: "2: Kubernetes", 3: "3: Docker", 4: "4: Slurm"}
     return ntypes
 
 
@@ -24,13 +24,13 @@ def add_node(data, user=None, groups=None):
         verify=settings.CTRL_SSL_VERIFY,
         params=params,
     )
-    status, data = False, []
-    if res.status_code in [200, 204]:
-        status = True
+    if res.status_code in [200, 201, 204]:
+        try:
+            return True, res.json() if res.status_code != 204 else {}
+        except Exception:
+            return True, {}
     else:
-        status = False
-        data = res.json()
-    return status, data
+        return False, res.json()
 
 
 def remove_node(nname, user=None, groups=None):
@@ -39,13 +39,13 @@ def remove_node(nname, user=None, groups=None):
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
     )
-    status, data = False, []
     if res.status_code in [200, 204]:
-        status = True
+        return True, {}
     else:
-        status = False
-        data = res.json()
-    return status, data
+        try:
+            return False, res.json()
+        except Exception:
+            return False, {"error": res.text or f"HTTP {res.status_code}"}
 
 
 def get_auth_jwt():
@@ -252,30 +252,31 @@ def get_profiles(
     if res.status_code == 200:
         status = True
         if pname:
-            profiles = res.json()
+            entry = res.json()
+            if not entry.get("settings"):
+                entry["settings"] = dict()
+            else:
+                s = entry["settings"]
+                for k in ["mgmt_net", "data_net"]:
+                    if k in s and isinstance(s[k], dict):
+                        s[f"{k}_ipv4"] = s[k].get("ipv4_addr")
+                        s[f"{k}_ipv6"] = s[k].get("ipv6_addr")
+                        s[k] = s[k].get("name")
+            profiles = entry
         else:
             for entry in res.json():
                 if verbose:
                     if not entry.get("settings"):
                         entry["settings"] = dict()
                     else:
-                        ps = dict()
-                        for k, v in entry["settings"].items():
-                            if not v:
-                                ps[k] = "default"
-                            elif k == "memory":
-                                ps[k] = convert_size(v)
-                            elif k == "mgmt_net" or k == "data_net":
-                                ps[k] = v.get("name") if isinstance(v, dict) else v
-                                ps[f"{k}_ipv4"] = (
-                                    v.get("ipv4_addr") if isinstance(v, dict) else None
-                                )
-                                ps[f"{k}_ipv6"] = (
-                                    v.get("ipv6_addr") if isinstance(v, dict) else None
-                                )
-                            else:
-                                ps[k] = v
-                        entry["settings"] = ps
+                        # Extract nested network info for legacy UI compatibility if needed
+                        # but keep the rest as-is for round-tripping
+                        s = entry["settings"]
+                        for k in ["mgmt_net", "data_net"]:
+                            if k in s and isinstance(s[k], dict):
+                                s[f"{k}_ipv4"] = s[k].get("ipv4_addr")
+                                s[f"{k}_ipv6"] = s[k].get("ipv6_addr")
+                                s[k] = s[k].get("name")
                     profiles.append(entry)
                 else:
                     profiles.append(entry["name"])
@@ -315,13 +316,18 @@ def update_profile(resource, data, user=None, groups=None):
     # Convert networks into fully-specified dict syntax
     if resource == Constants.HOST:
         for k in ["mgmt_net", "data_net"]:
-            s[k] = {
-                "name": s.get(k),
-                "ipv4_addr": s.get(f"{k}_ipv4"),
-                "ipv6_addr": s.get(f"{k}_ipv6"),
-            }
-            del s[f"{k}_ipv4"]
-            del s[f"{k}_ipv6"]
+            if k in s:
+                # If it's already a dict, we might not need to do anything
+                # but let's ensure the legacy fields are handled safely
+                if not isinstance(s[k], dict):
+                    s[k] = {
+                        "name": s.get(k),
+                        "ipv4_addr": s.get(f"{k}_ipv4"),
+                        "ipv6_addr": s.get(f"{k}_ipv6"),
+                    }
+                # Safely remove legacy keys if they exist
+                s.pop(f"{k}_ipv4", None)
+                s.pop(f"{k}_ipv6", None)
     res = httpx.put(
         url=base_url + f"profiles/{resource}/{name}",
         json=data,
@@ -332,7 +338,10 @@ def update_profile(resource, data, user=None, groups=None):
     if res.status_code == 200:
         return True, res.json()
     else:
-        return False, res.json()
+        try:
+            return False, res.json()
+        except Exception:
+            return False, {"error": res.text or f"HTTP {res.status_code}"}
 
 
 def delete_profile(resource, pname, user=None, groups=None):
@@ -386,6 +395,7 @@ def get_nodes(user=None, groups=None, verbose=False, nname=None, refresh=False):
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
         params=params,
+        timeout=30.0,
     )
 
     status, nodes = False, []

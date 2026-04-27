@@ -144,6 +144,8 @@
     </div>
 
     <div class="container">
+        <!-- Vue 3 Root Mount Point (Optional) -->
+        {% block vue_app %}{% endblock vue_app %}
         <!-- Custom Page Content -->
         <div>{% block content %} {% endblock content %}</div>
     </div>
