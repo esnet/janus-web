@@ -1,13 +1,51 @@
 import ssl
 import json
+import logging
 import threading
 import websocket
 from django.conf import settings
 from .services import create_exec
 
+logger = logging.getLogger(__name__)
 # from webapp.settings import PORTAINER_WS
 from channels.generic.websocket import JsonWebsocketConsumer, AsyncJsonWebsocketConsumer
 
+
+class EventConsumer(JsonWebsocketConsumer):
+    def connect(self):
+        self.accept()
+        self.stop_event = threading.Event()
+        self.th = threading.Thread(target=self.event_proxy)
+        self.th.start()
+
+    def disconnect(self, close_code):
+        if hasattr(self, "stop_event"):
+            self.stop_event.set()
+        self.close()
+
+    def event_proxy(self):
+        ws_url = f"{settings.JANUS_CONTROLLER_WS_URL}/ws"
+        try:
+            ws = websocket.create_connection(ws_url, sslopt={"cert_reqs": ssl.CERT_NONE})
+            # type 4 is WSType.EVENTS
+            ws.send(json.dumps({"type": 4}))
+            
+            while not self.stop_event.is_set():
+                try:
+                    # set a timeout so we can check stop_event
+                    ws.settimeout(1.0)
+                    msg = ws.recv()
+                    if msg:
+                        data = json.loads(msg)
+                        self.send_json(data)
+                except websocket.WebSocketTimeoutException:
+                    continue
+                except Exception as e:
+                    logger.error(f"Event proxy error: {e}")
+                    break
+            ws.close()
+        except Exception as e:
+            logger.error(f"Could not connect to Janus Controller events: {e}")
 
 class AsyncPerfConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):

@@ -792,6 +792,76 @@ def delete_profile(request, pname, resource=Constants.HOST):
 
 
 # Non-template response views
+def get_sessions_api(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    (user, _, quser, qgroups) = _get_user(request)
+    status, res = services.get_session_info(quser, qgroups)
+    if status:
+        return JsonResponse({"sessions": res})
+    else:
+        return JsonResponse({"error": res}, status=500)
+
+
+def start_session_api(request, session_id):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    (user, _, quser, qgroups) = _get_user(request)
+    status, res = services.start_session(session_id, quser, qgroups)
+    return JsonResponse({"status": status, "result": res}, status=200 if status else 400)
+
+
+def stop_session_api(request, session_id):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    (user, _, quser, qgroups) = _get_user(request)
+    status, res = services.stop_session(session_id, quser, qgroups)
+    return JsonResponse({"status": status, "result": res}, status=200 if status else 400)
+
+
+def delete_session_api(request, session_id):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    (user, _, quser, qgroups) = _get_user(request)
+    status, res = services.delete_session(session_id, quser, qgroups)
+    return JsonResponse({"status": status, "result": res}, status=200 if status else 400)
+
+
+def get_nodes_api(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    (user, _, quser, qgroups) = _get_user(request)
+    refresh = request.GET.get("refresh") == "true"
+    status, nodes = services.get_nodes(quser, qgroups, verbose=True, refresh=refresh)
+    if status:
+        return JsonResponse({"nodes": nodes})
+    else:
+        return JsonResponse({"error": "Could not fetch nodes"}, status=500)
+
+
+def add_node_api(request):
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+        (user, _, quser, qgroups) = _get_user(request)
+        status, res = services.add_node(data, quser, qgroups)
+        return JsonResponse({"status": status, "result": res}, status=200 if status else 400)
+    return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+def remove_node_api(request, nname):
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    (user, _, quser, qgroups) = _get_user(request)
+    status, res = services.remove_node(nname, quser, qgroups)
+    return JsonResponse({"status": status, "result": res}, status=200 if status else 400)
+
+
 def view_log(request, session_id, nname):
     ts = request.GET.get("timestamps")
     (status, log) = services.get_log(session_id, nname, ts)
@@ -828,3 +898,113 @@ def validate_environment_vars(env_str):
             continue
         valid_vars.append(f"{key}={value.strip()}")
     return valid_vars, errors
+
+def get_nodes_api(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    (user, _, quser, qgroups) = _get_user(request)
+    refresh = request.GET.get("refresh") == "true"
+    status, nodes = services.get_nodes(quser, qgroups, verbose=True, refresh=refresh)
+    if status:
+        return JsonResponse({"nodes": nodes})
+    else:
+        return JsonResponse({"error": "Could not fetch nodes"}, status=500)
+
+
+def add_node_api(request):
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+        (user, _, quser, qgroups) = _get_user(request)
+        status, res = services.add_node(data, quser, qgroups)
+        return JsonResponse({"status": status, "result": res}, status=200 if status else 400)
+    return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+def remove_node_api(request, nname):
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    (user, _, quser, qgroups) = _get_user(request)
+    status, res = services.remove_node(nname, quser, qgroups)
+    return JsonResponse({"status": status, "result": res}, status=200 if status else 400)
+
+
+def get_profiles_api(request, resource="host"):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    (user, _, quser, qgroups) = _get_user(request)
+    refresh = request.GET.get("refresh") == "true"
+    status, profiles = services.get_profiles(
+        quser, qgroups, verbose=True, resource=resource, refresh=refresh
+    )
+    if status:
+        return JsonResponse({"profiles": profiles})
+    else:
+        return JsonResponse({"error": "Could not fetch profiles"}, status=500)
+
+
+def get_profile_choices_api(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    (user, _, quser, qgroups) = _get_user(request)
+    _, qos = services.get_profiles(quser, qgroups, resource=Constants.QOS, verbose=True)
+    _, nets = services.get_profiles(
+        quser, qgroups, resource=Constants.NET, verbose=True
+    )
+    _, vols = services.get_profiles(
+        quser, qgroups, resource=Constants.VOL, verbose=True
+    )
+    return JsonResponse(
+        {
+            "qos": [k.get("name") for k in qos],
+            "networks": [k.get("name") for k in nets],
+            "volumes": [k.get("name") for k in vols],
+        }
+    )
+
+
+def create_profile_api(request, resource):
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+        (user, _, quser, qgroups) = _get_user(request)
+        status, res = services.create_profile(resource, data, quser, qgroups)
+        return JsonResponse(
+            {"status": status, "result": res}, status=200 if status else 400
+        )
+    return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+def update_profile_api(request, resource):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+        (user, _, quser, qgroups) = _get_user(request)
+        status, res = services.update_profile(resource, data, quser, qgroups)
+        return JsonResponse(
+            {"status": status, "result": res}, status=200 if status else 400
+        )
+    return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+def delete_profile_api(request, resource, pname):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    (user, _, quser, qgroups) = _get_user(request)
+    status, res = services.delete_profile(resource, pname, quser, qgroups)
+    return JsonResponse(
+        {"status": status, "result": res}, status=200 if status else 400
+    )

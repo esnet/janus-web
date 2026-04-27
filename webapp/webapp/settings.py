@@ -28,6 +28,7 @@ SECRET_KEY = os.getenv("JANUS_WEB_SECRET_KEY", key)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", False)
+VITE_DEV_MODE = True
 
 ALLOWED_HOSTS = ["*"]
 

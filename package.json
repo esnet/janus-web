@@ -1,0 +1,30 @@
+{
+  "name": "janus-web",
+  "version": "1.0.0",
+  "description": "User-driven DTN endpoint provisioning with Janus",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/esnet/janus-web.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/esnet/janus-web/issues"
+  },
+  "homepage": "https://github.com/esnet/janus-web#readme",
+  "dependencies": {
+    "@vitejs/plugin-vue": "^6.0.6",
+    "axios": "^1.15.2",
+    "pinia": "^3.0.4",
+    "vite": "^8.0.10",
+    "vue": "^3.5.33"
+  }
+}
