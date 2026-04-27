@@ -1,7 +1,8 @@
 import math
 
+
 def convert_size(size_bytes):
-    if size_bytes == False:
+    if not size_bytes:
         return "default"
     if size_bytes == 0:
         return "0B"

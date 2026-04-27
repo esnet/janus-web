@@ -23,7 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 # For development puroposes only, will replace with environment variable
-key = 'django-insecure-ln=t4x7)$lo8#xkl@o)!8qk_#c+pg!*sa1i@&hs93l&p)2xu7o'
+key = "django-insecure-ln=t4x7)$lo8#xkl@o)!8qk_#c+pg!*sa1i@&hs93l&p)2xu7o"
 SECRET_KEY = os.getenv("JANUS_WEB_SECRET_KEY", key)
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -34,72 +34,74 @@ ALLOWED_HOSTS = ["*"]
 # Application definition
 
 INSTALLED_APPS = [
-    'daphne',
-    'authentication',
-    'bootstrap4',
-    'crispy_bootstrap4',
-    'crispy_forms',
-    'janus',
-    'django_extensions',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'mozilla_django_oidc',  # Load after auth
+    "daphne",
+    "authentication",
+    "bootstrap4",
+    "crispy_bootstrap4",
+    "crispy_forms",
+    "janus",
+    "django_extensions",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "mozilla_django_oidc",  # Load after auth
 ]
 
 ADMIN_ENABLED = False if os.getenv("ADMIN_ENABLED", "True").lower() == "false" else True
 if ADMIN_ENABLED:
-    INSTALLED_APPS.append('django.contrib.admin')
+    INSTALLED_APPS.append("django.contrib.admin")
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'mozilla_django_oidc.middleware.SessionRefresh',
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "mozilla_django_oidc.middleware.SessionRefresh",
 ]
 
 AUTHENTICATION_BACKENDS = [
-    'django.contrib.auth.backends.ModelBackend',
-    'authentication.oidc.JanusWebOIDCBackend',
-#    'mozilla_django_oidc.auth.OIDCAuthenticationBackend',
+    "django.contrib.auth.backends.ModelBackend",
+    "authentication.oidc.JanusWebOIDCBackend",
+    #    'mozilla_django_oidc.auth.OIDCAuthenticationBackend',
 ]
 
-ROOT_URLCONF = 'webapp.urls'
+ROOT_URLCONF = "webapp.urls"
 ASGI_APPLICATION = "webapp.asgi.application"
-CRISPY_TEMPLATE_PACK = 'bootstrap4'
+CRISPY_TEMPLATE_PACK = "bootstrap4"
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(os.path.dirname(BASE_DIR),'webapp','static','templates')],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [
+            os.path.join(os.path.dirname(BASE_DIR), "webapp", "static", "templates")
+        ],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'webapp.wsgi.application'
+WSGI_APPLICATION = "webapp.wsgi.application"
 
 
 # Database
 # https://docs.djangoproject.com/en/4.0/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'janus_web.db',
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "janus_web.db",
     }
 }
 
@@ -109,16 +111,16 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -126,9 +128,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/4.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = 'US/Pacific'
+TIME_ZONE = "US/Pacific"
 
 USE_I18N = True
 
@@ -139,9 +141,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.0/howto/static-files/
 
 # Static Files
-STATIC_URL = 'static/'
+STATIC_URL = "static/"
 STATICFILES_DIRS = (
-    os.path.join(os.path.dirname(BASE_DIR),'webapp','static','static'),
+    os.path.join(os.path.dirname(BASE_DIR), "webapp", "static", "static"),
 )
 STATIC_ROOT = os.getenv("STATIC_ROOT", STATIC_URL)
 
@@ -149,57 +151,56 @@ STATIC_ROOT = os.getenv("STATIC_ROOT", STATIC_URL)
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'default': {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {
             # exact format is not important, this is the minimum information
-            'format': '%(asctime)s %(name)s %(levelname)s -- %(message)s',
+            "format": "%(asctime)s %(name)s %(levelname)s -- %(message)s",
         },
-        'django.server': DEFAULT_LOGGING['formatters']['django.server'],
+        "django.server": DEFAULT_LOGGING["formatters"]["django.server"],
     },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'default',
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "default",
         },
-        'django.server': DEFAULT_LOGGING['handlers']['django.server'],
+        "django.server": DEFAULT_LOGGING["handlers"]["django.server"],
     },
-    'root': {
-        'handlers': ['console'],
-        'level': 'WARNING',
+    "root": {
+        "handlers": ["console"],
+        "level": "WARNING",
     },
-    'loggers': {
-        'django': {
-            'handlers': ['console'],
-            'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
-            'propagate': False,
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": os.getenv("DJANGO_LOG_LEVEL", "INFO"),
+            "propagate": False,
         },
-        'janus': {
-            'handlers': ['console'],
-            'level': os.getenv('DJANGO_LOG_LEVEL', 'DEBUG'),
-            'propagate': False,
+        "janus": {
+            "handlers": ["console"],
+            "level": os.getenv("DJANGO_LOG_LEVEL", "DEBUG"),
+            "propagate": False,
         },
-        'mozilla_django_oidc': {
-            'handlers': ['console'],
-            'level': 'DEBUG'
-        },
+        "mozilla_django_oidc": {"handlers": ["console"], "level": "DEBUG"},
         # Default runserver request logging
-        'django.server': DEFAULT_LOGGING['loggers']['django.server'],
+        "django.server": DEFAULT_LOGGING["loggers"]["django.server"],
     },
 }
 
 # Enable or disable local login form on landing page
-LOCAL_LOGIN_ENABLED = False if os.getenv("LOCAL_LOGIN_ENABLED", "True").lower() == "false" else True
+LOCAL_LOGIN_ENABLED = (
+    False if os.getenv("LOCAL_LOGIN_ENABLED", "True").lower() == "false" else True
+)
 
 # BEGIN SSO OIDC
-OIDC_USERNAME_ALGO = 'authentication.oidc.generate_username'
+OIDC_USERNAME_ALGO = "authentication.oidc.generate_username"
 OIDC_CREATE_USER = True
-OIDC_RP_CLIENT_ID = os.getenv('OIDC_RP_CLIENT_ID')
-OIDC_RP_CLIENT_SECRET = os.getenv('OIDC_RP_CLIENT_SECRET')
+OIDC_RP_CLIENT_ID = os.getenv("OIDC_RP_CLIENT_ID")
+OIDC_RP_CLIENT_SECRET = os.getenv("OIDC_RP_CLIENT_SECRET")
 OIDC_RP_SIGN_ALGO = "RS256"
 # Enable this if you are behind a reverse proxy that handles SSL termination
 # SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -207,24 +208,27 @@ OIDC_RP_SIGN_ALGO = "RS256"
 OIDC_OP_AUTHORIZATION_ENDPOINT = "https://cilogon.org/authorize"
 OIDC_OP_TOKEN_ENDPOINT = "https://cilogon.org/oauth2/token"
 OIDC_OP_USER_ENDPOINT = "https://cilogon.org/oauth2/userinfo"
-OIDC_OP_JWKS_ENDPOINT= "https://cilogon.org/oauth2/certs"
+OIDC_OP_JWKS_ENDPOINT = "https://cilogon.org/oauth2/certs"
 
 LOGIN_REDIRECT_URL = "http://localhost:8000"
 LOGOUT_REDIRECT_URL = "http://localhost:8000"
 # END SSO OIDC
 
 trusted_origins = os.getenv("CSRF_TRUSTED_ORIGINS", [])
-CSRF_TRUSTED_ORIGINS = [] if isinstance(trusted_origins, list) else trusted_origins.split(",")
+CSRF_TRUSTED_ORIGINS = (
+    [] if isinstance(trusted_origins, list) else trusted_origins.split(",")
+)
 SECURE_CROSS_ORIGIN_OPENER_POLICY = None
 CTRL_HOST = os.getenv("JANUS_WEB_CTRL_HOST", "localhost")
 CTRL_PORT = os.getenv("JANUS_WEB_CTRL_PORT", "5000")
 CTRL_HTTP_PROTOCOL = os.getenv("CTRL_HTTP_PROTOCOL", "https")
 CTRL_WS_PROTOCOL = os.getenv("CTRL_WS_PROTOCOL", "wss")
-CTRL_SSL_VERIFY = False if os.getenv("CTRL_SSL_VERIFY", "False").lower() == "false" else True
+CTRL_SSL_VERIFY = (
+    False if os.getenv("CTRL_SSL_VERIFY", "False").lower() == "false" else True
+)
 JANUS_CONTROLLER_URL = "{}://{}:{}/".format(CTRL_HTTP_PROTOCOL, CTRL_HOST, CTRL_PORT)
 JANUS_CONTROLLER_WS_URL = "{}://{}:{}".format(CTRL_WS_PROTOCOL, CTRL_HOST, CTRL_PORT)
 
 JANUS_USER = os.getenv("JANUS_USER", "admin")
 JANUS_PASSWORD = os.getenv("JANUS_PASSWORD", "admin")
 JANUS_CONTROLLER_AUTH = (JANUS_USER, JANUS_PASSWORD)
-
