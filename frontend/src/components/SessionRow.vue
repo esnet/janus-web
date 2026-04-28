@@ -1,22 +1,34 @@
 <template>
-  <tr @click="expanded = !expanded" class="accordion-toggle" :class="rowClass" style="cursor: pointer">
-    <td>
+  <tr @click="expanded = !expanded" class="accordion-toggle session-row" :class="[rowClass, { 'is-expanded': expanded }]" style="cursor: pointer">
+    <td class="align-middle pl-4">
       <span class="fa-solid" :class="expanded ? 'fa-chevron-down' : 'fa-chevron-right'"></span>
     </td>
-    <td> {{ session.id }} </td>
-    <td> {{ session.user }} </td>
-    <td>
+    <td class="align-middle"> #{{ session.id }} </td>
+    <td class="align-middle"> 
+      <div class="d-flex align-items-center">
+          <span class="badge badge-warning text-white mr-2" v-if="session.data.is_modified" title="Changes not applied">EDITED</span>
+          <b>{{ session.name || 'Unnamed' }}</b>
+      </div>
+    </td>
+    <td class="align-middle"> {{ session.user }} </td>
+    <td class="align-middle">
       <div v-for="n in session.nodes" :key="n">
         <i>{{ n }}</i>
       </div>
     </td>
-    <td> {{ session.image }} </td>
-    <td> {{ session.profile }} </td>
-    <td>
+    <td class="align-middle"> {{ session.image }} </td>
+    <td class="align-middle"> {{ session.profile }} </td>
+    <td class="align-middle">
       <span class="badge" :class="stateClass">{{ session.state }}</span>
     </td>
-    <td>
+    <td class="align-middle pr-4 text-right">
       <div class="btn-group" @click.stop>
+        <button v-if="session.data.is_modified" title="apply changes" @click="store.applySessionChanges(session.id)" class="btn btn-sm btn-primary">
+          <i class="fa-solid fa-sync-alt"></i>
+        </button>
+        <button title="edit" @click="editing = true" class="btn btn-sm btn-outline-primary">
+          <i class="fa-solid fa-pencil"></i>
+        </button>
         <button v-if="canStart" title="start" @click="store.startSession(session.id)" class="btn btn-sm btn-success">
           <i class="fa-solid fa-play"></i>
         </button>
@@ -29,126 +41,147 @@
       </div>
     </td>
   </tr>
-  <tr v-if="expanded">
-    <td colspan="8" class="p-0 border-top-0">
-      <div class="p-3 bg-white border-bottom shadow-sm">
+  <tr v-if="expanded || editing" class="expanded-row">
+    <td colspan="9" class="p-0 border-top-0">
+      <div class="p-4 bg-white border-bottom shadow-sm mx-3 mb-3 rounded-bottom border-left border-right">
         
-        <!-- Action Toolbar for expanded view -->
-        <div class="d-flex justify-content-end mb-3 border-bottom pb-2">
-            <div class="btn-group btn-group-sm">
-                <button class="btn" :class="showPerf ? 'btn-primary' : 'btn-outline-primary'" 
-                    v-if="session.tools && session.tools.length" @click="showPerf = !showPerf">
-                    <i class="fas fa-bolt mr-1"></i> {{ showPerf ? 'Hide' : 'Show' }} Perf Test
-                </button>
-                <button class="btn" :class="showLogs ? 'btn-info' : 'btn-outline-info'" @click="showLogs = !showLogs">
-                    <i class="fas fa-terminal mr-1"></i> {{ showLogs ? 'Hide' : 'Show' }} Logs
-                </button>
-            </div>
+        <!-- Inline Editing Form -->
+        <div v-if="editing" class="mb-4">
+            <EditSessionForm :session="session" @saved="handleSaved" @cancel="editing = false" />
         </div>
 
-        <!-- Row 1: Service Details -->
-        <div class="row mb-4">
-          <div class="col-12">
-            <h5 class="small font-weight-bold text-uppercase text-muted mb-3"><i class="fas fa-info-circle mr-2"></i>Service Details</h5>
-            <table class="table table-sm table-bordered mb-0" style="font-size: 0.9rem;">
-              <thead>
-                <tr class="bg-light text-secondary">
-                  <th>Endpoint</th>
-                  <th>SSH Connection</th>
-                  <th>Control Port</th>
-                  <th>Service Port</th>
-                  <th>Data Interfaces</th>
-                </tr>
-              </thead>
-              <tbody>
-                <template v-for="(srvs, nodeName) in session.data.services" :key="nodeName">
-                  <tr v-for="srv in srvs" :key="srv.container_id">
-                    <td><b>{{ nodeName }}</b></td>
-                    <td><code>ssh {{ srv.container_user || 'user' }}@{{ srv.ctrl_host }} -p {{ srv.ctrl_port }}</code></td>
-                    <td>{{ srv.ctrl_port }}</td>
-                    <td>{{ srv.serv_port }}</td>
-                    <td>{{ srv.data_ipv4 }}{{ srv.data_ipv6 ? ', ' + srv.data_ipv6 : '' }}</td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
-          </div>
-        </div>
-        
-        <!-- Row 2: Performance Test -->
-        <div class="row mb-4" v-if="showPerf && session.tools && session.tools.length">
-          <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
-                <h5 class="text-primary mb-0"><i class="fas fa-bolt mr-2"></i>Performance Test</h5>
-                <button class="close" @click="showPerf = false">&times;</button>
+        <div v-if="!editing">
+            <!-- Action Toolbar for expanded view -->
+            <div class="d-flex justify-content-end mb-4 border-bottom pb-3">
+                <div class="btn-group btn-group-sm shadow-sm">
+                    <button class="btn" :class="showPerf ? 'btn-primary' : 'btn-outline-primary'" 
+                        v-if="session.tools && session.tools.length" @click="showPerf = !showPerf">
+                        <i class="fas fa-bolt mr-1"></i> {{ showPerf ? 'Hide' : 'Show' }} Perf Test
+                    </button>
+                    <button class="btn" :class="showLogs ? 'btn-info' : 'btn-outline-info'" @click="showLogs = !showLogs">
+                        <i class="fas fa-terminal mr-1"></i> {{ showLogs ? 'Hide' : 'Show' }} Logs
+                    </button>
+                </div>
             </div>
-            <div class="card border-0 bg-light p-3">
-              <div class="row align-items-center">
-                <div class="col-md-3">
-                  <label class="small font-weight-bold text-uppercase text-muted mb-1">Select Tool</label>
-                  <select v-model="perfTool" class="custom-select custom-select-sm" :disabled="perfRunning">
-                    <option value="" disabled>Select tool...</option>
-                    <option v-for="tool in session.tools" :key="tool" :value="tool">{{ tool }}</option>
-                  </select>
-                </div>
-                <div class="col-md-4">
-                  <label class="small font-weight-bold text-uppercase text-muted mb-1">Destination Override</label>
-                  <input v-model="perfHost" type="text" class="form-control form-control-sm" placeholder="e.g. 10.0.0.1" :disabled="perfRunning">
-                </div>
-                <div class="col-md-2">
-                  <label class="small font-weight-bold text-uppercase text-muted mb-1">Duration</label>
-                  <input v-model="perfDuration" type="number" class="form-control form-control-sm" placeholder="sec" :disabled="perfRunning">
-                </div>
-                <div class="col-md-3 text-right mt-4 mt-md-0">
-                  <button class="btn btn-success btn-sm px-4" type="button" @click="runPerfTest" :disabled="session.state !== 'STARTED' || perfRunning || !perfTool">
-                    <i class="fas" :class="perfRunning ? 'fa-spinner fa-spin' : 'fa-play-circle mr-1'"></i>
-                    {{ perfRunning ? 'Running...' : 'Start Test' }}
-                  </button>
+
+            <!-- Row 0: Global Errors -->
+            <div class="row mb-4" v-if="allErrors.length">
+              <div class="col-12">
+                <div class="alert alert-danger shadow-sm border-0 mb-0">
+                  <h6 class="font-weight-bold mb-2"><i class="fas fa-exclamation-circle mr-2"></i>Service Errors</h6>
+                  <ul class="mb-0 small pl-4">
+                    <li v-for="(err, idx) in allErrors" :key="idx" class="mb-1">
+                      <b class="text-uppercase">{{ err.node }}:</b> {{ err.reason }} - {{ err.message }}
+                    </li>
+                  </ul>
                 </div>
               </div>
-              <div v-if="perfOutput" class="mt-3">
-                <textarea id="perf-output" readonly class="form-control form-control-sm" 
-                  style="font-family: 'Courier New', Courier, monospace; height: 250px; background-color: #1e1e1e; color: #76ea64; border: 1px solid #333;" 
-                  v-model="perfOutput"></textarea>
+            </div>
+
+            <!-- Row 1: Service Details -->
+            <div class="row mb-4">
+              <div class="col-12">
+                <h5 class="small font-weight-bold text-uppercase text-muted mb-3"><i class="fas fa-info-circle mr-2"></i>Service Details</h5>
+                <table class="table table-sm table-bordered mb-0" style="font-size: 0.9rem;">
+                  <thead>
+                    <tr class="bg-light text-secondary">
+                      <th>Endpoint</th>
+                      <th>SSH Connection</th>
+                      <th>Control Port</th>
+                      <th>Service Port</th>
+                      <th>Data Interfaces</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template v-for="(srvs, nodeName) in session.data.services" :key="nodeName">
+                      <tr v-for="srv in srvs" :key="srv.container_id">
+                        <td><b>{{ nodeName }}</b></td>
+                        <td><code>ssh {{ srv.container_user || 'user' }}@{{ srv.ctrl_host }} -p {{ srv.ctrl_port }}</code></td>
+                        <td>{{ srv.ctrl_port }}</td>
+                        <td>{{ srv.serv_port }}</td>
+                        <td>{{ srv.data_ipv4 }}{{ srv.data_ipv6 ? ', ' + srv.data_ipv6 : '' }}</td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
               </div>
             </div>
-          </div>
-        </div>
-        
-        <!-- Row 3: Container Logs -->
-        <div class="row" v-if="showLogs">
-          <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
-                <h5 class="text-info mb-0"><i class="fas fa-terminal mr-2"></i>Container Logs</h5>
-                <button class="close" @click="showLogs = false">&times;</button>
-            </div>
-            <div class="card border-0 bg-light p-3">
-              <div class="row align-items-center mb-3">
-                <div class="col-md-4">
-                  <label class="small font-weight-bold text-uppercase text-muted mb-1">Target Node</label>
-                  <select v-model="logNode" class="custom-select custom-select-sm">
-                    <option value="" disabled>Select node...</option>
-                    <option v-for="n in session.nodes" :key="n" :value="n">{{ n }}</option>
-                  </select>
+            
+            <!-- Row 2: Performance Test -->
+            <div class="row mb-4" v-if="showPerf && session.tools && session.tools.length">
+              <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                    <h5 class="text-primary mb-0"><i class="fas fa-bolt mr-2"></i>Performance Test</h5>
+                    <button class="close" @click="showPerf = false">&times;</button>
                 </div>
-                <div class="col-md-4">
-                  <div class="custom-control custom-checkbox mt-4">
-                    <input type="checkbox" class="custom-control-input" v-model="logTimestamps" :id="'ts-check-' + session.id">
-                    <label class="custom-control-label small font-weight-bold text-uppercase text-muted" :for="'ts-check-' + session.id">Include Timestamps</label>
+                <div class="card border-0 bg-light p-3">
+                  <div class="row align-items-center">
+                    <div class="col-md-3">
+                      <label class="small font-weight-bold text-uppercase text-muted mb-1">Select Tool</label>
+                      <select v-model="perfTool" class="custom-select custom-select-sm" :disabled="perfRunning">
+                        <option value="" disabled>Select tool...</option>
+                        <option v-for="tool in session.tools" :key="tool" :value="tool">{{ tool }}</option>
+                      </select>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="small font-weight-bold text-uppercase text-muted mb-1">Destination Override</label>
+                      <input v-model="perfHost" type="text" class="form-control form-control-sm" placeholder="e.g. 10.0.0.1" :disabled="perfRunning">
+                    </div>
+                    <div class="col-md-2">
+                      <label class="small font-weight-bold text-uppercase text-muted mb-1">Duration</label>
+                      <input v-model="perfDuration" type="number" class="form-control form-control-sm" placeholder="sec" :disabled="perfRunning">
+                    </div>
+                    <div class="col-md-3 text-right mt-4 mt-md-0">
+                      <button class="btn btn-success btn-sm px-4" type="button" @click="runPerfTest" :disabled="session.state !== 'STARTED' || perfRunning || !perfTool">
+                        <i class="fas" :class="perfRunning ? 'fa-spinner fa-spin' : 'fa-play-circle mr-1'"></i>
+                        {{ perfRunning ? 'Running...' : 'Start Test' }}
+                      </button>
+                    </div>
+                  </div>
+                  <div v-if="perfOutput" class="mt-3">
+                    <textarea id="perf-output" readonly class="form-control form-control-sm" 
+                      style="font-family: 'Courier New', Courier, monospace; height: 250px; background-color: #1e1e1e; color: #76ea64; border: 1px solid #333;" 
+                      v-model="perfOutput"></textarea>
                   </div>
                 </div>
-                <div class="col-md-4 text-right mt-4 mt-md-0">
-                  <button class="btn btn-info btn-sm px-4" type="button" @click="fetchLogs" :disabled="!logNode">
-                    <i class="fas fa-sync-alt mr-1"></i> Fetch Logs
-                  </button>
+              </div>
+            </div>
+            
+            <!-- Row 3: Container Logs -->
+            <div class="row" v-if="showLogs">
+              <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                    <h5 class="text-info mb-0"><i class="fas fa-terminal mr-2"></i>Container Logs</h5>
+                    <button class="close" @click="showLogs = false">&times;</button>
+                </div>
+                <div class="card border-0 bg-light p-3">
+                  <div class="row align-items-center mb-3">
+                    <div class="col-md-4">
+                      <label class="small font-weight-bold text-uppercase text-muted mb-1">Target Node</label>
+                      <select v-model="logNode" class="custom-select custom-select-sm">
+                        <option value="" disabled>Select node...</option>
+                        <option v-for="n in session.nodes" :key="n" :value="n">{{ n }}</option>
+                      </select>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="custom-control custom-checkbox mt-4">
+                        <input type="checkbox" class="custom-control-input" v-model="logTimestamps" :id="'ts-check-' + session.id">
+                        <label class="custom-control-label small font-weight-bold text-uppercase text-muted" :for="'ts-check-' + session.id">Include Timestamps</label>
+                      </div>
+                    </div>
+                    <div class="col-md-4 text-right mt-4 mt-md-0">
+                      <button class="btn btn-info btn-sm px-4" type="button" @click="fetchLogs" :disabled="!logNode">
+                        <i class="fas fa-sync-alt mr-1"></i> Fetch Logs
+                      </button>
+                    </div>
+                  </div>
+                  <textarea readonly class="form-control form-control-sm" 
+                    style="font-family: 'Courier New', Courier, monospace; height: 250px; background-color: #f8f9fa;" 
+                    v-model="logs"></textarea>
                 </div>
               </div>
-              <textarea readonly class="form-control form-control-sm" 
-                style="font-family: 'Courier New', Courier, monospace; height: 250px; background-color: #f8f9fa;" 
-                v-model="logs"></textarea>
             </div>
-          </div>
-        </div>
+        </div> <!-- End of v-if="!editing" -->
       </div>
     </td>
   </tr>
@@ -157,11 +190,38 @@
 <script setup>
 import { ref, computed, onUnmounted, nextTick } from 'vue';
 import { useSessionStore } from '../stores/sessionStore';
+import EditSessionForm from './EditSessionForm.vue';
 import api from '../api';
 
 const props = defineProps(['session']);
 const store = useSessionStore();
 const expanded = ref(false);
+const editing = ref(false);
+
+const handleSaved = () => {
+    editing.value = false;
+    store.fetchSessions();
+};
+
+const allErrors = computed(() => {
+    const errs = [];
+    if (!props.session.data || !props.session.data.services) return errs;
+    
+    Object.entries(props.session.data.services).forEach(([nodeName, services]) => {
+        services.forEach(svc => {
+            if (svc.errors && svc.errors.length) {
+                svc.errors.forEach(e => {
+                    errs.push({
+                        node: nodeName,
+                        reason: e.reason || 'Error',
+                        message: e.response?.message || e.message || 'Unknown error'
+                    });
+                });
+            }
+        });
+    });
+    return errs;
+});
 
 // UI Toggle state
 const showPerf = ref(false);
@@ -264,3 +324,49 @@ onUnmounted(() => {
   if (perfSocket) perfSocket.close();
 });
 </script>
+
+<style scoped>
+.session-row {
+    transition: all 0.2s ease;
+    border-left: 4px solid transparent;
+}
+.session-row:hover {
+    background-color: #f8f9fa;
+}
+.session-row.is-expanded {
+    background-color: #f1f8ff;
+    border-left: 4px solid #007bff;
+}
+.session-row td {
+    border-top: 1px solid #dee2e6;
+    border-bottom: 1px solid #dee2e6;
+}
+.expanded-row td {
+    background-color: #f1f8ff;
+    border-top: none !important;
+}
+
+/* Custom rounded inner container for expanded content */
+.expanded-row > td > div {
+    border-radius: 0 0 8px 8px;
+    border: 1px solid #dee2e6;
+    border-top: none;
+}
+
+.fa-chevron-right, .fa-chevron-down {
+    width: 20px;
+    text-align: center;
+    color: #6c757d;
+}
+
+.is-expanded .fa-chevron-down {
+    color: #007bff;
+}
+
+code {
+    background-color: #f1f3f5;
+    padding: 2px 4px;
+    border-radius: 4px;
+    color: #d63384;
+}
+</style>

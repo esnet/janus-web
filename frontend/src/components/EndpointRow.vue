@@ -1,25 +1,32 @@
 <template>
-  <tr @click="expanded = !expanded" class="accordion-toggle" style="cursor: pointer">
-    <td>
+  <tr @click="expanded = !expanded" class="accordion-toggle endpoint-row" :class="{ 'is-expanded': expanded }" style="cursor: pointer">
+    <td class="align-middle pl-4">
       <span class="fa-solid" :class="expanded ? 'fa-chevron-down' : 'fa-chevron-right'"></span>
     </td>
-    <td> {{ node.id }} </td>
-    <td>
-      <span :class="statusClass"><i class="fas fa-circle mr-1" style="font-size: 0.6rem"></i>{{ node.status || 'unknown' }}</span>
+    <td class="align-middle"> {{ node.id }} </td>
+    <td class="align-middle">
+      <div class="d-flex justify-content-center">
+          <i class="fas fa-circle" :class="statusClass" :title="statusLabel" 
+             style="font-size: 0.8rem; cursor: help;"></i>
+      </div>
     </td>
-    <td> 
+    <td class="align-middle"> 
       <div class="d-flex align-items-center">
         <img v-if="typeIcon" :src="typeIcon" width="20" class="mr-2" />
         <b>{{ node.name }}</b>
       </div>
     </td>
-    <td> <code>{{ node.url }}</code> </td>
-    <td> {{ node.cpu_model || 'N/A' }} </td>
-    <td> {{ node.cpu_core || 0 }} </td>
-    <td> {{ node.memory_str || 'N/A' }} </td>
-    <td> {{ node.image || 0 }} </td>
-    <td> {{ node.networks || 0 }} </td>
-    <td>
+    <td class="align-middle" style="max-width: 300px;"> 
+      <div class="text-truncate" :title="node.url">
+        <code>{{ node.url }}</code> 
+      </div>
+    </td>
+    <td class="align-middle"> {{ node.cpu_model || 'N/A' }} </td>
+    <td class="align-middle text-center"> {{ node.cpu_core || 0 }} </td>
+    <td class="align-middle text-center"> {{ node.memory_str || 'N/A' }} </td>
+    <td class="align-middle text-center"> {{ node.image || 0 }} </td>
+    <td class="align-middle text-center"> {{ node.networks || 0 }} </td>
+    <td class="align-middle pr-4 text-right">
       <div class="btn-group" @click.stop>
         <button title="remove" @click="store.removeNode(node.name)" class="btn btn-sm btn-danger">
           <i class="fa-solid fa-trash"></i>
@@ -27,13 +34,13 @@
       </div>
     </td>
   </tr>
-  <tr v-if="expanded">
+  <tr v-if="expanded" class="expanded-row">
     <td colspan="11" class="p-0 border-top-0">
-      <div class="p-3 bg-white border-bottom shadow-sm">
+      <div class="p-4 bg-white border-bottom shadow-sm mx-3 mb-3 rounded-bottom border-left border-right">
         
         <!-- Action Toolbar -->
-        <div class="d-flex justify-content-end mb-3 border-bottom pb-2" v-if="hasNetworks">
-            <div class="btn-group btn-group-sm">
+        <div class="d-flex justify-content-end mb-4 border-bottom pb-3" v-if="hasNetworks">
+            <div class="btn-group btn-group-sm shadow-sm">
                 <button class="btn" :class="showNetworks ? 'btn-primary' : 'btn-outline-primary'" 
                     @click="showNetworks = !showNetworks">
                     <i class="fas fa-network-wired mr-1"></i> {{ showNetworks ? 'Hide' : 'Show' }} Networks
@@ -56,7 +63,7 @@
           <!-- Kubernetes/Slurm Cluster Nodes -->
           <div class="col-md-12 mt-3" v-if="node.data.cluster_nodes && node.data.cluster_nodes.length">
             <h5 class="small font-weight-bold text-uppercase text-muted mb-3"><i class="fas fa-server mr-2"></i>Cluster Nodes</h5>
-            <table class="table table-sm table-bordered small">
+            <table class="table table-sm table-bordered small mb-0">
                 <thead class="bg-light text-secondary">
                     <tr>
                         <th>Node Name</th>
@@ -121,7 +128,15 @@ const hasNetworks = computed(() => {
 });
 
 const statusClass = computed(() => {
-  return props.node.status === 'running' ? 'text-success' : 'text-danger';
+  if (props.node.status === 1 || props.node.status === 'running') return 'text-success';
+  if (props.node.status === 2 || props.node.status === 'down') return 'text-danger';
+  return 'text-muted';
+});
+
+const statusLabel = computed(() => {
+  if (props.node.status === 1 || props.node.status === 'running') return 'Online / Up';
+  if (props.node.status === 2 || props.node.status === 'down') return 'Offline / Down';
+  return 'Unknown / Unreachable';
 });
 
 const typeIcon = computed(() => {
@@ -136,3 +151,49 @@ const typeIcon = computed(() => {
   }
 });
 </script>
+
+<style scoped>
+.endpoint-row {
+    transition: all 0.2s ease;
+    border-left: 4px solid transparent;
+}
+.endpoint-row:hover {
+    background-color: #f8f9fa;
+}
+.endpoint-row.is-expanded {
+    background-color: #f1f8ff;
+    border-left: 4px solid #28a745; /* Green for endpoints */
+}
+.endpoint-row td {
+    border-top: 1px solid #dee2e6;
+    border-bottom: 1px solid #dee2e6;
+}
+.expanded-row td {
+    background-color: #f1f8ff;
+    border-top: none !important;
+}
+
+/* Custom rounded inner container for expanded content */
+.expanded-row > td > div {
+    border-radius: 0 0 8px 8px;
+    border: 1px solid #dee2e6;
+    border-top: none;
+}
+
+.fa-chevron-right, .fa-chevron-down {
+    width: 20px;
+    text-align: center;
+    color: #6c757d;
+}
+
+.is-expanded .fa-chevron-down {
+    color: #28a745;
+}
+
+code {
+    background-color: #f1f3f5;
+    padding: 2px 4px;
+    border-radius: 4px;
+    color: #d63384;
+}
+</style>

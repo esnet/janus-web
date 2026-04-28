@@ -4,6 +4,7 @@ import api from '../api';
 export const useEndpointStore = defineStore('endpoint', {
   state: () => ({
     nodes: [],
+    nodeTypes: {},
     loading: false,
     error: null,
   }),
@@ -19,6 +20,14 @@ export const useEndpointStore = defineStore('endpoint', {
         console.error(err);
       } finally {
         this.loading = false;
+      }
+    },
+    async fetchNodeTypes() {
+      try {
+        const response = await api.getNodeTypes();
+        this.nodeTypes = response.data;
+      } catch (err) {
+        console.error('Failed to fetch node types', err);
       }
     },
     async addNode(data) {

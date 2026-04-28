@@ -34,3 +34,26 @@ def set_access(resource, data, remove=False):
         return True, res.json()
     else:
         return False, res.json()
+
+def set_access_bulk(resource, data, remove=False):
+    logger.debug(f"set_access_bulk: {resource} {data}")
+    
+    post_body = {
+        "resource": resource,
+        "identifiers": data["identifiers"],
+        "users": data["users"],
+        "groups": data["groups"],
+        "remove": remove
+    }
+
+    res = httpx.post(
+        url=base_url + "auth/bulk",
+        json=post_body,
+        auth=settings.JANUS_CONTROLLER_AUTH,
+        verify=settings.CTRL_SSL_VERIFY,
+    )
+
+    if res.status_code == 200:
+        return True, res.json()
+    else:
+        return False, res.json()

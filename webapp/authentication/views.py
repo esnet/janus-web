@@ -1,10 +1,13 @@
 import logging
+import json
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import HttpResponseRedirect, render
 from django.urls import reverse
 from django.contrib.auth.models import User, Group
+from django.http import JsonResponse
 from janus.services import get_nodes, get_profiles, get_images, get_session_info
-from .services import set_access
+from janus.constants import Constants
+from .services import set_access, set_access_bulk
 
 logger = logging.getLogger(__name__)
 
@@ -264,3 +267,90 @@ def sessions_access_control(request):
             return render(request, "auth_session.html", content)
 
     return HttpResponseRedirect("/")
+
+# JSON API for Access Control
+def get_access_info_api(request):
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+
+    users = list(User.objects.filter(is_active=True).values_list("username", flat=True))
+    groups = list(Group.objects.all().values_list("name", flat=True))
+
+    quser, qgroups = None, None
+    _, nodes = get_nodes(quser, qgroups, verbose=True)
+    _, profiles = get_profiles(quser, qgroups, verbose=True)
+    _, images = get_images(quser, qgroups)
+    _, sessions = get_session_info(quser, qgroups)
+
+    return JsonResponse(
+        {
+            "users": users,
+            "groups": groups,
+            "nodes": nodes,
+            "profiles": profiles,
+            "images": images,
+            "sessions": sessions,
+        }
+    )
+
+
+def update_access_api(request):
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+        resource = data.get("resource")
+        remove = data.get("remove", False)
+        # set_access expects specific keys based on resource
+        if resource == "nodes":
+            data["node"] = data.get("identifier")
+        elif resource == "images":
+            data["image"] = data.get("identifier")
+        elif resource == "profiles":
+            data["profile"] = data.get("identifier")
+        elif resource == "active":
+            data["session_id"] = data.get("identifier")
+
+        status, res = set_access(resource, data, remove)
+        return JsonResponse(
+            {"success": status, "result": res}, status=200 if status else 400
+        )
+
+    return JsonResponse({"error": "Method not allowed"}, status=405)
+
+def access_control_dashboard(request, tab="nodes"):
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return HttpResponseRedirect("/")
+    
+    content = {
+        "active_tab": tab,
+        "login": request.user.is_authenticated,
+        "is_admin": request.user.is_staff,
+        "user": request.user.username,
+    }
+    return render(request, "access_control.html", content)
+
+def update_access_bulk_api(request):
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+        resource = data.get("resource")
+        remove = data.get("remove", False)
+        
+        status, res = set_access_bulk(resource, data, remove)
+        return JsonResponse(
+            {"success": status, "result": res}, status=200 if status else 400
+        )
+
+    return JsonResponse({"error": "Method not allowed"}, status=405)
