@@ -4,9 +4,10 @@ import api from '../api';
 export const useSessionStore = defineStore('session', {
   state: () => ({
     sessions: [],
+    images: [],
     loading: false,
     error: null,
-    socket: null,
+    ws: null,
   }),
   actions: {
     async fetchSessions() {
@@ -22,6 +23,54 @@ export const useSessionStore = defineStore('session', {
         this.loading = false;
       }
     },
+    async fetchImages() {
+      try {
+        const response = await api.getImages();
+        this.images = response.data.images;
+      } catch (err) {
+        console.error('Failed to fetch images', err);
+      }
+    },
+    async createSession(data) {
+      this.loading = true;
+      try {
+        await api.createSession(data);
+        await this.fetchSessions();
+        return { success: true };
+      } catch (err) {
+        this.error = err.response?.data?.error || 'Failed to create session';
+        return { success: false, error: this.error };
+      } finally {
+        this.loading = false;
+      }
+    },
+    async updateSession(id, data, apply = false) {
+      this.loading = true;
+      try {
+        await api.updateSession(id, data, apply);
+        await this.fetchSessions();
+        return { success: true };
+      } catch (err) {
+        this.error = err.response?.data?.error || 'Failed to update session';
+        return { success: false, error: this.error };
+      } finally {
+        this.loading = false;
+      }
+    },
+    async applySessionChanges(id) {
+      this.loading = true;
+      try {
+        await api.applySessionChanges(id);
+        await this.fetchSessions();
+        return { success: true };
+      } catch (err) {
+        this.error = err.response?.data?.error || 'Failed to apply changes';
+        return { success: false, error: this.error };
+      } finally {
+        this.loading = false;
+      }
+    },
+
     async startSession(id) {
       try {
         await api.startSession(id);

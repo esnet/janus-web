@@ -3,6 +3,7 @@ import { createPinia } from 'pinia';
 import SessionDashboard from './components/SessionDashboard.vue';
 import EndpointDashboard from './components/EndpointDashboard.vue';
 import ProfileDashboard from './components/ProfileDashboard.vue';
+import AccessControlDashboard from './components/AccessControlDashboard.vue';
 
 const pinia = createPinia();
 
@@ -18,3 +19,4 @@ const mountComponent = (id, component) => {
 mountComponent('session-dashboard', SessionDashboard);
 mountComponent('endpoint-dashboard', EndpointDashboard);
 mountComponent('profile-dashboard', ProfileDashboard);
+mountComponent('access-control-dashboard', AccessControlDashboard);

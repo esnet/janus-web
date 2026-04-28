@@ -792,6 +792,26 @@ def delete_profile(request, pname, resource=Constants.HOST):
 
 
 # Non-template response views
+def create_session_api(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+        (user, _, quser, qgroups) = _get_user(request)
+        
+        # Add tag to image if not present
+        if "image" in data and ":" not in data["image"]:
+            data["image"] = data["image"] + ":latest"
+            
+        status, res = services.create_session(data, quser, qgroups)
+        return JsonResponse({"status": status, "result": res}, status=200 if status else 400)
+    return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
 def get_sessions_api(request):
     if not request.user.is_authenticated:
         return JsonResponse({"error": "Unauthorized"}, status=401)
@@ -899,39 +919,17 @@ def validate_environment_vars(env_str):
         valid_vars.append(f"{key}={value.strip()}")
     return valid_vars, errors
 
-def get_nodes_api(request):
+
+
+def get_images_api(request):
     if not request.user.is_authenticated:
         return JsonResponse({"error": "Unauthorized"}, status=401)
     (user, _, quser, qgroups) = _get_user(request)
-    refresh = request.GET.get("refresh") == "true"
-    status, nodes = services.get_nodes(quser, qgroups, verbose=True, refresh=refresh)
+    status, images = services.get_images(quser, qgroups)
     if status:
-        return JsonResponse({"nodes": nodes})
+        return JsonResponse({"images": images})
     else:
-        return JsonResponse({"error": "Could not fetch nodes"}, status=500)
-
-
-def add_node_api(request):
-    if not request.user.is_authenticated or not request.user.is_staff:
-        return JsonResponse({"error": "Unauthorized"}, status=401)
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body)
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "Invalid JSON"}, status=400)
-
-        (user, _, quser, qgroups) = _get_user(request)
-        status, res = services.add_node(data, quser, qgroups)
-        return JsonResponse({"status": status, "result": res}, status=200 if status else 400)
-    return JsonResponse({"error": "Method not allowed"}, status=405)
-
-
-def remove_node_api(request, nname):
-    if not request.user.is_authenticated or not request.user.is_staff:
-        return JsonResponse({"error": "Unauthorized"}, status=401)
-    (user, _, quser, qgroups) = _get_user(request)
-    status, res = services.remove_node(nname, quser, qgroups)
-    return JsonResponse({"status": status, "result": res}, status=200 if status else 400)
+        return JsonResponse({"error": "Could not fetch images"}, status=500)
 
 
 def get_profiles_api(request, resource="host"):
@@ -946,6 +944,13 @@ def get_profiles_api(request, resource="host"):
         return JsonResponse({"profiles": profiles})
     else:
         return JsonResponse({"error": "Could not fetch profiles"}, status=500)
+
+
+def get_node_types_api(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    ntypes = services.get_node_types()
+    return JsonResponse(ntypes)
 
 
 def get_profile_choices_api(request):
@@ -1008,3 +1013,31 @@ def delete_profile_api(request, resource, pname):
     return JsonResponse(
         {"status": status, "result": res}, status=200 if status else 400
     )
+
+def update_session_api(request, session_id):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+        (user, _, quser, qgroups) = _get_user(request)
+        apply = request.GET.get("apply") == "true"
+        
+        # Add tag to image if not present
+        if "image" in data and ":" not in data["image"]:
+            data["image"] = data["image"] + ":latest"
+
+        status, res = services.update_session(session_id, data, quser, qgroups, apply)
+        return JsonResponse({"status": status, "result": res}, status=200 if status else 400)
+    return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+def apply_session_changes_api(request, session_id):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    (user, _, quser, qgroups) = _get_user(request)
+    status, res = services.apply_session_changes(session_id, quser, qgroups)
+    return JsonResponse({"status": status, "result": res}, status=200 if status else 400)
