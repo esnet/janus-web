@@ -11,7 +11,13 @@ base_url = settings.JANUS_CONTROLLER_URL + "api/janus/controller/"
 
 
 def get_node_types():
-    ntypes = {1: "1: Portainer Agent", 2: "2: Kubernetes", 3: "3: Docker", 4: "4: Slurm"}
+    ntypes = {
+        1: "1: Portainer Agent",
+        2: "2: Kubernetes",
+        3: "3: Docker",
+        4: "4: Slurm",
+        100: "100: Edge",
+    }
     return ntypes
 
 
@@ -141,6 +147,7 @@ def get_session_info(user=None, groups=None, session_id=None):
                     continue
                 temp = {
                     "id": entry["id"],
+                    "name": entry.get("name"),
                     "user": entry["user"],
                     "state": entry["state"],
                     "image": img,
@@ -190,7 +197,10 @@ def start_session(session_id, user=None, groups=None):
     if res.status_code == 200:
         return True, res.json()
     else:
-        return False, res.json()
+        try:
+            return False, res.json()
+        except Exception:
+            return False, {"error": res.text or f"HTTP {res.status_code}"}
 
 
 def stop_session(session_id, user=None, groups=None):
@@ -208,7 +218,10 @@ def stop_session(session_id, user=None, groups=None):
     if res.status_code == 200:
         return True, res.json()
     else:
-        return False, res.json()
+        try:
+            return False, res.json()
+        except Exception:
+            return False, {"error": res.text or f"HTTP {res.status_code}"}
 
 
 def delete_session(session_id, user=None, groups=None):
@@ -467,6 +480,7 @@ def get_log(sid, nname, timestamps=0):
         auth=settings.JANUS_CONTROLLER_AUTH,
         verify=settings.CTRL_SSL_VERIFY,
         params=params,
+        timeout=30.0,
     )
     status, log = False, dict()
     if res.status_code == 200:
@@ -486,3 +500,46 @@ def get_params(user=None, groups=None, refresh=False, timestamps=0):
     if timestamps:
         params["timestamps"] = timestamps
     return params
+
+def update_session(session_id, data, user=None, groups=None, apply=False):
+    """
+    Update session on Janus Controller
+    :param data dict:
+    :return:
+    """
+    url = f"{base_url}active/{session_id}"
+    if apply:
+        url += "?apply=true"
+    params = get_params(user, groups)
+    res = httpx.put(
+        url=url,
+        json=data,
+        auth=settings.JANUS_CONTROLLER_AUTH,
+        verify=settings.CTRL_SSL_VERIFY,
+        params=params,
+        timeout=30.0,
+    )
+
+    if res.status_code == 200:
+        return True, res.json()
+    else:
+        return False, res.json()
+
+
+def apply_session_changes(session_id, user=None, groups=None):
+    """
+    Apply changes to session on Janus Controller
+    :param session_id int:
+    :return:
+    """
+    res = httpx.post(
+        url=f"{base_url}active/{session_id}/apply",
+        auth=settings.JANUS_CONTROLLER_AUTH,
+        verify=settings.CTRL_SSL_VERIFY,
+        timeout=30.0,
+    )
+
+    if res.status_code == 200:
+        return True, res.json()
+    else:
+        return False, res.json()

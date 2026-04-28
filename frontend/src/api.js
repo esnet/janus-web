@@ -37,6 +37,15 @@ export default {
   getSessions() {
     return api.get('sessions/');
   },
+  createSession(data) {
+    return api.post('sessions/create/', data);
+  },
+  updateSession(id, data, apply = false) {
+    return api.post(`sessions/${id}/update/?apply=${apply}`, data);
+  },
+  applySessionChanges(id) {
+    return api.post(`sessions/${id}/apply/`);
+  },
   startSession(id) {
     return api.post(`sessions/${id}/start/`);
   },
@@ -47,18 +56,24 @@ export default {
     return api.post(`sessions/${id}/delete/`);
   },
   getLogs(sid, nname, timestamps = false) {
-    return axios.get(`/janus/session/${sid}/logs/${nname}?timestamps=${timestamps}`);
+    return api.get(`sessions/${sid}/logs/${nname}/?timestamps=${timestamps}`);
   },
 
   // Endpoints (Nodes)
   getNodes(refresh = false) {
     return api.get(`nodes/?refresh=${refresh}`);
   },
+  getNodeTypes() {
+    return api.get('node-types/');
+  },
   addNode(data) {
     return api.post('nodes/add/', data);
   },
   removeNode(nname) {
     return api.post(`nodes/remove/${nname}/`);
+  },
+  getImages() {
+    return api.get('images/');
   },
 
   // Profiles
@@ -76,5 +91,24 @@ export default {
   },
   deleteProfile(resource, pname) {
     return api.post(`profiles/${resource}/delete/${pname}/`);
+  },
+
+  // Access Control (Authorization)
+  getAccessInfo() {
+    return axios.get('/authentication/api/access-info/');
+  },
+  updateAccess(data) {
+    return axios.post('/authentication/api/update-access/', data, {
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    });
+  },
+  updateAccessBulk(data) {
+    return axios.post('/authentication/api/update-access-bulk/', data, {
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    });
   }
 };

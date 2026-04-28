@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% load vite %}
+{% block title %} Access Control {% endblock title %}
+
+{% block vue_app %}
+<div id="access-control-dashboard" data-tab="{{ active_tab }}"></div>
+{% endblock vue_app %}
+
+{% block content %}
+<!-- Legacy content will be replaced by Vue 3 -->
+{% endblock content %}
+
+{% block footer_scripts %}
+{{ block.super }}
+{% vite_asset 'main.js' %}
+{% endblock footer_scripts %}

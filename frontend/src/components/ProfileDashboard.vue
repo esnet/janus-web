@@ -1,5 +1,5 @@
 <template>
-  <div class="container" style="padding-top: 2%">
+  <div class="container-fluid" style="padding-top: 2%">
     <div v-if="store.error" class="alert alert-danger shadow-sm" role="alert">
       <i class="fas fa-exclamation-triangle mr-2"></i><b>{{ store.error }}</b>
     </div>
@@ -33,7 +33,15 @@
         <h5 class="mb-0 text-muted text-uppercase small font-weight-bold">
             <span class="text-dark">{{ activeTab }}</span> Profiles
         </h5>
-        <div>
+        <div class="d-flex align-items-center">
+          <!-- Search Bar -->
+          <div class="input-group input-group-sm mr-3" style="width: 250px">
+            <div class="input-group-prepend">
+              <span class="input-group-text bg-light border-right-0"><i class="fas fa-search text-muted"></i></span>
+            </div>
+            <input v-model="searchQuery" type="text" class="form-control border-left-0 bg-light" 
+                   placeholder="Search by name..." aria-label="Search">
+          </div>
           <button class="btn btn-sm btn-outline-secondary mr-2" @click="store.fetchAll(true)" :disabled="store.loading">
             <i class="fas fa-sync" :class="{ 'fa-spin': store.loading }"></i> Refresh
           </button>
@@ -47,18 +55,25 @@
             <table class="table table-hover mb-0">
               <thead class="bg-light text-secondary small text-uppercase font-weight-bold">
                 <tr>
-                  <th class="border-top-0 pl-4 py-3" style="width: 280px">Profile Name</th>
+                  <th class="border-top-0 pl-4 py-3" style="width: 220px">Profile Name</th>
+                  <th class="border-top-0 py-3" style="width: 100px">Tags</th>
                   <th class="border-top-0 py-3">Configuration Summary</th>
                   <th class="border-top-0 text-right pr-4 py-3" style="width: 140px">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="profile in currentProfiles" :key="profile.name">
+                <tr v-for="profile in paginatedProfiles" :key="profile.name">
                   <td class="pl-4 align-middle">
+                    <b>{{ profile.name }}</b>
+                  </td>
+                  <td class="align-middle">
                     <div class="d-flex align-items-center">
-                        <span class="badge badge-light border text-dark mr-2" v-if="profile.name === 'default'">SYSTEM</span>
-                        <span class="badge badge-info border text-white mr-2" v-else-if="profile.on_disk">DISK</span>
-                        <b>{{ profile.name }}</b>
+                        <i v-if="profile.is_system" class="fas fa-shield-halved text-primary mr-2" 
+                           title="System Default (Locked)"></i>
+                        <i v-if="profile.on_disk" class="fas fa-hard-drive text-secondary mr-2" 
+                           title="Configuration-backed (from disk)"></i>
+                        <i v-if="profile.is_modified" class="fas fa-pen-to-square text-warning" 
+                           title="In-memory changes (not saved to disk)"></i>
                     </div>
                   </td>
                   <td class="align-middle">
@@ -70,8 +85,15 @@
                         <div class="d-flex align-items-center">
                             <i class="fas fa-memory mr-2 text-info" style="width: 16px"></i> {{ formatMemory(profile.settings.memory) }}
                         </div>
-                        <div class="d-flex align-items-center text-truncate">
-                            <i class="fas fa-layer-group mr-2 text-secondary" style="width: 16px"></i> {{ profile.settings.image || 'no image' }}
+                        <div class="d-flex flex-column justify-content-center text-truncate">
+                            <div class="d-flex align-items-center mb-1" v-if="profile.settings.image">
+                                <i class="fas fa-layer-group mr-2 text-secondary" style="width: 16px"></i> {{ profile.settings.image }}
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <i v-if="profile.settings.privileged" class="fas fa-user-shield mr-2 text-danger" title="Privileged"></i>
+                                <i v-if="profile.settings.systemd" class="fas fa-cog mr-2 text-info" title="Systemd"></i>
+                                <i v-if="profile.settings.pull_image" class="fas fa-download mr-2 text-success" title="Always Pull"></i>
+                            </div>
                         </div>
                         <div class="d-flex flex-column justify-content-center">
                             <div class="d-flex align-items-center mb-1">
@@ -120,21 +142,26 @@
                       <button class="btn btn-white border" @click="startEdit(profile)" title="Edit">
                         <i class="fas fa-edit text-primary"></i>
                       </button>
-                      <button class="btn btn-white border" @click="confirmDelete(profile.name)" :disabled="profile.name === 'default'" title="Delete">
+                      <button class="btn btn-white border" @click="confirmDelete(profile.name)" :disabled="profile.is_system" title="Delete">
                         <i class="fas fa-trash text-danger"></i>
                       </button>
                     </div>
                   </td>
                 </tr>
-                <tr v-if="currentProfiles.length === 0 && !store.loading">
-                  <td colspan="3" class="text-center p-5 text-muted">
+                <tr v-if="filteredProfiles.length === 0 && !store.loading">
+                  <td colspan="4" class="text-center p-5 text-muted">
                     <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
-                    No {{ activeTab }} profiles found.
+                    No profiles found<span v-if="searchQuery"> matching "{{ searchQuery }}"</span>.
                   </td>
                 </tr>
               </tbody>
             </table>
         </div>
+        <PaginationControl 
+            v-model:currentPage="currentPage" 
+            :totalItems="filteredProfiles.length" 
+            :pageSize="pageSize" 
+        />
       </div>
     </div>
 
@@ -164,23 +191,44 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useProfileStore } from '../stores/profileStore';
 import ProfileEditForm from './ProfileEditForm.vue';
+import PaginationControl from './PaginationControl.vue';
 
 const store = useProfileStore();
 const activeTab = ref('host');
 const editingProfile = ref(null);
 const isNew = ref(false);
 
+const searchQuery = ref('');
+const currentPage = ref(1);
+const pageSize = 10;
+
 const currentProfiles = computed(() => {
   switch (activeTab.value) {
     case 'host': return store.profiles;
     case 'network': return store.networks;
     case 'volume': return store.volumes;
-    case 'qos': return store.choices.qos.map(name => ({ name, settings: {} })); // QoS might need real fetch later
+    case 'qos': return store.choices.qos.map(name => ({ name, settings: {}, is_system: true }));
     default: return [];
   }
+});
+
+const filteredProfiles = computed(() => {
+  if (!searchQuery.value) return currentProfiles.value;
+  const q = searchQuery.value.toLowerCase();
+  return currentProfiles.value.filter(p => p.name.toLowerCase().includes(q));
+});
+
+const paginatedProfiles = computed(() => {
+    const start = (currentPage.value - 1) * pageSize;
+    return filteredProfiles.value.slice(start, start + pageSize);
+});
+
+// Reset page when tab or search query changes
+watch([activeTab, searchQuery], () => {
+    currentPage.value = 1;
 });
 
 const formatMemory = (bytes) => {
