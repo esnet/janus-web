@@ -883,6 +883,8 @@ def remove_node_api(request, nname):
 
 
 def view_log(request, session_id, nname):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
     ts = request.GET.get("timestamps")
     (status, log) = services.get_log(session_id, nname, ts)
     if status:
