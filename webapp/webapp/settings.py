@@ -28,7 +28,7 @@ SECRET_KEY = os.getenv("JANUS_WEB_SECRET_KEY", key)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", False)
-VITE_DEV_MODE = True
+VITE_DEV_MODE = True  # Set to False to use built production assets (npm run build)
 
 ALLOWED_HOSTS = ["*"]
 
@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "crispy_bootstrap4",
     "crispy_forms",
     "janus",
+    "globus_service",
     "django_extensions",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -186,6 +187,11 @@ LOGGING = {
             "level": os.getenv("DJANGO_LOG_LEVEL", "DEBUG"),
             "propagate": False,
         },
+        "globus_service": {
+            "handlers": ["console"],
+            "level": os.getenv("DJANGO_LOG_LEVEL", "DEBUG"),
+            "propagate": False,
+        },
         "mozilla_django_oidc": {"handlers": ["console"], "level": "DEBUG"},
         # Default runserver request logging
         "django.server": DEFAULT_LOGGING["loggers"]["django.server"],
@@ -233,3 +239,8 @@ JANUS_CONTROLLER_WS_URL = "{}://{}:{}".format(CTRL_WS_PROTOCOL, CTRL_HOST, CTRL_
 JANUS_USER = os.getenv("JANUS_USER", "admin")
 JANUS_PASSWORD = os.getenv("JANUS_PASSWORD", "admin")
 JANUS_CONTROLLER_AUTH = (JANUS_USER, JANUS_PASSWORD)
+
+# Globus Native App (Thick Client) — registered at https://developers.globus.org
+# App type: Thick Client (public client, no secret, supports PKCE + OOB flow)
+# Redirect: https://auth.globus.org/v2/web/auth-code
+GLOBUS_CLIENT_ID = os.getenv("GLOBUS_CLIENT_ID", "0f564010-7e60-4ebd-8ab2-2e680e73ecda")

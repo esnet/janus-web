@@ -23,6 +23,7 @@ from . import views
 urlpatterns = [
     path("oidc/", include("mozilla_django_oidc.urls")),
     path("janus/", include("janus.urls")),
+    path("janus/services/", include("globus_service.urls", namespace="globus_service")),
     path("authentication/", include("authentication.urls")),
     path("", views.index, name="home"),
 ]
