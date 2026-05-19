@@ -13,7 +13,8 @@ def vite_asset(path):
     In DEBUG mode (unless VITE_DEV_MODE=False), it points to the Vite dev server.
     In production, it reads the manifest.json and returns the path to the built asset.
     """
-    use_dev_server = getattr(settings, 'DEBUG', False) and getattr(settings, 'VITE_DEV_MODE', True)
+    # Use dev server if VITE_DEV_MODE is explicitly True (independent of DEBUG)
+    use_dev_server = getattr(settings, 'VITE_DEV_MODE', False)
 
     if use_dev_server:
         # Vite dev server URL

@@ -13,3 +13,4 @@ httpx==0.28.1
 sqlparse==0.4.2
 websocket-client==1.8.0
 mozilla-django-oidc==5.0.2
+globus-sdk>=3.40.0
