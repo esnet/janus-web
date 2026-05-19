@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% load bootstrap4 %}
+{% bootstrap_css %}
+{% bootstrap_javascript jquery='full' %}
+
+{% block title %}Janus Web — Services{% endblock title %}
+
+{% block vue_app %}
+<div id="services-dashboard"></div>
+{% endblock vue_app %}
+
+{% block content %}
+<!-- ServicesDashboard Vue component handles all rendering -->
+{% endblock content %}
+
+{% block footer_scripts %}
+{{ block.super }}
+{% load vite %}
+{% vite_asset 'main.js' %}
+{% endblock footer_scripts %}
