@@ -32,6 +32,23 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Separate axios instance for the globus_service API (different URL prefix)
+const globusApi = axios.create({
+  baseURL: '/janus/services/',
+  timeout: 120000,
+  headers: {
+    'X-Requested-With': 'XMLHttpRequest',
+  }
+});
+
+globusApi.interceptors.request.use((config) => {
+  const csrftoken = getCookie('csrftoken');
+  if (csrftoken) {
+    config.headers['X-CSRFToken'] = csrftoken;
+  }
+  return config;
+});
+
 export default {
   // Sessions
   getSessions() {
@@ -110,5 +127,73 @@ export default {
             'X-CSRFToken': getCookie('csrftoken')
         }
     });
-  }
+  },
+
+  // -------------------------------------------------------------------------
+  // Globus Service
+  // -------------------------------------------------------------------------
+  getGlobusServices() {
+    return globusApi.get('api/globus/');
+  },
+  createGlobusService(data) {
+    return globusApi.post('api/globus/create/', data);
+  },
+  getGlobusService(id) {
+    return globusApi.get(`api/globus/${id}/`);
+  },
+  deleteGlobusService(id) {
+    return globusApi.post(`api/globus/${id}/delete/`);
+  },
+
+  // Globus Auth
+  getGlobusAuthUrl() {
+    return globusApi.get('api/globus/auth/url/');
+  },
+  exchangeGlobusCode(data) {
+    return globusApi.post('api/globus/auth/callback/', data);
+  },
+  getGlobusAuthStatus() {
+    return globusApi.get('api/globus/auth/status/');
+  },
+  globusAuthLogout() {
+    return globusApi.post('api/globus/auth/logout/');
+  },
+
+  // GCS wizard steps
+  // Set endpoint ID manually (when auto-extraction fails)
+  setGlobusEndpointId(id, endpointId) {
+    return globusApi.post(`api/globus/${id}/endpoint/set-id/`, { endpoint_id: endpointId });
+  },
+  // Endpoint setup — returns command string for interactive WebSocket execution
+  getEndpointSetupCmd(id, data) {
+    return globusApi.post(`api/globus/${id}/endpoint/cmd/`, data);
+  },
+  // Collect deployment key after interactive endpoint setup
+  fetchGlobusDeploymentKey(id, data) {
+    return globusApi.post(`api/globus/${id}/endpoint/deployment-key/`, data);
+  },
+  // GCS login command — returns command string for interactive WebSocket execution
+  getGlobusLoginCmd(id) {
+    return globusApi.get(`api/globus/${id}/login/cmd/`);
+  },
+  // Transfer endpoint ownership to service account (interactive)
+  setGlobusEndpointOwner(id, serviceAccountId) {
+    return globusApi.post(`api/globus/${id}/endpoint/set-owner/`, { service_account_id: serviceAccountId });
+  },
+  // Legacy endpoint setup (non-interactive fallback)
+  setupGlobusEndpoint(id, data) {
+    return globusApi.post(`api/globus/${id}/endpoint/setup/`, data);
+  },
+  setupGlobusNode(id, data) {
+    return globusApi.post(`api/globus/${id}/node/setup/`, data);
+  },
+  createGlobusGateway(id, data) {
+    return globusApi.post(`api/globus/${id}/gateway/create/`, data);
+  },
+  createGlobusCollection(id, data) {
+    return globusApi.post(`api/globus/${id}/collection/create/`, data);
+  },
+  execGlobusCommand(id, cmd) {
+    return globusApi.post(`api/globus/${id}/exec/`, { cmd });
+  },
 };
