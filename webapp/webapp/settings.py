@@ -252,7 +252,7 @@ GLOBUS_SERVICE_CLIENT_ID = os.getenv(
     "GLOBUS_SERVICE_CLIENT_ID", "68c19eed-8872-4107-b85c-e11be12db9ad"
 )
 GLOBUS_SERVICE_CLIENT_SECRET = os.getenv(
-    "GLOBUS_SERVICE_CLIENT_SECRET", "KzlnPxcNbjdzPvAUkMhO6cPWIiUcMDTlNVJhw+hAn7Q="
+    "GLOBUS_SERVICE_CLIENT_SECRET", ""
 )
 # The Globus identity principal for the service account (used as --owner in endpoint setup)
 GLOBUS_SERVICE_IDENTITY = os.getenv(
