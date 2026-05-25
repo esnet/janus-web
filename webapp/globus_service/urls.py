@@ -38,16 +38,20 @@ urlpatterns = [
     path("api/globus/<int:service_id>/endpoint/deployment-key/", views.fetch_deployment_key_api, name="deployment_key_api"),
     # Manually set endpoint ID (when auto-extraction from deployment key fails)
     path("api/globus/<int:service_id>/endpoint/set-id/", views.set_endpoint_id_api, name="set_endpoint_id_api"),
-    # GCS login command (interactive — required before gateway/collection creation)
-    path("api/globus/<int:service_id>/login/cmd/", views.get_gcs_login_cmd_api, name="gcs_login_cmd_api"),
-    # Transfer endpoint ownership to service account (interactive)
+    # Transfer endpoint ownership to service account (interactive CLI)
     path("api/globus/<int:service_id>/endpoint/set-owner/", views.set_endpoint_owner_api, name="set_owner_api"),
+    # Grant administrator role to a Globus identity (service account REST API)
+    path("api/globus/<int:service_id>/endpoint/grant-admin/", views.grant_user_admin_api, name="grant_admin_api"),
     # Node setup (non-interactive — node is launched as a new container with env vars)
     path("api/globus/<int:service_id>/node/setup/", views.setup_node_api, name="setup_node_api"),
-    # Storage gateway creation (non-interactive after gcs login)
+    # Storage gateway creation via service account REST API (no GCS login required)
     path("api/globus/<int:service_id>/gateway/create/", views.create_gateway_api, name="create_gateway_api"),
-    # Collection creation (non-interactive after gcs login)
+    # List storage gateways via service account REST API
+    path("api/globus/<int:service_id>/gateway/list/", views.list_gateways_api, name="list_gateways_api"),
+    # Collection creation via service account REST API (mapped or guest)
     path("api/globus/<int:service_id>/collection/create/", views.create_collection_api, name="create_collection_api"),
+    # List collections via service account REST API
+    path("api/globus/<int:service_id>/collection/list/", views.list_collections_api, name="list_collections_api"),
     # Arbitrary exec (non-interactive)
     path("api/globus/<int:service_id>/exec/", views.exec_command_api, name="exec_api"),
     # Legacy endpoint setup route (kept for backward compat — redirects to cmd endpoint)

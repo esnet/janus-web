@@ -442,7 +442,13 @@ def _build_endpoint_setup_cmd(config: dict) -> str:
         display_name          — endpoint display name (required)
         organization          — organization name (required)
         contact_email         — contact email (required)
-        owner                 — Globus identity username (e.g. user@globusid.org)
+        owner                 — Globus identity username (e.g. user@globusid.org).
+                                Only included in the command if explicitly provided.
+                                Do NOT default to the service account here — the GCS CLI
+                                uses the endpoint's own client credentials to contact Globus
+                                Auth for the ownership transfer, and those credentials may
+                                not match the service account. Use `endpoint set-owner`
+                                separately after setup if needed.
         project_id            — existing Globus project UUID (optional)
         always_create_project — bool; pass --always-create-project when True and no project_id
         deployment_key_path   — path inside container to write deployment key
@@ -458,12 +464,13 @@ def _build_endpoint_setup_cmd(config: dict) -> str:
     display_name = shlex.quote(config.get("display_name", "My GCS Endpoint"))
     organization = shlex.quote(config.get("organization", ""))
     contact_email = shlex.quote(config.get("contact_email", ""))
+    # Only include --owner if explicitly provided by the caller
     owner = config.get("owner", "")
     project_id = config.get("project_id", "")
     always_create_project = config.get("always_create_project", True)
     deployment_key_path = config.get("deployment_key_path", "/work/deployment-key.json")
 
-    cmd = (
+    gcs_cmd = (
         f"globus-connect-server endpoint setup"
         f" --organization {organization}"
         f" --contact-email {contact_email}"
@@ -471,13 +478,24 @@ def _build_endpoint_setup_cmd(config: dict) -> str:
         f" -d {shlex.quote(deployment_key_path)}"
     )
     if owner:
-        cmd += f" --owner {shlex.quote(owner)}"
+        gcs_cmd += f" --owner {shlex.quote(owner)}"
     if project_id:
-        cmd += f" --project-id {shlex.quote(project_id)}"
+        gcs_cmd += f" --project-id {shlex.quote(project_id)}"
     elif always_create_project:
-        cmd += " --always-create-project"
-    cmd += f" {display_name}"
-    return cmd
+        gcs_cmd += " --always-create-project"
+    gcs_cmd += f" {display_name}"
+
+    # Wrap in bash -c so the shell interprets the cleanup + setup as two commands.
+    # Cleanup removes:
+    #   - stale GCS config dirs (prevent "client_id and secret already exist" error)
+    #   - the old deployment key on the shared /work volume (same error if left behind)
+    # Use double-quotes for the outer bash -c wrapper so that single-quoted display
+    # names inside gcs_cmd are not broken.
+    full_cmd = (
+        f'bash -c "rm -rf /etc/globus-connect-server/* /var/lib/globus-connect-server/*'
+        f' {shlex.quote(deployment_key_path)} 2>/dev/null; {gcs_cmd}"'
+    )
+    return full_cmd
 
 
 def _build_gcs_login_cmd(endpoint_id: str) -> str:
@@ -652,6 +670,9 @@ def fetch_deployment_key(service: GlobusService, deployment_key_path: str = "/wo
     It must be collected and stored so it can be passed as the DEPLOYMENT_KEY
     environment variable when launching the node container.
 
+    Also derives and stores the gcs_address (<endpoint_id>.data.globus.org) in
+    config_data so the service account REST API can reach the GCS Manager.
+
     Returns:
         (success, deployment_key_json_string)
     """
@@ -695,9 +716,22 @@ def fetch_deployment_key(service: GlobusService, deployment_key_path: str = "/wo
                     service.pk, ep_id,
                 )
 
+        # Derive and store the GCS Manager address for service account API calls
+        if service.globus_endpoint_id:
+            gcs_address = gcs.derive_gcs_address(service.globus_endpoint_id)
+            existing["gcs_address"] = gcs_address
+            logger.info(
+                "GlobusService id=%s: derived gcs_address=%s",
+                service.pk, gcs_address,
+            )
+
         service.set_config_data(existing)
         _transition(service, GlobusService.Status.ENDPOINT_CONFIGURED)
         logger.info("GlobusService id=%s: deployment key collected successfully", service.pk)
+
+        # Auto-transfer endpoint ownership to the service account
+        # This is non-fatal — log a warning if it fails but don't block the wizard
+        transfer_endpoint_ownership(service)
     else:
         logger.warning("GlobusService id=%s: could not fetch deployment key: %s", service.pk, output)
 
@@ -721,6 +755,92 @@ def get_gcs_login_cmd(service: GlobusService) -> str:
     return _build_gcs_login_cmd(endpoint_id)
 
 
+def transfer_endpoint_ownership(service: GlobusService) -> Tuple[bool, str]:
+    """
+    Transfer endpoint ownership to the Janus service account via the GCS REST API.
+
+    Called automatically after deployment key collection.  Uses the service account's
+    ClientCredentialsAuthorizer to get a bearer token, then PUTs to
+    https://<gcs_address>/api/endpoint/owner.
+
+    Returns:
+        (success, message)
+    """
+    cfg = service.get_config_data()
+    endpoint_id = service.globus_endpoint_id
+    gcs_address = cfg.get("gcs_address") or (
+        gcs.derive_gcs_address(endpoint_id) if endpoint_id else None
+    )
+    if not gcs_address or not endpoint_id:
+        return False, "endpoint_id / gcs_address not set — cannot transfer ownership."
+
+    service_client_id = getattr(settings, "GLOBUS_SERVICE_CLIENT_ID", "")
+    if not service_client_id:
+        return False, "GLOBUS_SERVICE_CLIENT_ID not configured."
+
+    try:
+        # Get a bearer token via ClientCredentials
+        import globus_sdk
+        client_secret = getattr(settings, "GLOBUS_SERVICE_CLIENT_SECRET", "")
+        manage_scope = f"urn:globus:auth:scope:{endpoint_id}:manage_collections"
+        conf_client = globus_sdk.ConfidentialAppAuthClient(service_client_id, client_secret)
+        authorizer = globus_sdk.ClientCredentialsAuthorizer(conf_client, scopes=manage_scope)
+        # Force token fetch
+        authorizer.ensure_valid_token()
+        access_token = authorizer.access_token
+
+        gcs.set_endpoint_owner_via_api(gcs_address, service_client_id, access_token)
+        logger.info(
+            "GlobusService id=%s: endpoint ownership transferred to service account %s",
+            service.pk, service_client_id,
+        )
+        return True, "Endpoint ownership transferred to service account."
+    except Exception as exc:
+        logger.warning(
+            "GlobusService id=%s: ownership transfer failed (non-fatal): %s",
+            service.pk, exc,
+        )
+        return False, str(exc)
+
+
+def grant_user_admin_role(service: GlobusService, user_identity_id: str) -> Tuple[bool, str]:
+    """
+    Grant a Globus identity the 'administrator' role on the endpoint.
+
+    Called after ownership transfer so the human user retains management access
+    in the Globus web UI even though the service account is the owner.
+
+    Args:
+        service:          The GlobusService record.
+        user_identity_id: Globus identity UUID of the user to grant admin to.
+
+    Returns:
+        (success, message)
+    """
+    cfg = service.get_config_data()
+    endpoint_id = service.globus_endpoint_id
+    gcs_address = cfg.get("gcs_address") or (
+        gcs.derive_gcs_address(endpoint_id) if endpoint_id else None
+    )
+    if not gcs_address or not endpoint_id:
+        return False, "endpoint_id / gcs_address not set."
+
+    try:
+        client = gcs.get_gcs_client_service_account(gcs_address, endpoint_id)
+        gcs.create_role(client, endpoint_id, user_identity_id, role="administrator")
+        logger.info(
+            "GlobusService id=%s: granted administrator role to identity %s",
+            service.pk, user_identity_id,
+        )
+        return True, f"Administrator role granted to {user_identity_id}."
+    except Exception as exc:
+        logger.warning(
+            "GlobusService id=%s: grant admin role failed (non-fatal): %s",
+            service.pk, exc,
+        )
+        return False, str(exc)
+
+
 def set_endpoint_owner(service: GlobusService, service_account_id: str) -> Tuple[bool, str]:
     """
     Run `globus-connect-server endpoint set-owner <service_account_id>`.
@@ -740,31 +860,172 @@ def set_endpoint_owner(service: GlobusService, service_account_id: str) -> Tuple
 
 def run_node_setup(service: GlobusService, config: dict) -> Tuple[bool, str]:
     """
-    Step 3: Run `globus-connect-server node setup` inside the container.
+    Step 3: Node setup is performed by launch_node_container() via the container
+    entrypoint (/entrypoint.sh reads DEPLOYMENT_KEY and runs node setup automatically).
 
-    Updates service status to NODE_CONFIGURED on success.
+    This function is kept for API compatibility but does NOT call a separate
+    node-setup CLI command — that would be a NameError since _build_node_setup_cmd
+    does not exist.  The node container handles setup on its own at startup.
+
+    Updates service status to NODE_CONFIGURED.
     """
     service.merge_config_data({"node": config})
+    _transition(service, GlobusService.Status.NODE_CONFIGURED)
+    return True, "Node setup is handled by the container entrypoint."
+
+
+def derive_gcs_address(endpoint_id: str) -> str:
+    """Return the GCS Manager FQDN for an endpoint UUID."""
+    return gcs.derive_gcs_address(endpoint_id)
+
+
+def create_gateway_via_api(service: GlobusService, config: dict) -> Tuple[bool, str]:
+    """
+    Step 4: Create a storage gateway via the GCS REST API using the service account.
+
+    Uses ConfidentialAppAuthClient + ClientCredentialsAuthorizer so no interactive
+    GCS login is required.  The endpoint must have been set up with --owner pointing
+    to the service account identity.
+
+    Updates service status to GATEWAY_CONFIGURED on success.
+    Stores the gateway_id in config_data.
+    """
+    service.merge_config_data({"storage_gateway": config})
     service.save()
 
-    cmd = _build_node_setup_cmd(config)
-    logger.info("GlobusService id=%s: running node setup: %s", service.pk, cmd)
-    success, output = _exec_in_container(service.node_name, service.container_id, cmd)
+    cfg = service.get_config_data()
+    endpoint_id = service.globus_endpoint_id
+    gcs_address = cfg.get("gcs_address") or (
+        gcs.derive_gcs_address(endpoint_id) if endpoint_id else None
+    )
+    if not gcs_address or not endpoint_id:
+        msg = "endpoint_id and gcs_address are required for service account gateway creation."
+        _transition(service, GlobusService.Status.ERROR, error_msg=msg)
+        return False, msg
 
-    if success:
-        _transition(service, GlobusService.Status.NODE_CONFIGURED)
-    else:
-        _transition(service, GlobusService.Status.ERROR, error_msg=output)
+    try:
+        client = gcs.get_gcs_client_service_account(gcs_address, endpoint_id)
+        connector_name = config.get("connector", "posix")
+        connector_id = gcs.get_connector_id(connector_name)
+        if not connector_id:
+            msg = f"Unknown connector: {connector_name}"
+            _transition(service, GlobusService.Status.ERROR, error_msg=msg)
+            return False, msg
 
-    return success, output
+        gateway_data = {
+            "connector_id": connector_id,
+            "display_name": config.get("display_name", "Storage Gateway"),
+        }
+        if config.get("allowed_domains"):
+            gateway_data["allowed_domains"] = config["allowed_domains"]
 
+        result = gcs.create_storage_gateway(client, gateway_data)
+        gateway_id = result.get("id", "")
+        if gateway_id:
+            existing = service.get_config_data()
+            existing.setdefault("storage_gateway", {})["id"] = gateway_id
+            service.set_config_data(existing)
+            service.save()
+        _transition(service, GlobusService.Status.GATEWAY_CONFIGURED)
+        logger.info("GlobusService id=%s: gateway created via API, id=%s", service.pk, gateway_id)
+        return True, gateway_id
+    except Exception as exc:
+        msg = str(exc)
+        logger.error("GlobusService id=%s: gateway create via API failed: %s", service.pk, msg)
+        _transition(service, GlobusService.Status.ERROR, error_msg=msg)
+        return False, msg
+
+
+def create_collection_via_api(service: GlobusService, config: dict) -> Tuple[bool, str]:
+    """
+    Step 5: Create a mapped or guest collection via the GCS REST API using the service account.
+
+    For mapped collections: creates a MappedCollectionDocument directly.
+    For guest collections: first creates a UserCredentialDocument, then a GuestCollectionDocument.
+
+    Updates service status to COLLECTIONS_CONFIGURED on success.
+    Stores the collection_id in config_data.
+    """
+    service.merge_config_data({"collection": config})
+    service.save()
+
+    cfg = service.get_config_data()
+    endpoint_id = service.globus_endpoint_id
+    gcs_address = cfg.get("gcs_address") or (
+        gcs.derive_gcs_address(endpoint_id) if endpoint_id else None
+    )
+    if not gcs_address or not endpoint_id:
+        msg = "endpoint_id and gcs_address are required for service account collection creation."
+        _transition(service, GlobusService.Status.ERROR, error_msg=msg)
+        return False, msg
+
+    collection_type = config.get("collection_type", "mapped")
+
+    try:
+        client = gcs.get_gcs_client_service_account(gcs_address, endpoint_id)
+
+        if collection_type == "guest":
+            # Guest collection: need UserCredential first, then GuestCollectionDocument
+            storage_gateway_id = config.get("storage_gateway_id") or cfg.get("storage_gateway", {}).get("id", "")
+            mapped_collection_id = config.get("mapped_collection_id", "")
+            identity_id = getattr(settings, "GLOBUS_SERVICE_CLIENT_ID", "")
+            local_username = config.get("local_username", "globus")
+
+            if not storage_gateway_id:
+                msg = "storage_gateway_id is required for guest collection creation."
+                _transition(service, GlobusService.Status.ERROR, error_msg=msg)
+                return False, msg
+            if not mapped_collection_id:
+                msg = "mapped_collection_id is required for guest collection creation."
+                _transition(service, GlobusService.Status.ERROR, error_msg=msg)
+                return False, msg
+
+            # Create user credential
+            gcs.create_user_credential(client, storage_gateway_id, identity_id, local_username)
+            logger.info("GlobusService id=%s: user credential created", service.pk)
+
+            # Create guest collection
+            result = gcs.create_guest_collection(
+                client,
+                mapped_collection_id=mapped_collection_id,
+                base_path=config.get("base_path", "/"),
+                display_name=config.get("display_name", "Guest Collection"),
+            )
+        else:
+            # Mapped collection
+            storage_gateway_id = config.get("storage_gateway_id") or cfg.get("storage_gateway", {}).get("id", "")
+            collection_data = {
+                "collection_base_path": config.get("base_path", "/"),
+                "display_name": config.get("display_name", "Mapped Collection"),
+            }
+            if storage_gateway_id:
+                collection_data["storage_gateway_id"] = storage_gateway_id
+            result = gcs.create_collection(client, collection_data)
+
+        collection_id = result.get("id", "")
+        if collection_id:
+            existing = service.get_config_data()
+            existing.setdefault("collection", {})["id"] = collection_id
+            service.set_config_data(existing)
+            service.save()
+        _transition(service, GlobusService.Status.COLLECTIONS_CONFIGURED)
+        logger.info("GlobusService id=%s: collection created via API, id=%s", service.pk, collection_id)
+        return True, collection_id
+    except Exception as exc:
+        msg = str(exc)
+        logger.error("GlobusService id=%s: collection create via API failed: %s", service.pk, msg)
+        _transition(service, GlobusService.Status.ERROR, error_msg=msg)
+        return False, msg
+
+
+# ---------------------------------------------------------------------------
+# Legacy CLI-based gateway/collection functions (kept for backward compat)
+# ---------------------------------------------------------------------------
 
 def run_storage_gateway_create(service: GlobusService, config: dict) -> Tuple[bool, str]:
     """
-    Step 4: Run `globus-connect-server storage-gateway create` inside the container.
-
-    Updates service status to GATEWAY_CONFIGURED on success.
-    Stores the gateway_id extracted from output into config_data.
+    Legacy: Run `globus-connect-server storage-gateway create` inside the container.
+    Prefer create_gateway_via_api() for new code.
     """
     service.merge_config_data({"storage_gateway": config})
     service.save()
@@ -789,9 +1050,8 @@ def run_storage_gateway_create(service: GlobusService, config: dict) -> Tuple[bo
 
 def run_collection_create(service: GlobusService, config: dict) -> Tuple[bool, str]:
     """
-    Step 5: Run `globus-connect-server collection create` inside the container.
-
-    Updates service status to COLLECTIONS_CONFIGURED on success.
+    Legacy: Run `globus-connect-server collection create` inside the container.
+    Prefer create_collection_via_api() for new code.
     """
     service.merge_config_data({"collection": config})
     service.save()

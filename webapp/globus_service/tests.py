@@ -449,6 +449,7 @@ class ServicesExecTest(TestCase):
     @patch("globus_service.services.ws_lib.create_connection")
     @patch("globus_service.services.httpx.post")
     def test_run_storage_gateway_create(self, mock_post, mock_ws_create):
+        """Legacy CLI-based gateway create still works (kept for backward compat)."""
         self.service.status = GlobusService.Status.NODE_CONFIGURED
         self.service.save()
 
@@ -477,6 +478,7 @@ class ServicesExecTest(TestCase):
     @patch("globus_service.services.ws_lib.create_connection")
     @patch("globus_service.services.httpx.post")
     def test_run_collection_create(self, mock_post, mock_ws_create):
+        """Legacy CLI-based collection create still works (kept for backward compat)."""
         self.service.status = GlobusService.Status.GATEWAY_CONFIGURED
         self.service.save()
 
@@ -501,6 +503,69 @@ class ServicesExecTest(TestCase):
         self.assertTrue(success)
         self.service.refresh_from_db()
         self.assertEqual(self.service.status, GlobusService.Status.COLLECTIONS_CONFIGURED)
+
+    def test_run_node_setup_no_cmd(self):
+        """run_node_setup no longer calls _build_node_setup_cmd — just transitions status."""
+        config = {"ip_address": "10.0.0.1"}
+        success, output = svc.run_node_setup(self.service, config)
+        self.assertTrue(success)
+        self.service.refresh_from_db()
+        self.assertEqual(self.service.status, GlobusService.Status.NODE_CONFIGURED)
+
+    @patch("globus_service.gcs_service.get_gcs_client_service_account")
+    def test_create_gateway_via_api(self, mock_get_client):
+        """create_gateway_via_api uses service account REST API."""
+        self.service.globus_endpoint_id = "ep-uuid-abc"
+        self.service.set_config_data({"gcs_address": "ep-uuid-abc.data.globus.org"})
+        self.service.save()
+
+        mock_client = MagicMock()
+        mock_client.create_storage_gateway.return_value = {"id": "gw-api-uuid-123"}
+        mock_get_client.return_value = mock_client
+
+        config = {"connector": "posix", "display_name": "API Gateway"}
+        success, output = svc.create_gateway_via_api(self.service, config)
+        self.assertTrue(success)
+        self.assertEqual(output, "gw-api-uuid-123")
+        self.service.refresh_from_db()
+        self.assertEqual(self.service.status, GlobusService.Status.GATEWAY_CONFIGURED)
+
+    def test_create_gateway_via_api_no_endpoint(self):
+        """create_gateway_via_api fails gracefully when endpoint_id is missing."""
+        config = {"connector": "posix", "display_name": "API Gateway"}
+        success, output = svc.create_gateway_via_api(self.service, config)
+        self.assertFalse(success)
+        self.assertIn("endpoint_id", output)
+
+    @patch("globus_service.gcs_service.get_gcs_client_service_account")
+    def test_create_collection_via_api_mapped(self, mock_get_client):
+        """create_collection_via_api creates a mapped collection via REST API."""
+        self.service.globus_endpoint_id = "ep-uuid-abc"
+        self.service.set_config_data({
+            "gcs_address": "ep-uuid-abc.data.globus.org",
+            "storage_gateway": {"id": "gw-uuid-123"},
+        })
+        self.service.save()
+
+        mock_client = MagicMock()
+        mock_client.create_collection.return_value = {"id": "col-api-uuid-456"}
+        mock_get_client.return_value = mock_client
+
+        config = {
+            "base_path": "/data/",
+            "display_name": "API Collection",
+            "collection_type": "mapped",
+        }
+        success, output = svc.create_collection_via_api(self.service, config)
+        self.assertTrue(success)
+        self.assertEqual(output, "col-api-uuid-456")
+        self.service.refresh_from_db()
+        self.assertEqual(self.service.status, GlobusService.Status.COLLECTIONS_CONFIGURED)
+
+    def test_derive_gcs_address(self):
+        """derive_gcs_address returns <endpoint_id>.data.globus.org."""
+        addr = svc.derive_gcs_address("abc123")
+        self.assertEqual(addr, "abc123.data.globus.org")
 
 
 # ---------------------------------------------------------------------------
@@ -635,6 +700,7 @@ class GlobusServiceAPITest(TestCase):
                 "display_name": "My EP",
                 "organization": "ESNet",
                 "contact_email": "admin@es.net",
+                "owner": "user@globusid.org",
             }),
             content_type="application/json",
         )
@@ -643,30 +709,17 @@ class GlobusServiceAPITest(TestCase):
         self.assertIn("cmd", data)
         self.assertIn("globus-connect-server endpoint setup", data["cmd"])
         self.assertIn("--agree-to-letsencrypt-tos", data["cmd"])
+        self.assertIn("--owner user@globusid.org", data["cmd"])
 
     def test_get_endpoint_setup_cmd_missing_fields(self):
         service = svc.create_service(self.user, 1, "n1", "c1")
         resp = self.client.post(
             f"/janus/services/api/globus/{service.pk}/endpoint/cmd/",
-            data=json.dumps({"display_name": "EP"}),
+            data=json.dumps({"display_name": "EP", "organization": "Org", "contact_email": "a@b.com"}),
             content_type="application/json",
         )
+        # Missing owner → 400
         self.assertEqual(resp.status_code, 400)
-
-    def test_get_gcs_login_cmd_no_endpoint_id(self):
-        service = svc.create_service(self.user, 1, "n1", "c1")
-        resp = self.client.get(f"/janus/services/api/globus/{service.pk}/login/cmd/")
-        self.assertEqual(resp.status_code, 400)
-
-    def test_get_gcs_login_cmd_with_endpoint_id(self):
-        service = svc.create_service(self.user, 1, "n1", "c1")
-        service.globus_endpoint_id = "ep-uuid-abc"
-        service.save()
-        resp = self.client.get(f"/janus/services/api/globus/{service.pk}/login/cmd/")
-        self.assertEqual(resp.status_code, 200)
-        data = resp.json()
-        self.assertIn("cmd", data)
-        self.assertIn("ep-uuid-abc", data["cmd"])
 
     def test_set_endpoint_owner(self):
         service = svc.create_service(self.user, 1, "n1", "c1")
@@ -689,48 +742,43 @@ class GlobusServiceAPITest(TestCase):
         )
         self.assertEqual(resp.status_code, 400)
 
-    @patch("globus_service.services.ws_lib.create_connection")
-    @patch("globus_service.services.httpx.post")
-    def test_setup_gateway(self, mock_post, mock_ws_create):
+    @patch("globus_service.services.create_gateway_via_api")
+    def test_setup_gateway(self, mock_create_gw):
+        """create_gateway_api now calls create_gateway_via_api (service account REST)."""
         service = svc.create_service(self.user, 1, "n1", "c1")
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {"Id": "exec-gw-api", "node_id": 11}
-        mock_post.return_value = mock_resp
-
-        mock_ws = MagicMock()
-        mock_ws.recv.side_effect = ["Created gateway gw-uuid-123\n", Exception("done")]
-        mock_ws_create.return_value = mock_ws
+        mock_create_gw.return_value = (True, "gw-api-uuid-123")
 
         resp = self.client.post(
             f"/janus/services/api/globus/{service.pk}/gateway/create/",
             data=json.dumps({
                 "connector": "posix",
                 "display_name": "Test GW",
-                "gateway_name": "test-gw",
             }),
             content_type="application/json",
         )
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(resp.json()["success"])
+        self.assertEqual(resp.json()["gateway_id"], "gw-api-uuid-123")
 
-    @patch("globus_service.services.ws_lib.create_connection")
-    @patch("globus_service.services.httpx.post")
-    def test_create_collection(self, mock_post, mock_ws_create):
+    def test_setup_gateway_missing_fields(self):
+        """create_gateway_api requires connector and display_name."""
         service = svc.create_service(self.user, 1, "n1", "c1")
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {"Id": "exec-col-api", "node_id": 11}
-        mock_post.return_value = mock_resp
+        resp = self.client.post(
+            f"/janus/services/api/globus/{service.pk}/gateway/create/",
+            data=json.dumps({"connector": "posix"}),
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 400)
 
-        mock_ws = MagicMock()
-        mock_ws.recv.side_effect = ["Created collection col-uuid-123\n", Exception("done")]
-        mock_ws_create.return_value = mock_ws
+    @patch("globus_service.services.create_collection_via_api")
+    def test_create_collection(self, mock_create_col):
+        """create_collection_api now calls create_collection_via_api (service account REST)."""
+        service = svc.create_service(self.user, 1, "n1", "c1")
+        mock_create_col.return_value = (True, "col-api-uuid-456")
 
         resp = self.client.post(
             f"/janus/services/api/globus/{service.pk}/collection/create/",
             data=json.dumps({
-                "storage_gateway_id": "gw-uuid",
                 "base_path": "/data/ESnet/",
                 "display_name": "Test Collection",
             }),
@@ -738,6 +786,124 @@ class GlobusServiceAPITest(TestCase):
         )
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(resp.json()["success"])
+        self.assertEqual(resp.json()["collection_id"], "col-api-uuid-456")
+
+    def test_create_collection_missing_fields(self):
+        """create_collection_api requires base_path and display_name."""
+        service = svc.create_service(self.user, 1, "n1", "c1")
+        resp = self.client.post(
+            f"/janus/services/api/globus/{service.pk}/collection/create/",
+            data=json.dumps({"display_name": "Test"}),
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    @patch("globus_service.gcs_service.get_gcs_client_service_account")
+    def test_list_gateways_api(self, mock_get_client):
+        """list_gateways_api returns gateway list from GCS REST API."""
+        service = svc.create_service(self.user, 1, "n1", "c1")
+        service.globus_endpoint_id = "ep-uuid-list"
+        service.set_config_data({"gcs_address": "ep-uuid-list.data.globus.org"})
+        service.save()
+
+        mock_client = MagicMock()
+        mock_client.get_storage_gateway_list.return_value = [{"id": "gw1"}, {"id": "gw2"}]
+        mock_get_client.return_value = mock_client
+
+        resp = self.client.get(f"/janus/services/api/globus/{service.pk}/gateway/list/")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("gateways", data)
+
+    def test_list_gateways_api_no_endpoint(self):
+        """list_gateways_api returns 400 when endpoint_id is not set."""
+        service = svc.create_service(self.user, 1, "n1", "c1")
+        resp = self.client.get(f"/janus/services/api/globus/{service.pk}/gateway/list/")
+        self.assertEqual(resp.status_code, 400)
+
+    @patch("globus_service.gcs_service.get_gcs_client_service_account")
+    def test_list_collections_api(self, mock_get_client):
+        """list_collections_api returns collection list from GCS REST API."""
+        service = svc.create_service(self.user, 1, "n1", "c1")
+        service.globus_endpoint_id = "ep-uuid-list"
+        service.set_config_data({"gcs_address": "ep-uuid-list.data.globus.org"})
+        service.save()
+
+        mock_client = MagicMock()
+        mock_client.get_collection_list.return_value = [{"id": "col1"}]
+        mock_get_client.return_value = mock_client
+
+        resp = self.client.get(f"/janus/services/api/globus/{service.pk}/collection/list/")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("collections", data)
+
+    def test_list_collections_api_no_endpoint(self):
+        """list_collections_api returns 400 when endpoint_id is not set."""
+        service = svc.create_service(self.user, 1, "n1", "c1")
+        resp = self.client.get(f"/janus/services/api/globus/{service.pk}/collection/list/")
+        self.assertEqual(resp.status_code, 400)
+
+    @patch("globus_service.services.grant_user_admin_role")
+    def test_grant_user_admin_api_with_identity_id(self, mock_grant):
+        """POST endpoint/grant-admin/ with identity_id calls grant_user_admin_role."""
+        mock_grant.return_value = (True, "Administrator role granted to test-identity-uuid.")
+        service = svc.create_service(self.user, 1, "n1", "c1")
+        service.globus_endpoint_id = "ep-uuid"
+        service.save()
+        resp = self.client.post(
+            f"/janus/services/api/globus/{service.pk}/endpoint/grant-admin/",
+            data=json.dumps({"identity_id": "test-identity-uuid"}),
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["identity_id"], "test-identity-uuid")
+        mock_grant.assert_called_once_with(service, "test-identity-uuid")
+
+    @patch("globus_service.gcs_service.get_globus_identity_id")
+    @patch("globus_service.services.grant_user_admin_role")
+    def test_grant_user_admin_api_with_username(self, mock_grant, mock_lookup):
+        """POST endpoint/grant-admin/ with username looks up identity then grants role."""
+        mock_lookup.return_value = "looked-up-uuid"
+        mock_grant.return_value = (True, "Administrator role granted to looked-up-uuid.")
+        service = svc.create_service(self.user, 1, "n1", "c1")
+        service.globus_endpoint_id = "ep-uuid"
+        service.save()
+        resp = self.client.post(
+            f"/janus/services/api/globus/{service.pk}/endpoint/grant-admin/",
+            data=json.dumps({"username": "user@globusid.org"}),
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["identity_id"], "looked-up-uuid")
+        mock_lookup.assert_called_once_with("user@globusid.org")
+        mock_grant.assert_called_once_with(service, "looked-up-uuid")
+
+    @patch("globus_service.gcs_service.get_globus_identity_id")
+    def test_grant_user_admin_api_username_not_found(self, mock_lookup):
+        """POST endpoint/grant-admin/ returns 404 when username has no Globus identity."""
+        mock_lookup.return_value = None
+        service = svc.create_service(self.user, 1, "n1", "c1")
+        resp = self.client.post(
+            f"/janus/services/api/globus/{service.pk}/endpoint/grant-admin/",
+            data=json.dumps({"username": "nobody@example.com"}),
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 404)
+
+    def test_grant_user_admin_api_missing_fields(self):
+        """POST endpoint/grant-admin/ without identity_id or username returns 400."""
+        service = svc.create_service(self.user, 1, "n1", "c1")
+        resp = self.client.post(
+            f"/janus/services/api/globus/{service.pk}/endpoint/grant-admin/",
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 400)
 
 
 # ---------------------------------------------------------------------------
@@ -745,6 +911,43 @@ class GlobusServiceAPITest(TestCase):
 # ---------------------------------------------------------------------------
 
 class GcsServiceTest(TestCase):
+    def test_derive_gcs_address(self):
+        """derive_gcs_address returns <endpoint_id>.data.globus.org."""
+        addr = gcs.derive_gcs_address("abc123-uuid")
+        self.assertEqual(addr, "abc123-uuid.data.globus.org")
+
+    @patch("globus_sdk.ConfidentialAppAuthClient")
+    @patch("globus_sdk.ClientCredentialsAuthorizer")
+    @patch("globus_sdk.GCSClient")
+    def test_get_gcs_client_service_account(self, mock_gcs_cls, mock_auth_cls, mock_conf_cls):
+        """get_gcs_client_service_account builds a GCSClient with ClientCredentialsAuthorizer."""
+        from django.test import override_settings
+        with override_settings(
+            GLOBUS_SERVICE_CLIENT_ID="test-client-id",
+            GLOBUS_SERVICE_CLIENT_SECRET="test-secret",
+        ):
+            mock_conf_client = MagicMock()
+            mock_conf_cls.return_value = mock_conf_client
+            mock_authorizer = MagicMock()
+            mock_auth_cls.return_value = mock_authorizer
+            mock_gcs_instance = MagicMock()
+            mock_gcs_cls.return_value = mock_gcs_instance
+
+            client = gcs.get_gcs_client_service_account(
+                "ep-uuid.data.globus.org", "ep-uuid"
+            )
+            mock_conf_cls.assert_called_once_with("test-client-id", "test-secret")
+            mock_auth_cls.assert_called_once()
+            mock_gcs_cls.assert_called_once()
+            self.assertEqual(client, mock_gcs_instance)
+
+    def test_get_gcs_client_service_account_missing_settings(self):
+        """get_gcs_client_service_account raises RuntimeError when credentials missing."""
+        from django.test import override_settings
+        with override_settings(GLOBUS_SERVICE_CLIENT_ID="", GLOBUS_SERVICE_CLIENT_SECRET=""):
+            with self.assertRaises(RuntimeError):
+                gcs.get_gcs_client_service_account("ep.data.globus.org", "ep-uuid")
+
     @patch("globus_service.gcs_service._get_native_client")
     def test_get_auth_url(self, mock_client_factory):
         mock_client = MagicMock()
@@ -790,3 +993,156 @@ class GcsServiceTest(TestCase):
     def test_get_connector_id_unknown(self):
         connector_id = gcs.get_connector_id("nonexistent-connector")
         self.assertIsNone(connector_id)
+
+    @patch("globus_sdk.ConfidentialAppAuthClient")
+    def test_get_globus_identity_id_found(self, mock_conf_cls):
+        """get_globus_identity_id returns UUID when identity exists."""
+        from django.test import override_settings
+        mock_client = MagicMock()
+        mock_conf_cls.return_value = mock_client
+        mock_client.get_identities.return_value = MagicMock(
+            data={"identities": [{"id": "found-uuid-1234"}]}
+        )
+        with override_settings(
+            GLOBUS_SERVICE_CLIENT_ID="test-id",
+            GLOBUS_SERVICE_CLIENT_SECRET="test-secret",
+        ):
+            result = gcs.get_globus_identity_id("user@globusid.org")
+        self.assertEqual(result, "found-uuid-1234")
+        mock_client.get_identities.assert_called_once_with(usernames=["user@globusid.org"])
+
+    @patch("globus_sdk.ConfidentialAppAuthClient")
+    def test_get_globus_identity_id_not_found(self, mock_conf_cls):
+        """get_globus_identity_id returns None when no identity matches."""
+        from django.test import override_settings
+        mock_client = MagicMock()
+        mock_conf_cls.return_value = mock_client
+        mock_client.get_identities.return_value = MagicMock(data={"identities": []})
+        with override_settings(
+            GLOBUS_SERVICE_CLIENT_ID="test-id",
+            GLOBUS_SERVICE_CLIENT_SECRET="test-secret",
+        ):
+            result = gcs.get_globus_identity_id("nobody@example.com")
+        self.assertIsNone(result)
+
+    def test_get_globus_identity_id_missing_settings(self):
+        """get_globus_identity_id raises RuntimeError when credentials not configured."""
+        from django.test import override_settings
+        with override_settings(GLOBUS_SERVICE_CLIENT_ID="", GLOBUS_SERVICE_CLIENT_SECRET=""):
+            with self.assertRaises(RuntimeError):
+                gcs.get_globus_identity_id("user@globusid.org")
+
+    @patch("httpx.put")
+    def test_set_endpoint_owner_via_api(self, mock_put):
+        """set_endpoint_owner_via_api PUTs to the correct URL with bearer token."""
+        mock_resp = MagicMock()
+        mock_resp.content = b'{"result": "ok"}'
+        mock_resp.json.return_value = {"result": "ok"}
+        mock_resp.raise_for_status = MagicMock()
+        mock_put.return_value = mock_resp
+
+        result = gcs.set_endpoint_owner_via_api(
+            "ep-uuid.data.globus.org", "identity-uuid", "bearer-token-abc"
+        )
+        self.assertEqual(result, {"result": "ok"})
+        mock_put.assert_called_once()
+        call_args = mock_put.call_args
+        self.assertIn("https://ep-uuid.data.globus.org/api/endpoint/owner", call_args[0])
+        self.assertEqual(
+            call_args[1]["headers"]["Authorization"], "Bearer bearer-token-abc"
+        )
+        self.assertEqual(call_args[1]["json"]["identity_id"], "identity-uuid")
+
+    def test_create_role(self):
+        """create_role calls client.create_role with a GCSRoleDocument."""
+        import globus_sdk
+        mock_client = MagicMock()
+        mock_client.create_role.return_value = {"id": "role-uuid", "role": "administrator"}
+
+        gcs.create_role(mock_client, "collection-uuid", "identity-uuid", "administrator")
+        mock_client.create_role.assert_called_once()
+        call_arg = mock_client.create_role.call_args[0][0]
+        self.assertIsInstance(call_arg, globus_sdk.GCSRoleDocument)
+
+
+# ---------------------------------------------------------------------------
+# 6. services ownership / admin-role tests
+# ---------------------------------------------------------------------------
+
+class ServicesOwnershipTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="owneruser", password="pw")
+        self.service = svc.create_service(self.user, 1, "n1", "c1")
+        self.service.globus_endpoint_id = "ep-uuid-own"
+        self.service.set_config_data({"gcs_address": "ep-uuid-own.data.globus.org"})
+        self.service.save()
+
+    @patch("globus_service.gcs_service.set_endpoint_owner_via_api")
+    @patch("globus_sdk.ClientCredentialsAuthorizer")
+    @patch("globus_sdk.ConfidentialAppAuthClient")
+    def test_transfer_endpoint_ownership_success(
+        self, mock_conf_cls, mock_auth_cls, mock_set_owner
+    ):
+        """transfer_endpoint_ownership calls set_endpoint_owner_via_api with bearer token."""
+        from django.test import override_settings
+        mock_conf_client = MagicMock()
+        mock_conf_cls.return_value = mock_conf_client
+        mock_authorizer = MagicMock()
+        mock_authorizer.access_token = "bearer-abc"
+        mock_auth_cls.return_value = mock_authorizer
+        mock_set_owner.return_value = {}
+
+        with override_settings(
+            GLOBUS_SERVICE_CLIENT_ID="svc-client-id",
+            GLOBUS_SERVICE_CLIENT_SECRET="svc-secret",
+        ):
+            success, msg = svc.transfer_endpoint_ownership(self.service)
+
+        self.assertTrue(success)
+        mock_set_owner.assert_called_once_with(
+            "ep-uuid-own.data.globus.org", "svc-client-id", "bearer-abc"
+        )
+
+    def test_transfer_endpoint_ownership_no_endpoint_id(self):
+        """transfer_endpoint_ownership returns False when endpoint_id is missing."""
+        self.service.globus_endpoint_id = ""
+        self.service.set_config_data({})
+        self.service.save()
+        success, msg = svc.transfer_endpoint_ownership(self.service)
+        self.assertFalse(success)
+        self.assertIn("endpoint_id", msg)
+
+    @patch("globus_service.gcs_service.get_gcs_client_service_account")
+    @patch("globus_service.gcs_service.create_role")
+    def test_grant_user_admin_role_success(self, mock_create_role, mock_get_client):
+        """grant_user_admin_role calls create_role with administrator role."""
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_create_role.return_value = {"id": "role-uuid"}
+
+        success, msg = svc.grant_user_admin_role(self.service, "user-identity-uuid")
+
+        self.assertTrue(success)
+        mock_get_client.assert_called_once_with(
+            "ep-uuid-own.data.globus.org", "ep-uuid-own"
+        )
+        mock_create_role.assert_called_once_with(
+            mock_client, "ep-uuid-own", "user-identity-uuid", role="administrator"
+        )
+
+    def test_grant_user_admin_role_no_endpoint_id(self):
+        """grant_user_admin_role returns False when endpoint_id is missing."""
+        self.service.globus_endpoint_id = ""
+        self.service.set_config_data({})
+        self.service.save()
+        success, msg = svc.grant_user_admin_role(self.service, "user-identity-uuid")
+        self.assertFalse(success)
+        self.assertIn("endpoint_id", msg)
+
+    @patch("globus_service.gcs_service.get_gcs_client_service_account")
+    def test_grant_user_admin_role_exception_is_non_fatal(self, mock_get_client):
+        """grant_user_admin_role returns (False, error_msg) on exception — does not raise."""
+        mock_get_client.side_effect = RuntimeError("GCS unreachable")
+        success, msg = svc.grant_user_admin_role(self.service, "user-identity-uuid")
+        self.assertFalse(success)
+        self.assertIn("GCS unreachable", msg)

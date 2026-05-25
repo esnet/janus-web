@@ -12,13 +12,13 @@ Run with:
         -m integration \
         --tb=short \
         [--janus-url=http://localhost:8000] \
-        [--janus-user=admin] \
-        [--janus-pass=adminKiranVasu]
+        [--janus-user=username] \
+        [--janus-pass=password]
 
 Or via environment variables:
     JANUS_WEB_URL=http://localhost:8000 \
-    JANUS_TEST_USER=admin \
-    JANUS_TEST_PASS=adminKiranVasu \
+    JANUS_TEST_USER=username \
+    JANUS_TEST_PASS=password \
     pytest webapp/janus/integration_tests.py -v -m integration
 """
 

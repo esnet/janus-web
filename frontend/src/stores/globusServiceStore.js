@@ -209,17 +209,22 @@ export const useGlobusServiceStore = defineStore('globusService', {
     async createGateway(config) {
       if (!this.currentService) return { success: false, error: 'No active service' };
       this.loading = true;
-      this.clearOutput();
+      this.error = null;
       try {
         const res = await api.createGlobusGateway(this.currentService.id, config);
-        this.appendOutput('stdout', res.data.output || '');
         this.currentService = res.data.service;
         if (res.data.success) {
           this.currentStep = 5;
+          this.appendOutput('info', `Gateway created: ${res.data.gateway_id}`);
+        } else {
+          const msg = res.data.error || 'Storage gateway creation failed';
+          this.error = msg;
+          this.appendOutput('error', msg);
         }
-        return { success: res.data.success, output: res.data.output };
+        return { success: res.data.success, gateway_id: res.data.gateway_id };
       } catch (err) {
         const msg = err.response?.data?.error || 'Storage gateway creation failed';
+        this.error = msg;
         this.appendOutput('error', msg);
         return { success: false, error: msg };
       } finally {
@@ -230,14 +235,21 @@ export const useGlobusServiceStore = defineStore('globusService', {
     async createCollection(config) {
       if (!this.currentService) return { success: false, error: 'No active service' };
       this.loading = true;
-      this.clearOutput();
+      this.error = null;
       try {
         const res = await api.createGlobusCollection(this.currentService.id, config);
-        this.appendOutput('stdout', res.data.output || '');
         this.currentService = res.data.service;
-        return { success: res.data.success, output: res.data.output };
+        if (res.data.success) {
+          this.appendOutput('info', `Collection created: ${res.data.collection_id}`);
+        } else {
+          const msg = res.data.error || 'Collection creation failed';
+          this.error = msg;
+          this.appendOutput('error', msg);
+        }
+        return { success: res.data.success, collection_id: res.data.collection_id };
       } catch (err) {
         const msg = err.response?.data?.error || 'Collection creation failed';
+        this.error = msg;
         this.appendOutput('error', msg);
         return { success: false, error: msg };
       } finally {

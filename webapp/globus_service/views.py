@@ -390,8 +390,11 @@ def setup_node_api(request, service_id):
 def create_gateway_api(request, service_id):
     """
     POST /janus/api/services/globus/<service_id>/gateway/create/
-    Body: {connector, display_name, domain, gateway_name, restrict_paths (optional list)}
-    Runs `globus-connect-server storage-gateway create` inside the container.
+    Body: {connector, display_name, allowed_domains (optional list)}
+
+    Creates a storage gateway via the GCS REST API using the service account
+    (ConfidentialAppAuthClient + ClientCredentialsAuthorizer).
+    No interactive GCS login is required.
     """
     err = _require_auth(request)
     if err:
@@ -408,26 +411,65 @@ def create_gateway_api(request, service_id):
     if err:
         return err
 
-    required = ["connector", "display_name", "gateway_name"]
+    required = ["connector", "display_name"]
     missing = [f for f in required if not data.get(f)]
     if missing:
         return JsonResponse(
             {"error": f"Missing required fields: {', '.join(missing)}"}, status=400
         )
 
-    success, output = services.run_storage_gateway_create(service, data)
+    success, output = services.create_gateway_via_api(service, data)
     return JsonResponse({
         "success": success,
-        "output": output,
+        "gateway_id": output if success else "",
+        "error": output if not success else "",
         "service": service.to_dict(),
     }, status=200 if success else 400)
+
+
+def list_gateways_api(request, service_id):
+    """
+    GET /janus/api/services/globus/<service_id>/gateway/list/
+    Lists all storage gateways on the endpoint via the GCS REST API.
+    """
+    err = _require_auth(request)
+    if err:
+        return err
+
+    service = services.get_service(service_id, request.user)
+    if service is None:
+        return JsonResponse({"error": "Service not found"}, status=404)
+
+    from . import gcs_service as gcs
+    cfg = service.get_config_data()
+    endpoint_id = service.globus_endpoint_id
+    gcs_address = cfg.get("gcs_address") or (
+        gcs.derive_gcs_address(endpoint_id) if endpoint_id else None
+    )
+    if not gcs_address or not endpoint_id:
+        return JsonResponse(
+            {"error": "endpoint_id not set — complete endpoint setup first."}, status=400
+        )
+
+    try:
+        client = gcs.get_gcs_client_service_account(gcs_address, endpoint_id)
+        gateways = gcs.list_storage_gateways(client)
+        return JsonResponse({"gateways": gateways})
+    except Exception as exc:
+        logger.error("list_gateways_api failed for service %s: %s", service_id, exc)
+        return JsonResponse({"error": str(exc)}, status=500)
 
 
 def create_collection_api(request, service_id):
     """
     POST /janus/api/services/globus/<service_id>/collection/create/
-    Body: {storage_gateway_id, base_path, display_name, collection_type}
-    Runs `globus-connect-server collection create` inside the container.
+    Body: {base_path, display_name, collection_type (mapped|guest),
+           storage_gateway_id (optional — falls back to config_data),
+           mapped_collection_id (required for guest),
+           local_username (optional, default: globus)}
+
+    Creates a mapped or guest collection via the GCS REST API using the service account.
+    For guest collections, a UserCredentialDocument is created first.
     """
     err = _require_auth(request)
     if err:
@@ -444,19 +486,53 @@ def create_collection_api(request, service_id):
     if err:
         return err
 
-    required = ["storage_gateway_id", "base_path", "display_name"]
+    required = ["base_path", "display_name"]
     missing = [f for f in required if not data.get(f)]
     if missing:
         return JsonResponse(
             {"error": f"Missing required fields: {', '.join(missing)}"}, status=400
         )
 
-    success, output = services.run_collection_create(service, data)
+    success, output = services.create_collection_via_api(service, data)
     return JsonResponse({
         "success": success,
-        "output": output,
+        "collection_id": output if success else "",
+        "error": output if not success else "",
         "service": service.to_dict(),
     }, status=200 if success else 400)
+
+
+def list_collections_api(request, service_id):
+    """
+    GET /janus/api/services/globus/<service_id>/collection/list/
+    Lists all collections on the endpoint via the GCS REST API.
+    """
+    err = _require_auth(request)
+    if err:
+        return err
+
+    service = services.get_service(service_id, request.user)
+    if service is None:
+        return JsonResponse({"error": "Service not found"}, status=404)
+
+    from . import gcs_service as gcs
+    cfg = service.get_config_data()
+    endpoint_id = service.globus_endpoint_id
+    gcs_address = cfg.get("gcs_address") or (
+        gcs.derive_gcs_address(endpoint_id) if endpoint_id else None
+    )
+    if not gcs_address or not endpoint_id:
+        return JsonResponse(
+            {"error": "endpoint_id not set — complete endpoint setup first."}, status=400
+        )
+
+    try:
+        client = gcs.get_gcs_client_service_account(gcs_address, endpoint_id)
+        collections = gcs.list_collections(client)
+        return JsonResponse({"collections": collections})
+    except Exception as exc:
+        logger.error("list_collections_api failed for service %s: %s", service_id, exc)
+        return JsonResponse({"error": str(exc)}, status=500)
 
 
 def exec_command_api(request, service_id):
@@ -518,7 +594,7 @@ def get_endpoint_setup_cmd_api(request, service_id):
     if parse_err:
         return parse_err
 
-    required = ["display_name", "organization", "contact_email"]
+    required = ["display_name", "organization", "contact_email", "owner"]
     missing = [f for f in required if not data.get(f)]
     if missing:
         return JsonResponse(
@@ -563,6 +639,18 @@ def fetch_deployment_key_api(request, service_id):
         data = {}
 
     deployment_key_path = data.get("deployment_key_path", "/work/deployment-key.json")
+
+    # If the frontend already extracted the endpoint ID from terminal output,
+    # store it on the service before fetching the key so gcs_address can be derived.
+    endpoint_id_hint = data.get("endpoint_id", "").strip()
+    if endpoint_id_hint and not service.globus_endpoint_id:
+        service.globus_endpoint_id = endpoint_id_hint
+        service.save()
+        logger.info(
+            "GlobusService id=%s: endpoint_id set from frontend hint: %s",
+            service.pk, endpoint_id_hint,
+        )
+
     success, output = services.fetch_deployment_key(service, deployment_key_path)
 
     return JsonResponse({
@@ -571,36 +659,6 @@ def fetch_deployment_key_api(request, service_id):
         "output": output,
         "service": service.to_dict(),
     }, status=200 if success else 400)
-
-
-def get_gcs_login_cmd_api(request, service_id):
-    """
-    GET /janus/services/api/globus/<service_id>/login/cmd/
-
-    Returns the `globus-connect-server login <endpoint-id>` command string.
-    Send this via GCSInteractiveConsumer WebSocket before gateway/collection creation.
-    """
-    err = _require_auth(request)
-    if err:
-        return err
-
-    service = services.get_service(service_id, request.user)
-    if service is None:
-        return JsonResponse({"error": "Service not found"}, status=404)
-
-    try:
-        cmd = services.get_gcs_login_cmd(service)
-    except ValueError as exc:
-        return JsonResponse({"error": str(exc)}, status=400)
-
-    return JsonResponse({
-        "cmd": cmd,
-        "endpoint_id": service.globus_endpoint_id,
-        "note": (
-            "Send this command via the interactive WebSocket session "
-            "(ws/gcs-interactive/<service_id>/) and paste the resulting auth code."
-        ),
-    })
 
 
 def set_endpoint_owner_api(request, service_id):
@@ -640,3 +698,53 @@ def set_endpoint_owner_api(request, service_id):
             "(ws/gcs-interactive/<service_id>/) after completing gcs login."
         ),
     })
+
+
+def grant_user_admin_api(request, service_id):
+    """
+    POST /janus/services/api/globus/<service_id>/endpoint/grant-admin/
+    Body: {identity_id} OR {username} (Globus username/email to look up)
+
+    Grants the 'administrator' role on the endpoint to a Globus identity.
+    Used after service account takes ownership so the human user retains
+    management access in the Globus web UI.
+    """
+    err = _require_auth(request)
+    if err:
+        return err
+
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    service = services.get_service(service_id, request.user)
+    if service is None:
+        return JsonResponse({"error": "Service not found"}, status=404)
+
+    data, parse_err = _parse_json_body(request)
+    if parse_err:
+        return parse_err
+
+    identity_id = data.get("identity_id", "").strip()
+    username = data.get("username", "").strip()
+
+    # Look up identity UUID from username if not provided directly
+    if not identity_id and username:
+        try:
+            from . import gcs_service as gcs
+            identity_id = gcs.get_globus_identity_id(username)
+            if not identity_id:
+                return JsonResponse(
+                    {"error": f"No Globus identity found for username: {username}"}, status=404
+                )
+        except Exception as exc:
+            return JsonResponse({"error": f"Identity lookup failed: {exc}"}, status=500)
+
+    if not identity_id:
+        return JsonResponse({"error": "identity_id or username is required"}, status=400)
+
+    success, message = services.grant_user_admin_role(service, identity_id)
+    return JsonResponse({
+        "success": success,
+        "message": message,
+        "identity_id": identity_id,
+    }, status=200 if success else 400)

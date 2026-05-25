@@ -31,7 +31,6 @@ GCS_SCOPES = [
     "profile",
     "email",
     "urn:globus:auth:scope:transfer.api.globus.org:all",
-    "urn:globus:auth:scope:auth.globus.org:view_identities",
 ]
 
 GCS_SCOPE_STRING = " ".join(GCS_SCOPES)
@@ -181,6 +180,21 @@ def get_transfer_client(access_token: str):
     return globus_sdk.TransferClient(authorizer=authorizer)
 
 
+def derive_gcs_address(endpoint_id: str) -> str:
+    """
+    Derive the GCS Manager FQDN from an endpoint UUID.
+
+    GCS v5 endpoints are reachable at <endpoint_id>.data.globus.org.
+
+    Args:
+        endpoint_id: The Globus endpoint UUID (e.g. "abc123...").
+
+    Returns:
+        FQDN string, e.g. "abc123....data.globus.org".
+    """
+    return f"{endpoint_id}.data.globus.org"
+
+
 def get_gcs_client(gcs_address: str, access_token: str):
     """
     Return a globus_sdk.GCSClient for the given GCS endpoint.
@@ -203,6 +217,51 @@ def get_gcs_client(gcs_address: str, access_token: str):
         raise RuntimeError("globus-sdk is not installed.") from exc
 
     authorizer = globus_sdk.AccessTokenAuthorizer(access_token)
+    return globus_sdk.GCSClient(gcs_address=gcs_address, authorizer=authorizer)
+
+
+def get_gcs_client_service_account(gcs_address: str, endpoint_id: str):
+    """
+    Return a globus_sdk.GCSClient authenticated via the service account
+    (ConfidentialAppAuthClient + ClientCredentialsAuthorizer).
+
+    This is the preferred path for programmatic gateway/collection management
+    without user interaction.  The service account credentials are read from
+    Django settings (GLOBUS_SERVICE_CLIENT_ID / GLOBUS_SERVICE_CLIENT_SECRET).
+
+    The required scope is:
+        urn:globus:auth:scope:<endpoint_id>:manage_collections
+
+    Args:
+        gcs_address:  FQDN of the GCS endpoint (e.g. "<uuid>.data.globus.org").
+        endpoint_id:  The Globus endpoint UUID — used to build the manage_collections scope.
+
+    Returns:
+        A globus_sdk.GCSClient instance authorised as the service account.
+    """
+    try:
+        import globus_sdk
+    except ImportError as exc:
+        raise RuntimeError("globus-sdk is not installed.") from exc
+
+    from django.conf import settings
+
+    client_id = getattr(settings, "GLOBUS_SERVICE_CLIENT_ID", None)
+    client_secret = getattr(settings, "GLOBUS_SERVICE_CLIENT_SECRET", None)
+    if not client_id or not client_secret:
+        raise RuntimeError(
+            "GLOBUS_SERVICE_CLIENT_ID and GLOBUS_SERVICE_CLIENT_SECRET must be set in settings."
+        )
+
+    # Build the manage_collections scope for this specific endpoint
+    manage_collections_scope = (
+        f"urn:globus:auth:scope:{endpoint_id}:manage_collections"
+    )
+
+    confidential_client = globus_sdk.ConfidentialAppAuthClient(client_id, client_secret)
+    authorizer = globus_sdk.ClientCredentialsAuthorizer(
+        confidential_client, scopes=manage_collections_scope
+    )
     return globus_sdk.GCSClient(gcs_address=gcs_address, authorizer=authorizer)
 
 
@@ -257,6 +316,42 @@ def update_endpoint(client, data: dict) -> dict:
         raise
 
 
+def list_storage_gateways(client) -> list:
+    """
+    List all storage gateways on the GCS endpoint.
+
+    Args:
+        client: A globus_sdk.GCSClient instance.
+
+    Returns:
+        List of storage gateway dicts.
+    """
+    try:
+        response = client.get_storage_gateway_list()
+        return list(response)
+    except Exception as exc:
+        logger.error("Failed to list storage gateways: %s", exc)
+        raise
+
+
+def list_collections(client) -> list:
+    """
+    List all collections on the GCS endpoint.
+
+    Args:
+        client: A globus_sdk.GCSClient instance.
+
+    Returns:
+        List of collection dicts.
+    """
+    try:
+        response = client.get_collection_list()
+        return list(response)
+    except Exception as exc:
+        logger.error("Failed to list collections: %s", exc)
+        raise
+
+
 def create_storage_gateway(client, data: dict) -> dict:
     """
     Create a storage gateway on the GCS endpoint.
@@ -294,6 +389,52 @@ def create_storage_gateway(client, data: dict) -> dict:
         raise
 
 
+def update_storage_gateway(client, gateway_id: str, data: dict) -> dict:
+    """
+    Update an existing storage gateway.
+
+    Args:
+        client:     A globus_sdk.GCSClient instance.
+        gateway_id: UUID of the storage gateway to update.
+        data:       Dict of fields to update.
+
+    Returns:
+        Updated storage gateway dict.
+    """
+    try:
+        import globus_sdk
+    except ImportError as exc:
+        raise RuntimeError("globus-sdk is not installed.") from exc
+
+    allowed = {
+        "display_name", "allowed_domains", "high_assurance",
+        "identity_mappings", "policies", "root", "require_mfa",
+    }
+    filtered = {k: v for k, v in data.items() if k in allowed and v is not None}
+    try:
+        doc = globus_sdk.StorageGatewayDocument(**filtered)
+        response = client.update_storage_gateway(gateway_id, doc)
+        return dict(response)
+    except Exception as exc:
+        logger.error("Failed to update storage gateway %s: %s", gateway_id, exc)
+        raise
+
+
+def delete_storage_gateway(client, gateway_id: str) -> None:
+    """
+    Delete a storage gateway.
+
+    Args:
+        client:     A globus_sdk.GCSClient instance.
+        gateway_id: UUID of the storage gateway to delete.
+    """
+    try:
+        client.delete_storage_gateway(gateway_id)
+    except Exception as exc:
+        logger.error("Failed to delete storage gateway %s: %s", gateway_id, exc)
+        raise
+
+
 def create_collection(client, data: dict) -> dict:
     """
     Create a mapped collection on the GCS endpoint.
@@ -323,6 +464,139 @@ def create_collection(client, data: dict) -> dict:
         return dict(response)
     except Exception as exc:
         logger.error("Failed to create collection: %s", exc)
+        raise
+
+
+def update_collection(client, collection_id: str, data: dict) -> dict:
+    """
+    Update an existing mapped collection.
+
+    Args:
+        client:        A globus_sdk.GCSClient instance.
+        collection_id: UUID of the collection to update.
+        data:          Dict of fields to update.
+
+    Returns:
+        Updated collection dict.
+    """
+    try:
+        import globus_sdk
+    except ImportError as exc:
+        raise RuntimeError("globus-sdk is not installed.") from exc
+
+    allowed = {
+        "display_name", "contact_email", "contact_info", "default_directory",
+        "department", "description", "delete_protected",
+    }
+    filtered = {k: v for k, v in data.items() if k in allowed and v is not None}
+    try:
+        doc = globus_sdk.MappedCollectionDocument(**filtered)
+        response = client.update_collection(collection_id, doc)
+        return dict(response)
+    except Exception as exc:
+        logger.error("Failed to update collection %s: %s", collection_id, exc)
+        raise
+
+
+def delete_collection(client, collection_id: str) -> None:
+    """
+    Delete a collection, first disabling delete_protected if set.
+
+    GCS collections have delete_protected=True by default.  This function
+    first patches the collection to set delete_protected=False, then deletes it.
+
+    Args:
+        client:        A globus_sdk.GCSClient instance.
+        collection_id: UUID of the collection to delete.
+    """
+    try:
+        import globus_sdk
+    except ImportError as exc:
+        raise RuntimeError("globus-sdk is not installed.") from exc
+
+    try:
+        # Disable delete protection before deleting
+        unprotect_doc = globus_sdk.MappedCollectionDocument(delete_protected=False)
+        client.update_collection(collection_id, unprotect_doc)
+        client.delete_collection(collection_id)
+    except Exception as exc:
+        logger.error("Failed to delete collection %s: %s", collection_id, exc)
+        raise
+
+
+def create_user_credential(client, storage_gateway_id: str, identity_id: str, username: str) -> dict:
+    """
+    Create a user credential on a storage gateway.
+
+    A user credential is required before a guest collection can be created.
+    It maps a Globus identity to a local POSIX username on the storage gateway.
+
+    Args:
+        client:             A globus_sdk.GCSClient instance.
+        storage_gateway_id: UUID of the storage gateway.
+        identity_id:        Globus identity UUID of the user (or service account client ID).
+        username:           Local POSIX username to map to.
+
+    Returns:
+        Created user credential dict.
+    """
+    try:
+        import globus_sdk
+    except ImportError as exc:
+        raise RuntimeError("globus-sdk is not installed.") from exc
+
+    try:
+        doc = globus_sdk.UserCredentialDocument(
+            storage_gateway_id=storage_gateway_id,
+            identity_id=identity_id,
+            username=username,
+        )
+        response = client.create_user_credential(doc)
+        return dict(response)
+    except Exception as exc:
+        logger.error("Failed to create user credential: %s", exc)
+        raise
+
+
+def create_guest_collection(
+    client,
+    mapped_collection_id: str,
+    base_path: str,
+    display_name: str,
+    **kwargs,
+) -> dict:
+    """
+    Create a guest collection on top of a mapped collection.
+
+    A user credential must exist on the storage gateway before calling this.
+
+    Args:
+        client:               A globus_sdk.GCSClient instance.
+        mapped_collection_id: UUID of the parent mapped collection.
+        base_path:            Root path within the mapped collection.
+        display_name:         Human-readable name for the guest collection.
+        **kwargs:             Additional GuestCollectionDocument fields
+                              (description, contact_email, etc.).
+
+    Returns:
+        Created guest collection dict (includes 'id').
+    """
+    try:
+        import globus_sdk
+    except ImportError as exc:
+        raise RuntimeError("globus-sdk is not installed.") from exc
+
+    try:
+        doc = globus_sdk.GuestCollectionDocument(
+            mapped_collection_id=mapped_collection_id,
+            collection_base_path=base_path,
+            display_name=display_name,
+            **kwargs,
+        )
+        response = client.create_collection(doc)
+        return dict(response)
+    except Exception as exc:
+        logger.error("Failed to create guest collection: %s", exc)
         raise
 
 
@@ -392,4 +666,110 @@ def get_globus_identities(access_token: str, usernames: list) -> list:
         return response.data.get("identities", [])
     except Exception as exc:
         logger.error("Failed to get Globus identities: %s", exc)
+        raise
+
+
+def get_globus_identity_id(username_or_email: str) -> Optional[str]:
+    """
+    Look up a Globus identity UUID by username or email using the service account.
+
+    Uses ConfidentialAppAuthClient so no user token is required.
+
+    Args:
+        username_or_email: Globus username or email address.
+
+    Returns:
+        Identity UUID string, or None if not found.
+    """
+    try:
+        import globus_sdk
+    except ImportError as exc:
+        raise RuntimeError("globus-sdk is not installed.") from exc
+
+    from django.conf import settings
+
+    client_id = getattr(settings, "GLOBUS_SERVICE_CLIENT_ID", None)
+    client_secret = getattr(settings, "GLOBUS_SERVICE_CLIENT_SECRET", None)
+    if not client_id or not client_secret:
+        raise RuntimeError("GLOBUS_SERVICE_CLIENT_ID/SECRET not configured.")
+
+    confidential_client = globus_sdk.ConfidentialAppAuthClient(client_id, client_secret)
+    try:
+        response = confidential_client.get_identities(usernames=[username_or_email])
+        identities = response.data.get("identities", [])
+        return identities[0]["id"] if identities else None
+    except Exception as exc:
+        logger.error("Failed to get Globus identity for %s: %s", username_or_email, exc)
+        raise
+
+
+def set_endpoint_owner_via_api(gcs_address: str, identity_id: str, access_token: str) -> dict:
+    """
+    Transfer endpoint ownership to a Globus identity via the GCS Manager REST API.
+
+    The GCS SDK has no method for this — it must be done via raw HTTP PUT to
+    https://<gcs_address>/api/endpoint/owner.
+
+    Args:
+        gcs_address:  FQDN of the GCS endpoint (e.g. "<uuid>.data.globus.org").
+        identity_id:  Globus identity UUID to set as owner.
+        access_token: Bearer token with manage_collections scope.
+
+    Returns:
+        Response JSON dict.
+    """
+    import httpx
+
+    url = f"https://{gcs_address}/api/endpoint/owner"
+    payload = {
+        "DATA_TYPE": "endpoint_owner#1.0.0",
+        "identity_id": identity_id,
+    }
+    try:
+        resp = httpx.put(
+            url,
+            headers={"Authorization": f"Bearer {access_token}"},
+            json=payload,
+            timeout=30.0,
+            verify=False,
+        )
+        resp.raise_for_status()
+        return resp.json() if resp.content else {}
+    except Exception as exc:
+        logger.error("Failed to set endpoint owner to %s: %s", identity_id, exc)
+        raise
+
+
+def create_role(client, collection_id: str, identity_id: str, role: str = "administrator") -> dict:
+    """
+    Create a role on a GCS endpoint or collection.
+
+    Used to grant a Globus identity (e.g. the human user) administrator access
+    after the service account has taken ownership of the endpoint.
+
+    Args:
+        client:        A globus_sdk.GCSClient instance.
+        collection_id: UUID of the endpoint or collection to grant the role on.
+        identity_id:   Globus identity UUID to grant the role to.
+        role:          Role name — "administrator", "access_manager", "activity_manager",
+                       "activity_monitor", or "owner".
+
+    Returns:
+        Created role dict.
+    """
+    try:
+        import globus_sdk
+    except ImportError as exc:
+        raise RuntimeError("globus-sdk is not installed.") from exc
+
+    try:
+        doc = globus_sdk.GCSRoleDocument(
+            collection=collection_id,
+            principal=f"urn:globus:auth:identity:{identity_id}",
+            role=role,
+        )
+        response = client.create_role(doc)
+        return dict(response)
+    except Exception as exc:
+        logger.error("Failed to create role %s for %s on %s: %s", role, identity_id, collection_id, exc)
         raise
