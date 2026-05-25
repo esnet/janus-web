@@ -244,3 +244,18 @@ JANUS_CONTROLLER_AUTH = (JANUS_USER, JANUS_PASSWORD)
 # App type: Thick Client (public client, no secret, supports PKCE + OOB flow)
 # Redirect: https://auth.globus.org/v2/web/auth-code
 GLOBUS_CLIENT_ID = os.getenv("GLOBUS_CLIENT_ID", "REMOVED_CLIENT_ID")
+
+# Globus Confidential App (Service Account) — for programmatic GCS management
+# Used by the service account flow (ClientCredentialsAuthorizer) to create
+# storage gateways and collections without user interaction.
+GLOBUS_SERVICE_CLIENT_ID = os.getenv(
+    "GLOBUS_SERVICE_CLIENT_ID", "REMOVED_CLIENT_ID"
+)
+GLOBUS_SERVICE_CLIENT_SECRET = os.getenv(
+    "GLOBUS_SERVICE_CLIENT_SECRET", "REMOVED_GLOBUS_SECRET"
+)
+# The Globus identity principal for the service account (used as --owner in endpoint setup)
+GLOBUS_SERVICE_IDENTITY = os.getenv(
+    "GLOBUS_SERVICE_IDENTITY",
+    "REMOVED_CLIENT_ID@clients.auth.globus.org",
+)

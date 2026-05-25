@@ -172,10 +172,6 @@ export default {
   fetchGlobusDeploymentKey(id, data) {
     return globusApi.post(`api/globus/${id}/endpoint/deployment-key/`, data);
   },
-  // GCS login command — returns command string for interactive WebSocket execution
-  getGlobusLoginCmd(id) {
-    return globusApi.get(`api/globus/${id}/login/cmd/`);
-  },
   // Transfer endpoint ownership to service account (interactive)
   setGlobusEndpointOwner(id, serviceAccountId) {
     return globusApi.post(`api/globus/${id}/endpoint/set-owner/`, { service_account_id: serviceAccountId });
@@ -187,13 +183,25 @@ export default {
   setupGlobusNode(id, data) {
     return globusApi.post(`api/globus/${id}/node/setup/`, data);
   },
+  // Storage gateway — service account REST API (no GCS login required)
   createGlobusGateway(id, data) {
     return globusApi.post(`api/globus/${id}/gateway/create/`, data);
   },
+  listGateways(id) {
+    return globusApi.get(`api/globus/${id}/gateway/list/`);
+  },
+  // Collections — service account REST API (mapped or guest)
   createGlobusCollection(id, data) {
     return globusApi.post(`api/globus/${id}/collection/create/`, data);
   },
+  listCollections(id) {
+    return globusApi.get(`api/globus/${id}/collection/list/`);
+  },
   execGlobusCommand(id, cmd) {
     return globusApi.post(`api/globus/${id}/exec/`, { cmd });
+  },
+  // Grant a user administrator role on the endpoint (service account does this)
+  grantUserAdmin(id, data) {
+    return globusApi.post(`api/globus/${id}/endpoint/grant-admin/`, data);
   },
 };
