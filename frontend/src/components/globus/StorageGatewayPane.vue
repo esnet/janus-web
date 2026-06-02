@@ -1,10 +1,10 @@
 <template>
   <div class="storage-gateway-pane">
 
-    <!-- Step 4: Storage Gateway creation via service account REST API -->
+    <!-- Step 5: Storage Gateway creation via service account REST API -->
     <div class="card border-0 shadow-sm p-4 mb-3">
       <h5 class="font-weight-bold mb-1">
-        <i class="fas fa-hdd mr-2 text-info"></i>Step 4 — Create Storage Gateway
+        <i class="fas fa-hdd mr-2 text-info"></i>Step 5 — Create Storage Gateway
       </h5>
       <p class="text-muted small mb-2">
         Define a storage gateway connecting your GCS endpoint to a storage backend.
@@ -13,11 +13,11 @@
       </p>
       <div class="alert alert-info small py-2 mb-4">
         <i class="fas fa-info-circle mr-1"></i>
-        The endpoint must have been set up with <code>--owner &lt;service-account&gt;</code>
-        (done automatically by the endpoint setup command) for this to succeed.
+        GCS Login (Step 4) must have been completed before creating a gateway.
       </div>
 
       <form @submit.prevent="submit">
+        <!-- Display Name + Connector -->
         <div class="form-row">
           <div class="form-group col-md-6">
             <label class="font-weight-bold small text-uppercase text-muted">
@@ -57,6 +57,7 @@
           </div>
         </div>
 
+        <!-- Allowed Domains + User Deny -->
         <div class="form-row">
           <div class="form-group col-md-6">
             <label class="font-weight-bold small text-uppercase text-muted">
@@ -66,12 +67,73 @@
               v-model="form.allowed_domains"
               type="text"
               class="form-control"
-              placeholder="e.g. es.net (comma-separated)"
+              placeholder="e.g. es.net, bnl.gov (comma-separated)"
               :disabled="store.loading"
             />
             <small class="form-text text-muted">
-              Restrict to users from these Globus Auth domains (comma-separated).
+              Restrict to users from these Globus Auth domains. Leave blank to allow all.
             </small>
+          </div>
+          <div class="form-group col-md-6">
+            <label class="font-weight-bold small text-uppercase text-muted">
+              Deny Users
+            </label>
+            <input
+              v-model="form.users_deny"
+              type="text"
+              class="form-control"
+              placeholder="e.g. root (comma-separated)"
+              :disabled="store.loading"
+            />
+            <small class="form-text text-muted">
+              Local POSIX usernames to deny access (e.g. <code>root</code>).
+            </small>
+          </div>
+        </div>
+
+        <!-- Path Restrictions -->
+        <div class="card border-light bg-light p-3 mb-3">
+          <div class="font-weight-bold small text-uppercase text-muted mb-2">
+            <i class="fas fa-folder-open mr-1"></i> Path Restrictions (optional)
+          </div>
+          <p class="text-muted small mb-2">
+            Restrict which filesystem paths users can access through this gateway.
+            Leave all fields blank to allow access to all paths.
+          </p>
+          <div class="form-row">
+            <div class="form-group col-md-4">
+              <label class="small font-weight-bold">Read-Write Paths</label>
+              <input
+                v-model="form.restrict_rw"
+                type="text"
+                class="form-control form-control-sm"
+                placeholder="e.g. /work/data, /scratch"
+                :disabled="store.loading"
+              />
+              <small class="form-text text-muted">Comma-separated paths with full access.</small>
+            </div>
+            <div class="form-group col-md-4">
+              <label class="small font-weight-bold">Read-Only Paths</label>
+              <input
+                v-model="form.restrict_ro"
+                type="text"
+                class="form-control form-control-sm"
+                placeholder="e.g. /data/shared"
+                :disabled="store.loading"
+              />
+              <small class="form-text text-muted">Comma-separated paths with read-only access.</small>
+            </div>
+            <div class="form-group col-md-4">
+              <label class="small font-weight-bold">Denied Paths</label>
+              <input
+                v-model="form.restrict_none"
+                type="text"
+                class="form-control form-control-sm"
+                placeholder="e.g. / (deny root)"
+                :disabled="store.loading"
+              />
+              <small class="form-text text-muted">Comma-separated paths to block entirely.</small>
+            </div>
           </div>
         </div>
 
@@ -134,6 +196,10 @@ const form = reactive({
   display_name: '',
   connector: '',
   allowed_domains: '',
+  users_deny: '',
+  restrict_rw: '',    // read-write paths (comma-separated)
+  restrict_ro: '',    // read-only paths (comma-separated)
+  restrict_none: '',  // denied paths (comma-separated)
 });
 
 const errors = reactive({
@@ -144,6 +210,10 @@ const errors = reactive({
 const gatewayId = computed(
   () => store.currentService?.config_data?.storage_gateway?.id || ''
 );
+
+function splitPaths(str) {
+  return str.split(',').map(p => p.trim()).filter(Boolean);
+}
 
 function validate() {
   let valid = true;
@@ -168,10 +238,32 @@ async function submit() {
   const config = {
     display_name: form.display_name.trim(),
     connector: form.connector,
-    allowed_domains: form.allowed_domains.trim()
-      ? form.allowed_domains.split(',').map(d => d.trim()).filter(Boolean)
-      : [],
   };
+
+  // Allowed domains
+  const domains = form.allowed_domains.trim()
+    ? form.allowed_domains.split(',').map(d => d.trim()).filter(Boolean)
+    : [];
+  if (domains.length) config.allowed_domains = domains;
+
+  // Users deny
+  const deny = form.users_deny.trim()
+    ? form.users_deny.split(',').map(u => u.trim()).filter(Boolean)
+    : [];
+  if (deny.length) config.users_deny = deny;
+
+  // Path restrictions — only include if at least one field is filled
+  const rw = splitPaths(form.restrict_rw);
+  const ro = splitPaths(form.restrict_ro);
+  const none = splitPaths(form.restrict_none);
+  if (rw.length || ro.length || none.length) {
+    config.restrict_paths = {
+      read_write: rw,
+      read: ro,
+      none: none,
+    };
+  }
+
   await store.createGateway(config);
 }
 </script>

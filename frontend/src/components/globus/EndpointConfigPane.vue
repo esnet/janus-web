@@ -104,14 +104,47 @@
           </div>
           <div class="form-group col-md-6">
             <label class="font-weight-bold small text-uppercase text-muted">
-              Project ID (optional)
+              Globus Auth Project
             </label>
-            <input
-              v-model="form.project_id"
-              type="text"
-              class="form-control"
-              placeholder="Leave blank to auto-create"
-            />
+            <div class="mt-1">
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  id="projectNew"
+                  value="new"
+                  v-model="projectMode"
+                />
+                <label class="form-check-label small" for="projectNew">
+                  Create a new project automatically
+                </label>
+              </div>
+              <div class="form-check mt-1">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  id="projectExisting"
+                  value="existing"
+                  v-model="projectMode"
+                />
+                <label class="form-check-label small" for="projectExisting">
+                  Use an existing project
+                </label>
+              </div>
+            </div>
+            <div v-if="projectMode === 'existing'" class="mt-2">
+              <input
+                v-model="form.project_id"
+                type="text"
+                class="form-control form-control-sm"
+                :class="{ 'is-invalid': errors.project_id }"
+                placeholder="e.g. a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+              />
+              <div v-if="errors.project_id" class="invalid-feedback">{{ errors.project_id }}</div>
+              <small class="form-text text-muted">
+                Paste the UUID of an existing Globus Auth project.
+              </small>
+            </div>
           </div>
         </div>
 
@@ -229,6 +262,9 @@ const form = reactive({
   always_create_project: true,
 });
 
+// 'new' = --always-create-project, 'existing' = --project-id <uuid>
+const projectMode = ref('new');
+
 const manualEndpointId = ref('');
 const extractedEndpointId = ref('');  // endpoint ID parsed from terminal output
 const loading = ref(false);
@@ -243,6 +279,7 @@ const errors = reactive({
   organization: '',
   contact_email: '',
   owner: '',
+  project_id: '',
 });
 
 async function setEndpointId() {
@@ -265,6 +302,7 @@ function validate() {
   errors.organization = '';
   errors.contact_email = '';
   errors.owner = '';
+  errors.project_id = '';
 
   if (!form.display_name.trim()) {
     errors.display_name = 'Display name is required.';
@@ -285,6 +323,10 @@ function validate() {
     errors.owner = 'Globus identity (owner) is required.';
     valid = false;
   }
+  if (projectMode.value === 'existing' && !form.project_id.trim()) {
+    errors.project_id = 'Project UUID is required when using an existing project.';
+    valid = false;
+  }
   return valid;
 }
 
@@ -292,6 +334,13 @@ async function buildAndRun() {
   if (!validate()) return;
   loading.value = true;
   store.error = null;
+
+  // Set project fields based on the radio toggle
+  form.always_create_project = projectMode.value === 'new';
+  if (projectMode.value === 'new') {
+    form.project_id = '';
+  }
+
   try {
     // Get the command string from the backend
     const res = await api.getEndpointSetupCmd(store.currentService.id, { ...form });
