@@ -94,14 +94,19 @@
         @next="store.goToStep(4)"
         @back="store.goToStep(2)"
       />
-      <StorageGatewayPane
+      <GcsLoginPane
         v-else-if="store.currentStep === 4"
         @next="store.goToStep(5)"
         @back="store.goToStep(3)"
       />
-      <CollectionsPane
+      <StorageGatewayPane
         v-else-if="store.currentStep === 5"
+        @next="store.goToStep(6)"
         @back="store.goToStep(4)"
+      />
+      <CollectionsPane
+        v-else-if="store.currentStep === 6"
+        @back="store.goToStep(5)"
         @finish="handleFinish"
       />
     </div>
@@ -115,6 +120,7 @@ import SessionSelectorPane from './SessionSelectorPane.vue';
 import GlobusAuthPane from './GlobusAuthPane.vue';
 import EndpointConfigPane from './EndpointConfigPane.vue';
 import NodeConfigPane from './NodeConfigPane.vue';
+import GcsLoginPane from './GcsLoginPane.vue';
 import StorageGatewayPane from './StorageGatewayPane.vue';
 import CollectionsPane from './CollectionsPane.vue';
 
@@ -143,19 +149,24 @@ const steps = [
   { label: 'Auth' },
   { label: 'Endpoint' },
   { label: 'Node' },
+  { label: 'GCS Login' },
   { label: 'Gateway' },
   { label: 'Collections' },
 ];
 
-// Status → step number mapping (step is complete if service status is past it)
+// Status → step number mapping (step is complete if service status is past it).
+// Step 4 (GCS Login) has no dedicated DB status — node_configured covers both
+// step 3 (Node) and step 4 (GCS Login) from the DB perspective.  Once the user
+// completes GCS Login and clicks "Continue", the wizard advances to step 5
+// (Gateway) which requires gateway_configured to be marked complete.
 const statusOrder = {
   pending: 0,
   auth_complete: 1,
   endpoint_configured: 2,
-  node_configured: 3,
-  gateway_configured: 4,
-  collections_configured: 5,
-  complete: 5,
+  node_configured: 3,   // step 3 complete; step 4 (GCS Login) is a frontend-only gate
+  gateway_configured: 5,
+  collections_configured: 6,
+  complete: 6,
 };
 
 onMounted(async () => {

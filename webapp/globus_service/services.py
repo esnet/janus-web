@@ -485,7 +485,18 @@ def _build_endpoint_setup_cmd(config: dict) -> str:
         gcs_cmd += " --always-create-project"
     gcs_cmd += f" {display_name}"
 
-    # Wrap in bash -c so the shell interprets the cleanup + setup as two commands.
+    # After endpoint setup succeeds, immediately transfer ownership to the service account
+    # using the GCS CLI.  This must happen in the same shell session while the GCS CLI
+    # credentials (stored in /root/.globus_connect_server/) are still valid.
+    # The REST API approach fails because the service account has no role yet.
+    service_identity = getattr(settings, "GLOBUS_SERVICE_IDENTITY", "")
+    set_owner_cmd = ""
+    if service_identity:
+        set_owner_cmd = (
+            f" && globus-connect-server endpoint set-owner {shlex.quote(service_identity)}"
+        )
+
+    # Wrap in bash -c so the shell interprets the cleanup + setup + set-owner as one session.
     # Cleanup removes:
     #   - stale GCS config dirs (prevent "client_id and secret already exist" error)
     #   - the old deployment key on the shared /work volume (same error if left behind)
@@ -493,7 +504,7 @@ def _build_endpoint_setup_cmd(config: dict) -> str:
     # names inside gcs_cmd are not broken.
     full_cmd = (
         f'bash -c "rm -rf /etc/globus-connect-server/* /var/lib/globus-connect-server/*'
-        f' {shlex.quote(deployment_key_path)} 2>/dev/null; {gcs_cmd}"'
+        f' {shlex.quote(deployment_key_path)} 2>/dev/null; {gcs_cmd}{set_owner_cmd}"'
     )
     return full_cmd
 
@@ -509,7 +520,7 @@ def _build_gcs_login_cmd(endpoint_id: str) -> str:
     return f"globus-connect-server login {shlex.quote(endpoint_id)}"
 
 
-def _build_endpoint_set_owner_cmd(service_account_id: str) -> str:
+def _build_endpoint_set_owner_cmd(service_account_id: str, use_explicit_host: str = "") -> str:
     """
     Build the `globus-connect-server endpoint set-owner` command.
 
@@ -520,8 +531,16 @@ def _build_endpoint_set_owner_cmd(service_account_id: str) -> str:
     Args:
         service_account_id: Globus client ID of the service account,
                             e.g. "68c19eed-8872-4107-b85c-e11be12db9ad@clients.auth.globus.org"
+        use_explicit_host:  If non-empty, appends ``--use-explicit-host <ip>`` so the
+                            CLI connects to the GCS Manager at that IP address instead of
+                            trying to resolve the public hostname.  Required when running
+                            inside the node container where the public GCS hostname does
+                            not resolve (e.g. ``"127.0.0.1"``).
     """
-    return f"globus-connect-server endpoint set-owner {shlex.quote(service_account_id)}"
+    cmd = f"globus-connect-server endpoint set-owner {shlex.quote(service_account_id)}"
+    if use_explicit_host:
+        cmd += f" --use-explicit-host {shlex.quote(use_explicit_host)}"
+    return cmd
 
 
 def _build_storage_gateway_cmd(config: dict) -> str:
@@ -662,6 +681,64 @@ def run_endpoint_setup(service: GlobusService, config: dict) -> Tuple[bool, str]
     return True, cmd
 
 
+def _run_endpoint_set_owner_in_container(service: GlobusService) -> Tuple[bool, str]:
+    """
+    Run `globus-connect-server endpoint set-owner <service_account_id>` inside the
+    setup container to transfer endpoint ownership to the Janus service account.
+
+    This must be called while the setup container is still running and has the
+    endpoint credentials stored from the `endpoint setup` run.  The GCS CLI uses
+    those stored credentials (which have the correct manage_collections scope) to
+    authorize the ownership transfer — no additional login or user token needed.
+
+    This is non-fatal: if it fails (e.g. container stopped, credentials expired),
+    a warning is logged and the wizard continues.  The user can manually transfer
+    ownership later via the Globus web UI or `grant-admin` API endpoint.
+
+    Returns:
+        (success, message)
+    """
+    service_identity = getattr(settings, "GLOBUS_SERVICE_IDENTITY", "")
+    if not service_identity:
+        logger.warning(
+            "GlobusService id=%s: GLOBUS_SERVICE_IDENTITY not configured — skipping set-owner",
+            service.pk,
+        )
+        return False, "GLOBUS_SERVICE_IDENTITY not configured."
+
+    cmd = f"globus-connect-server endpoint set-owner {shlex.quote(service_identity)}"
+    logger.info(
+        "GlobusService id=%s: running endpoint set-owner in setup container: %s",
+        service.pk, cmd,
+    )
+    try:
+        success, output = _exec_in_container(
+            service.node_name, service.container_id, cmd, timeout=30.0
+        )
+        if success and output.strip():
+            logger.info(
+                "GlobusService id=%s: endpoint set-owner output: %s",
+                service.pk, output.strip()[:200],
+            )
+        if not success or "error" in output.lower() or "Error" in output:
+            logger.warning(
+                "GlobusService id=%s: endpoint set-owner may have failed: %s",
+                service.pk, output.strip()[:200],
+            )
+            return False, output.strip()
+        logger.info(
+            "GlobusService id=%s: endpoint ownership transferred to %s via CLI",
+            service.pk, service_identity,
+        )
+        return True, output.strip()
+    except Exception as exc:
+        logger.warning(
+            "GlobusService id=%s: endpoint set-owner failed (non-fatal): %s",
+            service.pk, exc,
+        )
+        return False, str(exc)
+
+
 def fetch_deployment_key(service: GlobusService, deployment_key_path: str = "/work/deployment-key.json") -> Tuple[bool, str]:
     """
     Retrieve the deployment-key.json from the container after endpoint setup.
@@ -729,9 +806,14 @@ def fetch_deployment_key(service: GlobusService, deployment_key_path: str = "/wo
         _transition(service, GlobusService.Status.ENDPOINT_CONFIGURED)
         logger.info("GlobusService id=%s: deployment key collected successfully", service.pk)
 
-        # Auto-transfer endpoint ownership to the service account
-        # This is non-fatal — log a warning if it fails but don't block the wizard
-        transfer_endpoint_ownership(service)
+        # Transfer endpoint ownership to the service account by running
+        # `globus-connect-server endpoint set-owner` inside the setup container.
+        # This uses the stored endpoint credentials (from endpoint setup) which have
+        # the correct manage_collections scope — no additional login needed.
+        # The REST API approach (transfer_endpoint_ownership) requires the caller to
+        # already have a role, which the service account doesn't have yet.
+        # This is non-fatal — log a warning if it fails but don't block the wizard.
+        _run_endpoint_set_owner_in_container(service)
     else:
         logger.warning("GlobusService id=%s: could not fetch deployment key: %s", service.pk, output)
 
@@ -740,10 +822,21 @@ def fetch_deployment_key(service: GlobusService, deployment_key_path: str = "/wo
 
 def get_gcs_login_cmd(service: GlobusService) -> str:
     """
-    Return the `globus-connect-server login <endpoint-id>` command string.
+    Return the combined GCS login + ownership-transfer command for Step 3.5.
 
-    This is an interactive command required before storage-gateway and collection
-    creation. It must be run via GCSInteractiveConsumer WebSocket.
+    The command runs interactively in the **node container** via the
+    GCSInteractiveConsumer WebSocket.  It:
+
+    1. Runs ``globus-connect-server login <endpoint-id>`` — this is interactive:
+       GCS prints a Globus Auth URL, the user opens it, authenticates, and pastes
+       the resulting code back into the terminal.  This populates the GCS Manager's
+       role database so that subsequent REST API calls (gateway/collection creation)
+       are authorised.
+
+    2. If ``GLOBUS_SERVICE_IDENTITY`` is configured, chains
+       ``globus-connect-server endpoint set-owner <identity>`` so that the service
+       account becomes the endpoint owner immediately after login.
+
     The endpoint_id must have been set on the service (from endpoint setup output).
     """
     endpoint_id = service.globus_endpoint_id
@@ -752,25 +845,37 @@ def get_gcs_login_cmd(service: GlobusService) -> str:
             f"GlobusService id={service.pk} has no endpoint_id. "
             "Complete endpoint setup first."
         )
-    return _build_gcs_login_cmd(endpoint_id)
+    login_cmd = _build_gcs_login_cmd(endpoint_id)
+    service_identity = getattr(settings, "GLOBUS_SERVICE_IDENTITY", "")
+    if service_identity:
+        # Pass --use-explicit-host 127.0.0.1 so the CLI connects to the GCS
+        # Manager at the local IP rather than trying to resolve the public
+        # hostname (e.g. 002d5a.69a6.gaccess.io) which doesn't resolve from
+        # inside the node container.
+        set_owner_cmd = _build_endpoint_set_owner_cmd(
+            service_identity, use_explicit_host="127.0.0.1"
+        )
+        # The Docker exec API does NOT invoke a shell, so `&&` would be passed
+        # as a literal argument to `globus-connect-server login`.  Wrap the
+        # chained command in `bash -c "..."` so the shell interprets `&&`.
+        return f'bash -c "{login_cmd} && {set_owner_cmd}"'
+    return login_cmd
 
 
 def transfer_endpoint_ownership(service: GlobusService) -> Tuple[bool, str]:
     """
     Transfer endpoint ownership to the Janus service account via the GCS REST API.
 
-    Called automatically after deployment key collection.  Uses the service account's
-    ClientCredentialsAuthorizer to get a bearer token, then PUTs to
-    https://<gcs_address>/api/endpoint/owner.
+    Called automatically after deployment key collection.  The PUT to
+    /api/endpoint/owner must be authorized by the **current endpoint owner**
+    (the human user who ran ``endpoint setup --owner <user>``), not the service
+    account.  We use the user's stored Globus access token for this call, then
+    the service account becomes the new owner.
 
     Returns:
         (success, message)
     """
-    cfg = service.get_config_data()
-    endpoint_id = service.globus_endpoint_id
-    gcs_address = cfg.get("gcs_address") or (
-        gcs.derive_gcs_address(endpoint_id) if endpoint_id else None
-    )
+    gcs_address, endpoint_id, verify_tls, local_address = _resolve_gcs_connection(service)
     if not gcs_address or not endpoint_id:
         return False, "endpoint_id / gcs_address not set — cannot transfer ownership."
 
@@ -778,18 +883,18 @@ def transfer_endpoint_ownership(service: GlobusService) -> Tuple[bool, str]:
     if not service_client_id:
         return False, "GLOBUS_SERVICE_CLIENT_ID not configured."
 
-    try:
-        # Get a bearer token via ClientCredentials
-        import globus_sdk
-        client_secret = getattr(settings, "GLOBUS_SERVICE_CLIENT_SECRET", "")
-        manage_scope = f"urn:globus:auth:scope:{endpoint_id}:manage_collections"
-        conf_client = globus_sdk.ConfidentialAppAuthClient(service_client_id, client_secret)
-        authorizer = globus_sdk.ClientCredentialsAuthorizer(conf_client, scopes=manage_scope)
-        # Force token fetch
-        authorizer.ensure_valid_token()
-        access_token = authorizer.access_token
+    # Use the user's access token — the user is the current endpoint owner and
+    # must authorize the ownership transfer.  The service account token would
+    # get 403 because it has no role on the endpoint yet.
+    access_token = get_valid_access_token(service.user)
+    if not access_token:
+        return False, "No valid user access token — cannot authorize ownership transfer."
 
-        gcs.set_endpoint_owner_via_api(gcs_address, service_client_id, access_token)
+    try:
+        gcs.set_endpoint_owner_via_api(
+            gcs_address, service_client_id, access_token,
+            verify_tls=verify_tls, local_address=local_address,
+        )
         logger.info(
             "GlobusService id=%s: endpoint ownership transferred to service account %s",
             service.pk, service_client_id,
@@ -817,16 +922,12 @@ def grant_user_admin_role(service: GlobusService, user_identity_id: str) -> Tupl
     Returns:
         (success, message)
     """
-    cfg = service.get_config_data()
-    endpoint_id = service.globus_endpoint_id
-    gcs_address = cfg.get("gcs_address") or (
-        gcs.derive_gcs_address(endpoint_id) if endpoint_id else None
-    )
+    gcs_address, endpoint_id, verify_tls, local_address = _resolve_gcs_connection(service)
     if not gcs_address or not endpoint_id:
         return False, "endpoint_id / gcs_address not set."
 
     try:
-        client = gcs.get_gcs_client_service_account(gcs_address, endpoint_id)
+        client = gcs.get_gcs_client_service_account(gcs_address, endpoint_id, verify_tls=verify_tls, local_address=local_address)
         gcs.create_role(client, endpoint_id, user_identity_id, role="administrator")
         logger.info(
             "GlobusService id=%s: granted administrator role to identity %s",
@@ -879,13 +980,52 @@ def derive_gcs_address(endpoint_id: str) -> str:
     return gcs.derive_gcs_address(endpoint_id)
 
 
+def _resolve_gcs_connection(service: GlobusService):
+    """
+    Return (gcs_address, endpoint_id, verify_tls, local_address) for service account REST calls.
+
+    In local/NAT environments, the GCS Manager is reachable at 127.0.0.1 but its
+    Apache vhost is configured for its own hostname (e.g. ``062b47.6fbd.gaccess.io``),
+    stored as ``gcs_manager_hostname`` in config_data.  We must use that hostname as
+    the URL (and Host header) while directing TCP to 127.0.0.1.
+
+    Resolution order for gcs_address:
+      1. ``gcs_manager_hostname`` (actual GCS Manager hostname from TLS cert CN) — used
+         when ``gcs_local_address`` is also set (local/NAT mode).
+      2. ``gcs_address`` (public Globus Transfer alias, e.g. ``<uuid>.data.globus.org``).
+      3. Derived from endpoint_id as ``<uuid>.data.globus.org``.
+
+    Returns:
+        (gcs_address, endpoint_id, verify_tls, local_address)
+        or (None, None, True, "") if endpoint_id is not configured.
+    """
+    cfg = service.get_config_data()
+    endpoint_id = service.globus_endpoint_id
+    if not endpoint_id:
+        return None, None, True, ""
+
+    public_address = cfg.get("gcs_address") or gcs.derive_gcs_address(endpoint_id)
+    local_address = cfg.get("gcs_local_address", "").strip()
+    manager_hostname = cfg.get("gcs_manager_hostname", "").strip()
+
+    if local_address:
+        # Use the GCS Manager's actual hostname (from TLS cert CN) as the URL/Host header,
+        # with TCP directed to the local IP.  Fall back to public_address if not discovered.
+        effective_address = manager_hostname or public_address
+        logger.debug(
+            "GlobusService id=%s: local mode — gcs_address=%s via %s (verify_tls=False)",
+            service.pk, effective_address, local_address,
+        )
+        return effective_address, endpoint_id, False, local_address
+    return public_address, endpoint_id, True, ""
+
+
 def create_gateway_via_api(service: GlobusService, config: dict) -> Tuple[bool, str]:
     """
     Step 4: Create a storage gateway via the GCS REST API using the service account.
 
     Uses ConfidentialAppAuthClient + ClientCredentialsAuthorizer so no interactive
-    GCS login is required.  The endpoint must have been set up with --owner pointing
-    to the service account identity.
+    GCS login is required.
 
     Updates service status to GATEWAY_CONFIGURED on success.
     Stores the gateway_id in config_data.
@@ -893,18 +1033,14 @@ def create_gateway_via_api(service: GlobusService, config: dict) -> Tuple[bool, 
     service.merge_config_data({"storage_gateway": config})
     service.save()
 
-    cfg = service.get_config_data()
-    endpoint_id = service.globus_endpoint_id
-    gcs_address = cfg.get("gcs_address") or (
-        gcs.derive_gcs_address(endpoint_id) if endpoint_id else None
-    )
+    gcs_address, endpoint_id, verify_tls, local_address = _resolve_gcs_connection(service)
     if not gcs_address or not endpoint_id:
         msg = "endpoint_id and gcs_address are required for service account gateway creation."
         _transition(service, GlobusService.Status.ERROR, error_msg=msg)
         return False, msg
 
     try:
-        client = gcs.get_gcs_client_service_account(gcs_address, endpoint_id)
+        client = gcs.get_gcs_client_service_account(gcs_address, endpoint_id, verify_tls=verify_tls, local_address=local_address)
         connector_name = config.get("connector", "posix")
         connector_id = gcs.get_connector_id(connector_name)
         if not connector_id:
@@ -919,6 +1055,16 @@ def create_gateway_via_api(service: GlobusService, config: dict) -> Tuple[bool, 
         if config.get("allowed_domains"):
             gateway_data["allowed_domains"] = config["allowed_domains"]
 
+        # users_deny: list of local usernames to deny (e.g. ["root"])
+        if config.get("users_deny"):
+            gateway_data["users_deny"] = config["users_deny"]
+
+        # restrict_paths: inline path restrictions dict
+        # Expected shape: {"none": [...], "read": [...], "read_write": [...]}
+        # DATA_TYPE is added by create_storage_gateway() if missing.
+        if config.get("restrict_paths"):
+            gateway_data["restrict_paths"] = config["restrict_paths"]
+
         result = gcs.create_storage_gateway(client, gateway_data)
         gateway_id = result.get("id", "")
         if gateway_id:
@@ -930,8 +1076,12 @@ def create_gateway_via_api(service: GlobusService, config: dict) -> Tuple[bool, 
         logger.info("GlobusService id=%s: gateway created via API, id=%s", service.pk, gateway_id)
         return True, gateway_id
     except Exception as exc:
-        msg = str(exc)
-        logger.error("GlobusService id=%s: gateway create via API failed: %s", service.pk, msg)
+        msg = str(exc) or repr(exc)
+        logger.error(
+            "GlobusService id=%s: gateway create via API failed: %r (type=%s)",
+            service.pk, exc, type(exc).__name__,
+            exc_info=True,
+        )
         _transition(service, GlobusService.Status.ERROR, error_msg=msg)
         return False, msg
 
@@ -950,10 +1100,7 @@ def create_collection_via_api(service: GlobusService, config: dict) -> Tuple[boo
     service.save()
 
     cfg = service.get_config_data()
-    endpoint_id = service.globus_endpoint_id
-    gcs_address = cfg.get("gcs_address") or (
-        gcs.derive_gcs_address(endpoint_id) if endpoint_id else None
-    )
+    gcs_address, endpoint_id, verify_tls, local_address = _resolve_gcs_connection(service)
     if not gcs_address or not endpoint_id:
         msg = "endpoint_id and gcs_address are required for service account collection creation."
         _transition(service, GlobusService.Status.ERROR, error_msg=msg)
@@ -962,7 +1109,7 @@ def create_collection_via_api(service: GlobusService, config: dict) -> Tuple[boo
     collection_type = config.get("collection_type", "mapped")
 
     try:
-        client = gcs.get_gcs_client_service_account(gcs_address, endpoint_id)
+        client = gcs.get_gcs_client_service_account(gcs_address, endpoint_id, verify_tls=verify_tls, local_address=local_address)
 
         if collection_type == "guest":
             # Guest collection: need UserCredential first, then GuestCollectionDocument

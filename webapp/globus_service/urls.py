@@ -44,6 +44,8 @@ urlpatterns = [
     path("api/globus/<int:service_id>/endpoint/grant-admin/", views.grant_user_admin_api, name="grant_admin_api"),
     # Node setup (non-interactive — node is launched as a new container with env vars)
     path("api/globus/<int:service_id>/node/setup/", views.setup_node_api, name="setup_node_api"),
+    # GCS Login command (Step 3.5) — returns interactive `gcs login && set-owner` cmd string
+    path("api/globus/<int:service_id>/node/login-cmd/", views.get_gcs_login_cmd_api, name="gcs_login_cmd_api"),
     # Storage gateway creation via service account REST API (no GCS login required)
     path("api/globus/<int:service_id>/gateway/create/", views.create_gateway_api, name="create_gateway_api"),
     # List storage gateways via service account REST API

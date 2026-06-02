@@ -166,12 +166,79 @@ class EndpointSetupCmdTest(TestCase):
         cmd = svc._build_endpoint_setup_cmd(config)
         self.assertIn("-d /custom/path/key.json", cmd)
 
+    def test_set_owner_appended_when_service_identity_configured(self):
+        """endpoint set-owner is chained after endpoint setup when GLOBUS_SERVICE_IDENTITY is set."""
+        from django.test import override_settings
+        config = {
+            "display_name": "EP",
+            "organization": "Org",
+            "contact_email": "a@b.com",
+        }
+        with override_settings(GLOBUS_SERVICE_IDENTITY="svc@clients.auth.globus.org"):
+            cmd = svc._build_endpoint_setup_cmd(config)
+        self.assertIn("&& globus-connect-server endpoint set-owner", cmd)
+        self.assertIn("svc@clients.auth.globus.org", cmd)
+
+    def test_set_owner_omitted_when_service_identity_not_configured(self):
+        """endpoint set-owner is omitted when GLOBUS_SERVICE_IDENTITY is not set."""
+        from django.test import override_settings
+        config = {
+            "display_name": "EP",
+            "organization": "Org",
+            "contact_email": "a@b.com",
+        }
+        with override_settings(GLOBUS_SERVICE_IDENTITY=""):
+            cmd = svc._build_endpoint_setup_cmd(config)
+        self.assertNotIn("set-owner", cmd)
+
 
 class GcsLoginCmdTest(TestCase):
     def test_login_cmd(self):
         cmd = svc._build_gcs_login_cmd("endpoint-uuid-123")
         # shlex.quote: alphanumeric+hyphens → no quotes added
         self.assertEqual(cmd, "globus-connect-server login endpoint-uuid-123")
+
+    def test_get_gcs_login_cmd_chains_set_owner_when_identity_configured(self):
+        """get_gcs_login_cmd wraps chained cmd in bash -c when GLOBUS_SERVICE_IDENTITY is set."""
+        from django.test import override_settings
+        from globus_service.models import GlobusService
+        service = GlobusService.objects.create(
+            user=User.objects.create_user("logintest", password="x"),
+            session_id=99,
+            node_name="n",
+            container_id="c",
+            globus_endpoint_id="ep-uuid-abc",
+        )
+        with override_settings(GLOBUS_SERVICE_IDENTITY="svc@clients.auth.globus.org"):
+            cmd = svc.get_gcs_login_cmd(service)
+        # Must be wrapped in bash -c so Docker exec interprets && as a shell operator
+        self.assertTrue(cmd.startswith('bash -c "'), f"Expected bash -c wrapper, got: {cmd}")
+        self.assertIn("globus-connect-server login", cmd)
+        self.assertIn("ep-uuid-abc", cmd)
+        self.assertIn("&&", cmd)
+        self.assertIn("set-owner", cmd)
+        self.assertIn("svc@clients.auth.globus.org", cmd)
+        # --use-explicit-host 127.0.0.1 required so the CLI doesn't try to
+        # resolve the public GCS hostname from inside the node container
+        self.assertIn("--use-explicit-host", cmd)
+        self.assertIn("127.0.0.1", cmd)
+
+    def test_get_gcs_login_cmd_no_set_owner_when_identity_not_configured(self):
+        """get_gcs_login_cmd returns only login cmd when GLOBUS_SERVICE_IDENTITY is empty."""
+        from django.test import override_settings
+        from globus_service.models import GlobusService
+        service = GlobusService.objects.create(
+            user=User.objects.create_user("logintest2", password="x"),
+            session_id=98,
+            node_name="n",
+            container_id="c",
+            globus_endpoint_id="ep-uuid-def",
+        )
+        with override_settings(GLOBUS_SERVICE_IDENTITY=""):
+            cmd = svc.get_gcs_login_cmd(service)
+        self.assertIn("globus-connect-server login", cmd)
+        self.assertIn("ep-uuid-def", cmd)
+        self.assertNotIn("set-owner", cmd)
 
 
 class SetOwnerCmdTest(TestCase):
@@ -520,7 +587,7 @@ class ServicesExecTest(TestCase):
         self.service.save()
 
         mock_client = MagicMock()
-        mock_client.create_storage_gateway.return_value = {"id": "gw-api-uuid-123"}
+        mock_client.create_storage_gateway.return_value = MagicMock(data={"id": "gw-api-uuid-123"})
         mock_get_client.return_value = mock_client
 
         config = {"connector": "posix", "display_name": "API Gateway"}
@@ -548,7 +615,7 @@ class ServicesExecTest(TestCase):
         self.service.save()
 
         mock_client = MagicMock()
-        mock_client.create_collection.return_value = {"id": "col-api-uuid-456"}
+        mock_client.create_collection.return_value = MagicMock(data={"id": "col-api-uuid-456"})
         mock_get_client.return_value = mock_client
 
         config = {
@@ -720,6 +787,29 @@ class GlobusServiceAPITest(TestCase):
         )
         # Missing owner → 400
         self.assertEqual(resp.status_code, 400)
+
+    def test_get_gcs_login_cmd_api(self):
+        """GET /node/login-cmd/ returns cmd containing gcs login for a service with endpoint_id."""
+        service = svc.create_service(self.user, 1, "n1", "c1")
+        service.globus_endpoint_id = "ep-uuid-view-test"
+        service.save()
+        resp = self.client.get(
+            f"/janus/services/api/globus/{service.pk}/node/login-cmd/",
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("cmd", data)
+        self.assertIn("globus-connect-server login", data["cmd"])
+        self.assertIn("ep-uuid-view-test", data["cmd"])
+
+    def test_get_gcs_login_cmd_api_no_endpoint_id(self):
+        """GET /node/login-cmd/ returns 400 when service has no endpoint_id."""
+        service = svc.create_service(self.user, 1, "n1", "c1")
+        resp = self.client.get(
+            f"/janus/services/api/globus/{service.pk}/node/login-cmd/",
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("error", resp.json())
 
     def test_set_endpoint_owner(self):
         service = svc.create_service(self.user, 1, "n1", "c1")
@@ -1057,7 +1147,7 @@ class GcsServiceTest(TestCase):
         """create_role calls client.create_role with a GCSRoleDocument."""
         import globus_sdk
         mock_client = MagicMock()
-        mock_client.create_role.return_value = {"id": "role-uuid", "role": "administrator"}
+        mock_client.create_role.return_value = MagicMock(data={"id": "role-uuid", "role": "administrator"})
 
         gcs.create_role(mock_client, "collection-uuid", "identity-uuid", "administrator")
         mock_client.create_role.assert_called_once()
@@ -1078,18 +1168,11 @@ class ServicesOwnershipTest(TestCase):
         self.service.save()
 
     @patch("globus_service.gcs_service.set_endpoint_owner_via_api")
-    @patch("globus_sdk.ClientCredentialsAuthorizer")
-    @patch("globus_sdk.ConfidentialAppAuthClient")
-    def test_transfer_endpoint_ownership_success(
-        self, mock_conf_cls, mock_auth_cls, mock_set_owner
-    ):
-        """transfer_endpoint_ownership calls set_endpoint_owner_via_api with bearer token."""
+    @patch("globus_service.services.get_valid_access_token")
+    def test_transfer_endpoint_ownership_success(self, mock_get_token, mock_set_owner):
+        """transfer_endpoint_ownership uses the user's token to authorize the ownership PUT."""
         from django.test import override_settings
-        mock_conf_client = MagicMock()
-        mock_conf_cls.return_value = mock_conf_client
-        mock_authorizer = MagicMock()
-        mock_authorizer.access_token = "bearer-abc"
-        mock_auth_cls.return_value = mock_authorizer
+        mock_get_token.return_value = "user-bearer-abc"
         mock_set_owner.return_value = {}
 
         with override_settings(
@@ -1099,8 +1182,10 @@ class ServicesOwnershipTest(TestCase):
             success, msg = svc.transfer_endpoint_ownership(self.service)
 
         self.assertTrue(success)
+        mock_get_token.assert_called_once_with(self.service.user)
         mock_set_owner.assert_called_once_with(
-            "ep-uuid-own.data.globus.org", "svc-client-id", "bearer-abc"
+            "ep-uuid-own.data.globus.org", "svc-client-id", "user-bearer-abc",
+            verify_tls=True, local_address="",
         )
 
     def test_transfer_endpoint_ownership_no_endpoint_id(self):
@@ -1124,7 +1209,7 @@ class ServicesOwnershipTest(TestCase):
 
         self.assertTrue(success)
         mock_get_client.assert_called_once_with(
-            "ep-uuid-own.data.globus.org", "ep-uuid-own"
+            "ep-uuid-own.data.globus.org", "ep-uuid-own", verify_tls=True, local_address=""
         )
         mock_create_role.assert_called_once_with(
             mock_client, "ep-uuid-own", "user-identity-uuid", role="administrator"

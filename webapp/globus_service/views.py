@@ -379,6 +379,49 @@ def setup_node_api(request, service_id):
     node_setup_args = data.get("node_setup_args", "")
 
     success, result = services.launch_node_container(service, node_name, node_setup_args)
+
+    if success:
+        # The node container uses host networking, so the GCS Manager is reachable
+        # at 127.0.0.1 from the Django server. Store this as gcs_local_address so
+        # service account REST API calls work in local/NAT environments where the
+        # public domain (uuid.data.globus.org) is not yet reachable.
+        # Use 127.0.0.1 explicitly (not "localhost") to avoid IPv6 (::1) resolution.
+        local_config = {"gcs_local_address": "127.0.0.1"}
+
+        # Discover the GCS Manager's actual hostname from its TLS cert CN.
+        # The GCS Manager's Apache vhost is configured for this hostname
+        # (e.g. "5870fd.27eb.gaccess.io"), not for the <uuid>.data.globus.org alias.
+        # Requests must use this hostname as the URL host for Apache to route correctly.
+        # Retry for up to 60s to allow the container's HTTPS server time to start.
+        import time
+        from . import gcs_service as gcs_mod
+        manager_hostname = None
+        for attempt in range(12):  # 12 × 5s = 60s max
+            time.sleep(5)
+            manager_hostname = gcs_mod.get_gcs_manager_hostname(local_ip="127.0.0.1", port=443)
+            if manager_hostname:
+                break
+            logger.debug(
+                "GlobusService id=%s: GCS Manager not ready yet (attempt %d/12)",
+                service.pk, attempt + 1,
+            )
+
+        if manager_hostname:
+            local_config["gcs_manager_hostname"] = manager_hostname
+            logger.info(
+                "GlobusService id=%s: discovered GCS Manager hostname: %s",
+                service.pk, manager_hostname,
+            )
+        else:
+            logger.warning(
+                "GlobusService id=%s: could not discover GCS Manager hostname from TLS cert "
+                "after 60s; gateway/collection creation may fail in local/NAT environments.",
+                service.pk,
+            )
+
+        service.merge_config_data(local_config)
+        service.save()
+
     return JsonResponse({
         "success": success,
         "container_id": result if success else "",
@@ -659,6 +702,49 @@ def fetch_deployment_key_api(request, service_id):
         "output": output,
         "service": service.to_dict(),
     }, status=200 if success else 400)
+
+
+def get_gcs_login_cmd_api(request, service_id):
+    """
+    GET /janus/services/api/globus/<service_id>/node/login-cmd/
+
+    Returns the combined ``globus-connect-server login <endpoint-id>`` (and
+    optionally ``&& endpoint set-owner <identity>``) command string for Step 3.5.
+
+    The caller sends this command via the GCSInteractiveConsumer WebSocket
+    (ws/gcs-interactive/<service_id>/) because ``gcs login`` is interactive —
+    it prints a Globus Auth URL and waits for the user to paste back a code.
+
+    Running this in the **node container** populates the GCS Manager's role
+    database, which is required before storage gateway and collection creation.
+    """
+    err = _require_auth(request)
+    if err:
+        return err
+
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    service = services.get_service(service_id, request.user)
+    if service is None:
+        return JsonResponse({"error": "Service not found"}, status=404)
+
+    try:
+        cmd = services.get_gcs_login_cmd(service)
+    except ValueError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+
+    return JsonResponse({
+        "cmd": cmd,
+        "service": service.to_dict(),
+        "note": (
+            "Send this command via the interactive WebSocket session "
+            "(ws/gcs-interactive/<service_id>/).  The command is interactive: "
+            "GCS will print a Globus Auth URL — open it, authenticate, then "
+            "paste the code back into the terminal.  Once complete, proceed to "
+            "storage gateway creation."
+        ),
+    })
 
 
 def set_endpoint_owner_api(request, service_id):

@@ -183,6 +183,10 @@ export default {
   setupGlobusNode(id, data) {
     return globusApi.post(`api/globus/${id}/node/setup/`, data);
   },
+  // GCS Login command (Step 3.5) — returns interactive `gcs login && set-owner` cmd string
+  getGcsLoginCmd(id) {
+    return globusApi.get(`api/globus/${id}/node/login-cmd/`);
+  },
   // Storage gateway — service account REST API (no GCS login required)
   createGlobusGateway(id, data) {
     return globusApi.post(`api/globus/${id}/gateway/create/`, data);
