@@ -206,6 +206,25 @@
           </div>
         </div>
 
+        <!-- Public visibility toggle -->
+        <div class="form-group">
+          <div class="custom-control custom-switch">
+            <input
+              type="checkbox"
+              class="custom-control-input"
+              id="collectionPublic"
+              v-model="form.public"
+              :disabled="store.loading"
+            />
+            <label class="custom-control-label font-weight-bold small text-uppercase text-muted" for="collectionPublic">
+              Public collection
+            </label>
+          </div>
+          <small class="form-text text-muted">
+            When enabled, the collection is visible to other Globus users. Required by GCS.
+          </small>
+        </div>
+
         <div v-if="store.error" class="alert alert-danger small py-2">
           <i class="fas fa-exclamation-triangle mr-1"></i>{{ store.error }}
         </div>
@@ -284,6 +303,7 @@ const form = reactive({
   description: '',
   organization: '',
   keywords: '',
+  public: true,
 });
 
 const errors = reactive({
@@ -343,6 +363,7 @@ async function submit() {
     description: form.description.trim(),
     organization: form.organization.trim(),
     keywords: form.keywords.trim(),
+    public: form.public,
   };
 
   const result = await store.createCollection(config);
