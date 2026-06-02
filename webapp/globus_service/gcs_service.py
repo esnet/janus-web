@@ -657,6 +657,7 @@ def create_collection(client, data: dict) -> dict:
     allowed = {
         "collection_base_path", "display_name", "contact_email", "contact_info",
         "default_directory", "department", "description", "identity_id",
+        "storage_gateway_id", "public",
     }
     filtered = {k: v for k, v in data.items() if k in allowed and v is not None}
     try:

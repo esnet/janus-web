@@ -1144,6 +1144,8 @@ def create_collection_via_api(service: GlobusService, config: dict) -> Tuple[boo
             collection_data = {
                 "collection_base_path": config.get("base_path", "/"),
                 "display_name": config.get("display_name", "Mapped Collection"),
+                # GCS requires 'public' for collection creation; default to True
+                "public": config.get("public", True),
             }
             if storage_gateway_id:
                 collection_data["storage_gateway_id"] = storage_gateway_id
