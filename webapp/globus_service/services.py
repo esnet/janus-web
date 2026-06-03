@@ -1149,6 +1149,38 @@ def create_collection_via_api(service: GlobusService, config: dict) -> Tuple[boo
             }
             if storage_gateway_id:
                 collection_data["storage_gateway_id"] = storage_gateway_id
+
+            # Gap 1: forward optional scalar fields (organization, description, etc.)
+            for field in ("organization", "description", "department",
+                          "contact_email", "default_directory"):
+                if config.get(field):
+                    collection_data[field] = config[field]
+
+            # Gap 2: keywords — split comma-separated string into list
+            raw_kw = config.get("keywords", "")
+            if raw_kw:
+                collection_data["keywords"] = [
+                    k.strip() for k in raw_kw.split(",") if k.strip()
+                ]
+
+            # Gap 3: sharing_restrict_paths — assemble dict with required DATA_TYPE
+            rw    = [p.strip() for p in config.get("sharing_rw",   "").split(",") if p.strip()]
+            ro    = [p.strip() for p in config.get("sharing_ro",   "").split(",") if p.strip()]
+            none_ = [p.strip() for p in config.get("sharing_none", "").split(",") if p.strip()]
+            if rw or ro or none_:
+                collection_data["sharing_restrict_paths"] = {
+                    "DATA_TYPE": "path_restrictions#1.0.0",
+                    "read_write": rw,
+                    "read": ro,
+                    "none": none_,
+                }
+
+            # Gap 4: boolean flags — use `in` check so False is not dropped
+            if "disable_anonymous_writes" in config:
+                collection_data["disable_anonymous_writes"] = bool(config["disable_anonymous_writes"])
+            if "allow_guest_collections" in config:
+                collection_data["allow_guest_collections"] = bool(config["allow_guest_collections"])
+
             result = gcs.create_collection(client, collection_data)
 
         collection_id = result.get("id", "")

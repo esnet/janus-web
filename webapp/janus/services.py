@@ -23,13 +23,17 @@ def get_node_types():
 
 def add_node(data, user=None, groups=None):
     params = get_params(user, groups)
-    res = httpx.post(
-        url=base_url + "nodes",
-        json=data,
-        auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY,
-        params=params,
-    )
+    try:
+        res = httpx.post(
+            url=base_url + "nodes",
+            json=data,
+            auth=settings.JANUS_CONTROLLER_AUTH,
+            verify=settings.CTRL_SSL_VERIFY,
+            params=params,
+            timeout=10.0,
+        )
+    except httpx.TimeoutException as exc:
+        return False, {"error": f"Controller timed out adding node: {exc}"}
     if res.status_code in [200, 201, 204]:
         try:
             return True, res.json() if res.status_code != 204 else {}
@@ -40,11 +44,15 @@ def add_node(data, user=None, groups=None):
 
 
 def remove_node(nname, user=None, groups=None):
-    res = httpx.delete(
-        url=base_url + f"nodes/{nname}",
-        auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY,
-    )
+    try:
+        res = httpx.delete(
+            url=base_url + f"nodes/{nname}",
+            auth=settings.JANUS_CONTROLLER_AUTH,
+            verify=settings.CTRL_SSL_VERIFY,
+            timeout=10.0,
+        )
+    except httpx.TimeoutException as exc:
+        return False, {"error": f"Controller timed out removing node {nname}: {exc}"}
     if res.status_code in [200, 204]:
         return True, {}
     else:
@@ -55,11 +63,15 @@ def remove_node(nname, user=None, groups=None):
 
 
 def get_auth_jwt():
-    res = httpx.get(
-        url=f"{base_url}auth/jwt",
-        auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY,
-    )
+    try:
+        res = httpx.get(
+            url=f"{base_url}auth/jwt",
+            auth=settings.JANUS_CONTROLLER_AUTH,
+            verify=settings.CTRL_SSL_VERIFY,
+            timeout=10.0,
+        )
+    except httpx.TimeoutException:
+        return False, []
 
     status, data = False, []
     if res.status_code == 200:
@@ -78,12 +90,16 @@ def create_exec(nid, cid, cmd, start=True, attach=True, tty=False):
         "start": start,
     }
 
-    res = httpx.post(
-        url=f"{base_url}exec",
-        json=data,
-        auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY,
-    )
+    try:
+        res = httpx.post(
+            url=f"{base_url}exec",
+            json=data,
+            auth=settings.JANUS_CONTROLLER_AUTH,
+            verify=settings.CTRL_SSL_VERIFY,
+            timeout=10.0,
+        )
+    except httpx.TimeoutException:
+        return False, []
     status, data = False, []
     if res.status_code in [200, 204]:
         status = True
@@ -104,13 +120,17 @@ def get_session_info(user=None, groups=None, session_id=None):
 
     # also get profile info
     params = get_params(user, groups)
-    res = httpx.get(
-        url=f"{base_url}profiles",
-        auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY,
-        params=params,
-    )
-    if res.status_code == 200:
+    try:
+        res = httpx.get(
+            url=f"{base_url}profiles",
+            auth=settings.JANUS_CONTROLLER_AUTH,
+            verify=settings.CTRL_SSL_VERIFY,
+            params=params,
+            timeout=10.0,
+        )
+    except httpx.TimeoutException:
+        res = None
+    if res is not None and res.status_code == 200:
         data = res.json()
         profiles = dict()
         for p in data:
@@ -118,12 +138,16 @@ def get_session_info(user=None, groups=None, session_id=None):
     else:
         profiles = None
 
-    res = httpx.get(
-        url=url,
-        auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY,
-        params=params,
-    )
+    try:
+        res = httpx.get(
+            url=url,
+            auth=settings.JANUS_CONTROLLER_AUTH,
+            verify=settings.CTRL_SSL_VERIFY,
+            params=params,
+            timeout=10.0,
+        )
+    except httpx.TimeoutException:
+        return False, []
 
     status, data = False, []
     if res.status_code == 200:
@@ -168,13 +192,17 @@ def create_session(data, user=None, groups=None):
     """
     url = base_url + "create"
     params = get_params(user, groups)
-    res = httpx.post(
-        url=url,
-        json=data,
-        auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY,
-        params=params,
-    )
+    try:
+        res = httpx.post(
+            url=url,
+            json=data,
+            auth=settings.JANUS_CONTROLLER_AUTH,
+            verify=settings.CTRL_SSL_VERIFY,
+            params=params,
+            timeout=10.0,
+        )
+    except httpx.TimeoutException as exc:
+        return False, {"error": f"Controller timed out creating session: {exc}"}
 
     if res.status_code == 200:
         return True, res.json()
@@ -188,11 +216,15 @@ def start_session(session_id, user=None, groups=None):
     :param session_id int:
     :return:
     """
-    res = httpx.put(
-        url=base_url + "start/" + str(session_id),
-        auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY,
-    )
+    try:
+        res = httpx.put(
+            url=base_url + "start/" + str(session_id),
+            auth=settings.JANUS_CONTROLLER_AUTH,
+            verify=settings.CTRL_SSL_VERIFY,
+            timeout=10.0,
+        )
+    except httpx.TimeoutException as exc:
+        return False, {"error": f"Controller timed out starting session {session_id}: {exc}"}
 
     if res.status_code == 200:
         return True, res.json()
@@ -209,11 +241,15 @@ def stop_session(session_id, user=None, groups=None):
     :param session_id int:
     :return:
     """
-    res = httpx.put(
-        url=base_url + "stop/" + str(session_id),
-        auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY,
-    )
+    try:
+        res = httpx.put(
+            url=base_url + "stop/" + str(session_id),
+            auth=settings.JANUS_CONTROLLER_AUTH,
+            verify=settings.CTRL_SSL_VERIFY,
+            timeout=10.0,
+        )
+    except httpx.TimeoutException as exc:
+        return False, {"error": f"Controller timed out stopping session {session_id}: {exc}"}
 
     if res.status_code == 200:
         return True, res.json()
@@ -230,16 +266,23 @@ def delete_session(session_id, user=None, groups=None):
     :param session_id int:
     :return:
     """
-    res = httpx.delete(
-        url=base_url + "active/" + str(session_id) + "?force=true",
-        auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY,
-    )
+    try:
+        res = httpx.delete(
+            url=base_url + "active/" + str(session_id) + "?force=true",
+            auth=settings.JANUS_CONTROLLER_AUTH,
+            verify=settings.CTRL_SSL_VERIFY,
+            timeout=10.0,
+        )
+    except httpx.TimeoutException as exc:
+        return False, {"error": f"Controller timed out deleting session {session_id}: {exc}"}
 
     if res.status_code == 204:
         return True, {}
     else:
-        return False, res.json()
+        try:
+            return False, res.json()
+        except Exception:
+            return False, {"error": res.text or f"HTTP {res.status_code}"}
 
 
 def get_profiles(
@@ -254,12 +297,16 @@ def get_profiles(
         profile_url += f"/{pname}"
     params = get_params(user, groups, refresh)
 
-    res = httpx.get(
-        url=profile_url,
-        auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY,
-        params=params,
-    )
+    try:
+        res = httpx.get(
+            url=profile_url,
+            auth=settings.JANUS_CONTROLLER_AUTH,
+            verify=settings.CTRL_SSL_VERIFY,
+            params=params,
+            timeout=10.0,
+        )
+    except httpx.TimeoutException:
+        return False, []
 
     status, profiles = False, []
     if res.status_code == 200:
@@ -305,13 +352,17 @@ def create_profile(resource, data, user=None, groups=None):
     """
     name = data["name"]
     params = get_params(user, groups)
-    res = httpx.post(
-        url=base_url + f"profiles/{resource}/{name}",
-        json=data,
-        auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY,
-        params=params,
-    )
+    try:
+        res = httpx.post(
+            url=base_url + f"profiles/{resource}/{name}",
+            json=data,
+            auth=settings.JANUS_CONTROLLER_AUTH,
+            verify=settings.CTRL_SSL_VERIFY,
+            params=params,
+            timeout=10.0,
+        )
+    except httpx.TimeoutException as exc:
+        return False, {"error": f"Controller timed out creating profile {name}: {exc}"}
     if res.status_code == 200:
         return True, res.json()
     else:
@@ -341,12 +392,16 @@ def update_profile(resource, data, user=None, groups=None):
                 # Safely remove legacy keys if they exist
                 s.pop(f"{k}_ipv4", None)
                 s.pop(f"{k}_ipv6", None)
-    res = httpx.put(
-        url=base_url + f"profiles/{resource}/{name}",
-        json=data,
-        auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY,
-    )
+    try:
+        res = httpx.put(
+            url=base_url + f"profiles/{resource}/{name}",
+            json=data,
+            auth=settings.JANUS_CONTROLLER_AUTH,
+            verify=settings.CTRL_SSL_VERIFY,
+            timeout=10.0,
+        )
+    except httpx.TimeoutException as exc:
+        return False, {"error": f"Controller timed out updating profile {name}: {exc}"}
 
     if res.status_code == 200:
         return True, res.json()
@@ -359,11 +414,15 @@ def update_profile(resource, data, user=None, groups=None):
 
 def delete_profile(resource, pname, user=None, groups=None):
     """Delete profile from Janus Controller"""
-    res = httpx.delete(
-        url=base_url + f"profiles/{resource}/{pname}",
-        auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY,
-    )
+    try:
+        res = httpx.delete(
+            url=base_url + f"profiles/{resource}/{pname}",
+            auth=settings.JANUS_CONTROLLER_AUTH,
+            verify=settings.CTRL_SSL_VERIFY,
+            timeout=10.0,
+        )
+    except httpx.TimeoutException as exc:
+        return False, {"error": f"Controller timed out deleting profile {pname}: {exc}"}
 
     if res.status_code == 204:
         return True, {}
@@ -433,12 +492,16 @@ def get_images(user=None, groups=None, iname=None):
     if iname:
         url += f"/{iname}"
     params = get_params(user, groups)
-    res = httpx.get(
-        url=url,
-        auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY,
-        params=params,
-    )
+    try:
+        res = httpx.get(
+            url=url,
+            auth=settings.JANUS_CONTROLLER_AUTH,
+            verify=settings.CTRL_SSL_VERIFY,
+            params=params,
+            timeout=10.0,
+        )
+    except httpx.TimeoutException:
+        return False, []
 
     status, images = False, []
     if res.status_code == 200:
@@ -453,11 +516,15 @@ def get_qos():
     Get QoS list from Janus Controller
     :return:
     """
-    res = httpx.get(
-        url=base_url + "qos",
-        auth=settings.JANUS_CONTROLLER_AUTH,
-        verify=settings.CTRL_SSL_VERIFY,
-    )
+    try:
+        res = httpx.get(
+            url=base_url + "qos",
+            auth=settings.JANUS_CONTROLLER_AUTH,
+            verify=settings.CTRL_SSL_VERIFY,
+            timeout=10.0,
+        )
+    except httpx.TimeoutException:
+        return False, []
 
     status, qos = False, []
     if res.status_code == 200:

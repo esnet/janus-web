@@ -225,6 +225,87 @@
           </small>
         </div>
 
+        <!-- Gap 4: Allow guest collections + disable anonymous writes (mapped only) -->
+        <div v-if="form.collection_type === 'mapped'" class="form-group">
+          <div class="custom-control custom-switch mb-2">
+            <input
+              type="checkbox"
+              class="custom-control-input"
+              id="allowGuestCollections"
+              v-model="form.allow_guest_collections"
+              :disabled="store.loading"
+            />
+            <label class="custom-control-label font-weight-bold small text-uppercase text-muted" for="allowGuestCollections">
+              Allow Guest Collections
+            </label>
+          </div>
+          <small class="form-text text-muted mb-2 d-block">
+            Permit guest collections to be created from this mapped collection.
+          </small>
+          <div class="custom-control custom-switch">
+            <input
+              type="checkbox"
+              class="custom-control-input"
+              id="disableAnonWrites"
+              v-model="form.disable_anonymous_writes"
+              :disabled="store.loading"
+            />
+            <label class="custom-control-label font-weight-bold small text-uppercase text-muted" for="disableAnonWrites">
+              Disable Anonymous Writes
+            </label>
+          </div>
+          <small class="form-text text-muted">
+            When checked, anonymous (unauthenticated) write access is blocked.
+            Uncheck to allow anonymous writes (<code>disable_anonymous_writes: false</code>).
+          </small>
+        </div>
+
+        <!-- Gap 3: Sharing Path Restrictions (mapped only) -->
+        <div v-if="form.collection_type === 'mapped'" class="card border-light bg-light p-3 mb-3">
+          <div class="font-weight-bold small text-uppercase text-muted mb-2">
+            <i class="fas fa-folder-open mr-1"></i> Sharing Path Restrictions (optional)
+          </div>
+          <p class="text-muted small mb-2">
+            Restrict which paths guest collections may share from this mapped collection.
+            Leave all fields blank to allow sharing of all paths.
+          </p>
+          <div class="form-row">
+            <div class="form-group col-md-4">
+              <label class="small font-weight-bold">Read-Write Paths</label>
+              <input
+                v-model="form.sharing_rw"
+                type="text"
+                class="form-control form-control-sm"
+                placeholder="e.g. /work/data, /scratch"
+                :disabled="store.loading"
+              />
+              <small class="form-text text-muted">Comma-separated paths with full access.</small>
+            </div>
+            <div class="form-group col-md-4">
+              <label class="small font-weight-bold">Read-Only Paths</label>
+              <input
+                v-model="form.sharing_ro"
+                type="text"
+                class="form-control form-control-sm"
+                placeholder="e.g. /data/shared"
+                :disabled="store.loading"
+              />
+              <small class="form-text text-muted">Comma-separated paths with read-only access.</small>
+            </div>
+            <div class="form-group col-md-4">
+              <label class="small font-weight-bold">Denied Paths</label>
+              <input
+                v-model="form.sharing_none"
+                type="text"
+                class="form-control form-control-sm"
+                placeholder="e.g. / (deny root)"
+                :disabled="store.loading"
+              />
+              <small class="form-text text-muted">Comma-separated paths to block entirely.</small>
+            </div>
+          </div>
+        </div>
+
         <div v-if="store.error" class="alert alert-danger small py-2">
           <i class="fas fa-exclamation-triangle mr-1"></i>{{ store.error }}
         </div>
@@ -304,6 +385,13 @@ const form = reactive({
   organization: '',
   keywords: '',
   public: true,
+  // Gap 4
+  allow_guest_collections: false,
+  disable_anonymous_writes: true,
+  // Gap 3
+  sharing_rw: '',
+  sharing_ro: '',
+  sharing_none: '',
 });
 
 const errors = reactive({
@@ -364,6 +452,13 @@ async function submit() {
     organization: form.organization.trim(),
     keywords: form.keywords.trim(),
     public: form.public,
+    // Gap 4
+    allow_guest_collections: form.allow_guest_collections,
+    disable_anonymous_writes: form.disable_anonymous_writes,
+    // Gap 3
+    sharing_rw:   form.sharing_rw.trim(),
+    sharing_ro:   form.sharing_ro.trim(),
+    sharing_none: form.sharing_none.trim(),
   };
 
   const result = await store.createCollection(config);
@@ -382,7 +477,15 @@ async function submit() {
     form.base_path = '/';
     form.description = '';
     form.keywords = '';
+    form.organization = '';
     form.mapped_collection_id = '';
+    // Gap 3 reset
+    form.sharing_rw = '';
+    form.sharing_ro = '';
+    form.sharing_none = '';
+    // Gap 4 reset to defaults
+    form.allow_guest_collections = false;
+    form.disable_anonymous_writes = true;
   }
 }
 </script>
