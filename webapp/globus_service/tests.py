@@ -622,12 +622,35 @@ class ServicesExecTest(TestCase):
             "base_path": "/data/",
             "display_name": "API Collection",
             "collection_type": "mapped",
+            # Gap 1
+            "organization": "ESnet",
+            # Gap 2
+            "keywords": "testing, dtn",
+            # Gap 3
+            "sharing_rw": "/work",
+            "sharing_ro": "/data/shared",
+            "sharing_none": "",
+            # Gap 4
+            "disable_anonymous_writes": True,
+            "allow_guest_collections": False,
         }
         success, output = svc.create_collection_via_api(self.service, config)
         self.assertTrue(success)
         self.assertEqual(output, "col-api-uuid-456")
         self.service.refresh_from_db()
         self.assertEqual(self.service.status, GlobusService.Status.COLLECTIONS_CONFIGURED)
+
+        # Verify MappedCollectionDocument received the correct assembled fields
+        call_doc = mock_client.create_collection.call_args[0][0]
+        self.assertEqual(call_doc["organization"], "ESnet")
+        self.assertEqual(call_doc["keywords"], ["testing", "dtn"])
+        self.assertTrue(call_doc["disable_anonymous_writes"])
+        self.assertFalse(call_doc["allow_guest_collections"])
+        srp = call_doc["sharing_restrict_paths"]
+        self.assertEqual(srp["DATA_TYPE"], "path_restrictions#1.0.0")
+        self.assertEqual(srp["read_write"], ["/work"])
+        self.assertEqual(srp["read"], ["/data/shared"])
+        self.assertEqual(srp["none"], [])
 
     def test_derive_gcs_address(self):
         """derive_gcs_address returns <endpoint_id>.data.globus.org."""

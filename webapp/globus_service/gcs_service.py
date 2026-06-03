@@ -658,6 +658,14 @@ def create_collection(client, data: dict) -> dict:
         "collection_base_path", "display_name", "contact_email", "contact_info",
         "default_directory", "department", "description", "identity_id",
         "storage_gateway_id", "public",
+        # Gap 1: organization was missing
+        "organization",
+        # Gap 2: keywords must be a list (assembled in services.py before reaching here)
+        "keywords",
+        # Gap 3: sharing path restrictions dict (assembled in services.py)
+        "sharing_restrict_paths",
+        # Gap 4: anonymous-write and guest-collection flags
+        "disable_anonymous_writes", "allow_guest_collections",
     }
     filtered = {k: v for k, v in data.items() if k in allowed and v is not None}
     try:
