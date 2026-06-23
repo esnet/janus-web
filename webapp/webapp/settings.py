@@ -28,7 +28,9 @@ SECRET_KEY = os.getenv("JANUS_WEB_SECRET_KEY", key)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", False)
-VITE_DEV_MODE = True  # Set to False to use built production assets (npm run build)
+VITE_DEV_MODE = (
+    False if os.getenv("VITE_DEV_MODE", "True").lower() == "false" else True
+)  # Set to False (or env VITE_DEV_MODE=False) to use built production assets (npm run build)
 
 ALLOWED_HOSTS = ["*"]
 
