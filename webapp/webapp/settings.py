@@ -59,6 +59,7 @@ if ADMIN_ENABLED:
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -149,7 +150,7 @@ STATIC_URL = "static/"
 STATICFILES_DIRS = (
     os.path.join(os.path.dirname(BASE_DIR), "webapp", "static", "static"),
 )
-STATIC_ROOT = os.getenv("STATIC_ROOT", STATIC_URL)
+STATIC_ROOT = os.getenv("STATIC_ROOT", os.path.join(BASE_DIR, "staticfiles"))
 
 
 # Default primary key field type
