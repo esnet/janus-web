@@ -20,6 +20,9 @@
     "url": "https://github.com/esnet/janus-web/issues"
   },
   "homepage": "https://github.com/esnet/janus-web#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "@vitejs/plugin-vue": "^6.0.6",
     "axios": "^1.15.2",
