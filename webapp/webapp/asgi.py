@@ -1,15 +1,16 @@
 import os
 
-from channels.auth import AuthMiddlewareStack
-from channels.routing import ProtocolTypeRouter, URLRouter
-from channels.security.websocket import AllowedHostsOriginValidator
 from django.core.asgi import get_asgi_application
-import janus.routing
-import globus_service.routing
 
-
+# django.setup() must run before importing app modules that reference models.
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "webapp.settings")
 django_asgi_app = get_asgi_application()
+
+from channels.auth import AuthMiddlewareStack  # noqa: E402
+from channels.routing import ProtocolTypeRouter, URLRouter  # noqa: E402
+from channels.security.websocket import AllowedHostsOriginValidator  # noqa: E402
+import janus.routing  # noqa: E402
+import globus_service.routing  # noqa: E402
 
 # Combine WebSocket URL patterns from all apps
 websocket_urlpatterns = (
@@ -19,7 +20,7 @@ websocket_urlpatterns = (
 
 application = ProtocolTypeRouter(
     {
-        "http": get_asgi_application(),
+        "http": django_asgi_app,
         "websocket": AllowedHostsOriginValidator(
             AuthMiddlewareStack(URLRouter(websocket_urlpatterns))
         ),
