@@ -1,11 +1,13 @@
 import httpx
 import logging
 from django.conf import settings
+from janus.services import controller_request
 
 logger = logging.getLogger(__name__)
 base_url = settings.JANUS_CONTROLLER_URL + "api/janus/controller/"
 
 
+@controller_request
 def set_access(resource, data, remove=False):
     logger.debug(f"set_access: {resource} {data}")
     if resource == "nodes":
@@ -35,6 +37,7 @@ def set_access(resource, data, remove=False):
     else:
         return False, res.json()
 
+@controller_request
 def set_access_bulk(resource, data, remove=False):
     logger.debug(f"set_access_bulk: {resource} {data}")
     
