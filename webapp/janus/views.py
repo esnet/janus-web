@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from . import services
 from .constants import Constants
@@ -8,10 +9,39 @@ from .forms import (
     VolumeProfileForm,
     SessionCreateForm,
 )
+from .services import ControllerUnavailable
 from django.contrib.auth.models import User
 from django.shortcuts import render, HttpResponseRedirect
 from django.http import HttpResponseServerError, HttpResponseNotFound, JsonResponse
 from django.urls import reverse
+
+logger = logging.getLogger(__name__)
+
+
+_CONTROLLER_ERROR_MSG = (
+    "The Janus controller is temporarily unavailable. "
+    "Please try again later or contact your administrator."
+)
+
+
+def _render_controller_error(request, exc):
+    """Render a user-friendly error page when the controller is unreachable."""
+    logger.warning("Controller unavailable: %s", exc)
+    return render(request, "error.html", {
+        "error_title": "Controller Unreachable",
+        "error_message": _CONTROLLER_ERROR_MSG,
+        "login": request.user.is_authenticated,
+        "user": request.user.username if request.user.is_authenticated else None,
+    }, status=503)
+
+
+def _json_controller_error(exc):
+    """Return a JSON 503 response when the controller is unreachable."""
+    logger.warning("Controller unavailable: %s", exc)
+    return JsonResponse(
+        {"error": "controller_unavailable", "message": _CONTROLLER_ERROR_MSG},
+        status=503,
+    )
 
 
 def _get_res_errors(data, res):
@@ -43,7 +73,10 @@ def list_sessions(request, data=None):
     if not data:
         data = {"errors": list()}
     (user, _, quser, qgroups) = _get_user(request)
-    status, res = services.get_session_info(quser, qgroups)
+    try:
+        status, res = services.get_session_info(quser, qgroups)
+    except ControllerUnavailable as exc:
+        return _render_controller_error(request, exc)
     login = request.user.is_authenticated
     content = {
         "data": data,
@@ -64,7 +97,10 @@ def list_nodes(request):
         return HttpResponseRedirect("/")
 
     (user, _, quser, qgroups) = _get_user(request)
-    status, nodes = services.get_nodes(quser, qgroups, verbose=True)
+    try:
+        status, nodes = services.get_nodes(quser, qgroups, verbose=True)
+    except ControllerUnavailable as exc:
+        return _render_controller_error(request, exc)
     if status:
         content = {
             "nodes": nodes,
@@ -82,18 +118,21 @@ def list_profiles(request, extra_content=dict(), refresh=False):
     if not request.user.is_authenticated:
         return HttpResponseRedirect("/")
     (user, _, quser, qgroups) = _get_user(request)
-    status, profiles = services.get_profiles(
-        quser, qgroups, verbose=True, refresh=refresh
-    )
-    _, qos_choices = services.get_profiles(
-        quser, qgroups, resource=Constants.QOS, verbose=True, refresh=refresh
-    )
-    _, net_choices = services.get_profiles(
-        quser, qgroups, resource=Constants.NET, verbose=True, refresh=refresh
-    )
-    _, vol_choices = services.get_profiles(
-        quser, qgroups, resource=Constants.VOL, verbose=True, refresh=refresh
-    )
+    try:
+        status, profiles = services.get_profiles(
+            quser, qgroups, verbose=True, refresh=refresh
+        )
+        _, qos_choices = services.get_profiles(
+            quser, qgroups, resource=Constants.QOS, verbose=True, refresh=refresh
+        )
+        _, net_choices = services.get_profiles(
+            quser, qgroups, resource=Constants.NET, verbose=True, refresh=refresh
+        )
+        _, vol_choices = services.get_profiles(
+            quser, qgroups, resource=Constants.VOL, verbose=True, refresh=refresh
+        )
+    except ControllerUnavailable as exc:
+        return _render_controller_error(request, exc)
     kwargs = {
         Constants.QOS: [k.get("name") for k in qos_choices],
         Constants.NET: [k.get("name") for k in net_choices],
@@ -134,9 +173,12 @@ def refresh_profiles(request, extra_content=dict()):
 def view_session(request, session_id):
     if request.user.is_authenticated:
         (user, _, quser, qgroups) = _get_user(request)
-        status, sessions = services.get_session_info(
-            quser, qgroups, session_id=session_id
-        )
+        try:
+            status, sessions = services.get_session_info(
+                quser, qgroups, session_id=session_id
+            )
+        except ControllerUnavailable as exc:
+            return _render_controller_error(request, exc)
         if status and len(sessions) > 0:
             for key in sessions[0]:
                 session_id = key
@@ -159,7 +201,10 @@ def refresh_node(request):
         return HttpResponseRedirect("/")
 
     (user, _, quser, qgroups) = _get_user(request)
-    status, nodes = services.get_nodes(quser, qgroups, verbose=True, refresh=True)
+    try:
+        status, nodes = services.get_nodes(quser, qgroups, verbose=True, refresh=True)
+    except ControllerUnavailable as exc:
+        return _render_controller_error(request, exc)
     if status:
         content = {
             "nodes": nodes,
@@ -196,7 +241,10 @@ def add_node(request):
             # XXX use django Forms...
             if not len(data["errors"]):
                 data["kwargs"] = {}
-                status, res = services.add_node(data, quser, qgroups)
+                try:
+                    status, res = services.add_node(data, quser, qgroups)
+                except ControllerUnavailable as exc:
+                    return _render_controller_error(request, exc)
                 if status:
                     return HttpResponseRedirect(reverse("janus:list_nodes"))
                 else:
@@ -218,7 +266,10 @@ def remove_node(request, nname):
         return HttpResponseRedirect("/")
 
     (user, _, quser, qgroups) = _get_user(request)
-    status, _ = services.remove_node(nname, quser, qgroups)
+    try:
+        status, _ = services.remove_node(nname, quser, qgroups)
+    except ControllerUnavailable as exc:
+        return _render_controller_error(request, exc)
     if status:
         return HttpResponseRedirect(reverse("janus:list_nodes"))
     else:
@@ -231,66 +282,69 @@ def create_session(request):
 
     (user, _, quser, qgroups) = _get_user(request)
     data = {"errors": list()}
-    if request.method == "POST":
-        node = request.POST.getlist("node", None)
-        clusters = request.POST.getlist("clusters")
-        if node is not None:
-            if not clusters:
-                data["instances"] = node
-            else:
-                instances = [
-                    {"name": node_value, "nodeName": cluster_value}
-                    for node_value, cluster_value in zip(node, clusters)
-                ]
-                data["instances"] = instances
+    try:
+        if request.method == "POST":
+            node = request.POST.getlist("node", None)
+            clusters = request.POST.getlist("clusters")
+            if node is not None:
+                if not clusters:
+                    data["instances"] = node
+                else:
+                    instances = [
+                        {"name": node_value, "nodeName": cluster_value}
+                        for node_value, cluster_value in zip(node, clusters)
+                    ]
+                    data["instances"] = instances
 
-        image = request.POST.get("image", None)
-        if image is not None:
-            data["image"] = image
+            image = request.POST.get("image", None)
+            if image is not None:
+                data["image"] = image
 
-        tag = request.POST.get("image_tag", "latest")
-        if not tag:
-            tag = "latest"
-        data["image"] = data["image"] + f":{tag}"
+            tag = request.POST.get("image_tag", "latest")
+            if not tag:
+                tag = "latest"
+            data["image"] = data["image"] + f":{tag}"
 
-        profile = request.POST.get("profile", "default")
-        if profile is not None:
-            data["profile"] = profile
+            profile = request.POST.get("profile", "default")
+            if profile is not None:
+                data["profile"] = profile
 
-        data["arguments"] = request.POST.get("arguments", None)
+            data["arguments"] = request.POST.get("arguments", None)
 
-        data["kwargs"] = {}
-        ssh_user_name = request.POST.get("ssh_user_name", None)
-        if ssh_user_name is not None:
-            data["kwargs"]["USER_NAME"] = ssh_user_name
+            data["kwargs"] = {}
+            ssh_user_name = request.POST.get("ssh_user_name", None)
+            if ssh_user_name is not None:
+                data["kwargs"]["USER_NAME"] = ssh_user_name
 
-        ssh_public_key = request.POST.get("ssh_public_key", None)
-        if ssh_public_key is not None:
-            data["kwargs"]["PUBLIC_KEY"] = ssh_public_key
+            ssh_public_key = request.POST.get("ssh_public_key", None)
+            if ssh_public_key is not None:
+                data["kwargs"]["PUBLIC_KEY"] = ssh_public_key
 
-        remove_container = request.POST.get("remove_container", None)
-        data["remove_container"] = True if remove_container is not None else False
+            remove_container = request.POST.get("remove_container", None)
+            data["remove_container"] = True if remove_container is not None else False
 
-        # XXX use django Forms...
-        if not len(data["errors"]):
-            status, res = services.create_session(data, quser, qgroups)
-            # look for errors for each created service
-            errs = dict()
-            if status and isinstance(res, dict):
-                for sid, s in res.items():
-                    if "services" in s:
-                        for k, v in s["services"].items():
-                            for n in v:
-                                if len(n["errors"]):
-                                    errs.update({k: n["errors"]})
-            if status and not errs:
-                return HttpResponseRedirect(reverse("janus:list_sessions"))
-            else:
-                data["errors"].append(errs if errs else res)
+            # XXX use django Forms...
+            if not len(data["errors"]):
+                status, res = services.create_session(data, quser, qgroups)
+                # look for errors for each created service
+                errs = dict()
+                if status and isinstance(res, dict):
+                    for sid, s in res.items():
+                        if "services" in s:
+                            for k, v in s["services"].items():
+                                for n in v:
+                                    if len(n["errors"]):
+                                        errs.update({k: n["errors"]})
+                if status and not errs:
+                    return HttpResponseRedirect(reverse("janus:list_sessions"))
+                else:
+                    data["errors"].append(errs if errs else res)
 
-    _, nodes = services.get_nodes(quser, qgroups, verbose=True)
-    _, profiles = services.get_profiles(quser, qgroups)
-    _, images = services.get_images(quser, qgroups)
+        _, nodes = services.get_nodes(quser, qgroups, verbose=True)
+        _, profiles = services.get_profiles(quser, qgroups)
+        _, images = services.get_images(quser, qgroups)
+    except ControllerUnavailable as exc:
+        return _render_controller_error(request, exc)
     clusters = {
         k["name"]: [node["name"] for node in k.get("data", {}).get("cluster_nodes", [])]
         for k in nodes
@@ -482,7 +536,10 @@ def update_profile(request, resource=Constants.HOST):
         content = {"data": data}
 
         if not data["errors"]:
-            status, res = services.update_profile(resource, pfields, quser, qgroups)
+            try:
+                status, res = services.update_profile(resource, pfields, quser, qgroups)
+            except ControllerUnavailable as exc:
+                return _render_controller_error(request, exc)
             if status:
                 return HttpResponseRedirect(reverse("janus:list_profiles"))
             else:
@@ -738,7 +795,10 @@ def start_session(request, session_id):
     if request.user.is_authenticated:
         data = {"errors": list()}
         (user, _, quser, qgroups) = _get_user(request)
-        status, res = services.start_session(session_id, quser, qgroups)
+        try:
+            status, res = services.start_session(session_id, quser, qgroups)
+        except ControllerUnavailable as exc:
+            return _render_controller_error(request, exc)
         if status:
             _get_res_errors(data, res)
             if data["errors"]:
@@ -753,7 +813,10 @@ def stop_session(request, session_id):
     if request.user.is_authenticated:
         data = {"errors": list()}
         (user, _, quser, qgroups) = _get_user(request)
-        status, res = services.stop_session(session_id, quser, qgroups)
+        try:
+            status, res = services.stop_session(session_id, quser, qgroups)
+        except ControllerUnavailable as exc:
+            return _render_controller_error(request, exc)
         if status:
             _get_res_errors(data, res)
             if data["errors"]:
@@ -768,7 +831,10 @@ def delete_session(request, session_id):
     if request.user.is_authenticated:
         data = {"errors": list()}
         (user, _, quser, qgroups) = _get_user(request)
-        status, res = services.delete_session(session_id, quser, qgroups)
+        try:
+            status, res = services.delete_session(session_id, quser, qgroups)
+        except ControllerUnavailable as exc:
+            return _render_controller_error(request, exc)
         if status:
             _get_res_errors(data, res)
             if data["errors"]:
@@ -782,7 +848,10 @@ def delete_session(request, session_id):
 def delete_profile(request, pname, resource=Constants.HOST):
     if request.user.is_authenticated:
         (user, _, quser, qgroups) = _get_user(request)
-        status, _ = services.delete_profile(resource, pname, quser, qgroups)
+        try:
+            status, _ = services.delete_profile(resource, pname, quser, qgroups)
+        except ControllerUnavailable as exc:
+            return _render_controller_error(request, exc)
         if status:
             return HttpResponseRedirect(reverse("janus:list_profiles"))
         else:
@@ -807,7 +876,10 @@ def create_session_api(request):
         if "image" in data and ":" not in data["image"]:
             data["image"] = data["image"] + ":latest"
             
-        status, res = services.create_session(data, quser, qgroups)
+        try:
+            status, res = services.create_session(data, quser, qgroups)
+        except ControllerUnavailable as exc:
+            return _json_controller_error(exc)
         return JsonResponse({"status": status, "result": res}, status=200 if status else 400)
     return JsonResponse({"error": "Method not allowed"}, status=405)
 
@@ -816,7 +888,10 @@ def get_sessions_api(request):
     if not request.user.is_authenticated:
         return JsonResponse({"error": "Unauthorized"}, status=401)
     (user, _, quser, qgroups) = _get_user(request)
-    status, res = services.get_session_info(quser, qgroups)
+    try:
+        status, res = services.get_session_info(quser, qgroups)
+    except ControllerUnavailable as exc:
+        return _json_controller_error(exc)
     if status:
         return JsonResponse({"sessions": res})
     else:
@@ -827,7 +902,10 @@ def start_session_api(request, session_id):
     if not request.user.is_authenticated:
         return JsonResponse({"error": "Unauthorized"}, status=401)
     (user, _, quser, qgroups) = _get_user(request)
-    status, res = services.start_session(session_id, quser, qgroups)
+    try:
+        status, res = services.start_session(session_id, quser, qgroups)
+    except ControllerUnavailable as exc:
+        return _json_controller_error(exc)
     return JsonResponse({"status": status, "result": res}, status=200 if status else 400)
 
 
@@ -835,7 +913,10 @@ def stop_session_api(request, session_id):
     if not request.user.is_authenticated:
         return JsonResponse({"error": "Unauthorized"}, status=401)
     (user, _, quser, qgroups) = _get_user(request)
-    status, res = services.stop_session(session_id, quser, qgroups)
+    try:
+        status, res = services.stop_session(session_id, quser, qgroups)
+    except ControllerUnavailable as exc:
+        return _json_controller_error(exc)
     return JsonResponse({"status": status, "result": res}, status=200 if status else 400)
 
 
@@ -843,7 +924,10 @@ def delete_session_api(request, session_id):
     if not request.user.is_authenticated:
         return JsonResponse({"error": "Unauthorized"}, status=401)
     (user, _, quser, qgroups) = _get_user(request)
-    status, res = services.delete_session(session_id, quser, qgroups)
+    try:
+        status, res = services.delete_session(session_id, quser, qgroups)
+    except ControllerUnavailable as exc:
+        return _json_controller_error(exc)
     return JsonResponse({"status": status, "result": res}, status=200 if status else 400)
 
 
@@ -852,7 +936,10 @@ def get_nodes_api(request):
         return JsonResponse({"error": "Unauthorized"}, status=401)
     (user, _, quser, qgroups) = _get_user(request)
     refresh = request.GET.get("refresh") == "true"
-    status, nodes = services.get_nodes(quser, qgroups, verbose=True, refresh=refresh)
+    try:
+        status, nodes = services.get_nodes(quser, qgroups, verbose=True, refresh=refresh)
+    except ControllerUnavailable as exc:
+        return _json_controller_error(exc)
     if status:
         return JsonResponse({"nodes": nodes})
     else:
@@ -869,7 +956,10 @@ def add_node_api(request):
             return JsonResponse({"error": "Invalid JSON"}, status=400)
 
         (user, _, quser, qgroups) = _get_user(request)
-        status, res = services.add_node(data, quser, qgroups)
+        try:
+            status, res = services.add_node(data, quser, qgroups)
+        except ControllerUnavailable as exc:
+            return _json_controller_error(exc)
         return JsonResponse({"status": status, "result": res}, status=200 if status else 400)
     return JsonResponse({"error": "Method not allowed"}, status=405)
 
@@ -878,7 +968,10 @@ def remove_node_api(request, nname):
     if not request.user.is_authenticated or not request.user.is_staff:
         return JsonResponse({"error": "Unauthorized"}, status=401)
     (user, _, quser, qgroups) = _get_user(request)
-    status, res = services.remove_node(nname, quser, qgroups)
+    try:
+        status, res = services.remove_node(nname, quser, qgroups)
+    except ControllerUnavailable as exc:
+        return _json_controller_error(exc)
     return JsonResponse({"status": status, "result": res}, status=200 if status else 400)
 
 
@@ -886,7 +979,10 @@ def view_log(request, session_id, nname):
     if not request.user.is_authenticated:
         return JsonResponse({"error": "Unauthorized"}, status=401)
     ts = request.GET.get("timestamps")
-    (status, log) = services.get_log(session_id, nname, ts)
+    try:
+        (status, log) = services.get_log(session_id, nname, ts)
+    except ControllerUnavailable as exc:
+        return _json_controller_error(exc)
     if status:
         return JsonResponse(log)
     else:
@@ -927,7 +1023,10 @@ def get_images_api(request):
     if not request.user.is_authenticated:
         return JsonResponse({"error": "Unauthorized"}, status=401)
     (user, _, quser, qgroups) = _get_user(request)
-    status, images = services.get_images(quser, qgroups)
+    try:
+        status, images = services.get_images(quser, qgroups)
+    except ControllerUnavailable as exc:
+        return _json_controller_error(exc)
     if status:
         return JsonResponse({"images": images})
     else:
@@ -939,9 +1038,12 @@ def get_profiles_api(request, resource="host"):
         return JsonResponse({"error": "Unauthorized"}, status=401)
     (user, _, quser, qgroups) = _get_user(request)
     refresh = request.GET.get("refresh") == "true"
-    status, profiles = services.get_profiles(
-        quser, qgroups, verbose=True, resource=resource, refresh=refresh
-    )
+    try:
+        status, profiles = services.get_profiles(
+            quser, qgroups, verbose=True, resource=resource, refresh=refresh
+        )
+    except ControllerUnavailable as exc:
+        return _json_controller_error(exc)
     if status:
         return JsonResponse({"profiles": profiles})
     else:
@@ -959,13 +1061,16 @@ def get_profile_choices_api(request):
     if not request.user.is_authenticated:
         return JsonResponse({"error": "Unauthorized"}, status=401)
     (user, _, quser, qgroups) = _get_user(request)
-    _, qos = services.get_profiles(quser, qgroups, resource=Constants.QOS, verbose=True)
-    _, nets = services.get_profiles(
-        quser, qgroups, resource=Constants.NET, verbose=True
-    )
-    _, vols = services.get_profiles(
-        quser, qgroups, resource=Constants.VOL, verbose=True
-    )
+    try:
+        _, qos = services.get_profiles(quser, qgroups, resource=Constants.QOS, verbose=True)
+        _, nets = services.get_profiles(
+            quser, qgroups, resource=Constants.NET, verbose=True
+        )
+        _, vols = services.get_profiles(
+            quser, qgroups, resource=Constants.VOL, verbose=True
+        )
+    except ControllerUnavailable as exc:
+        return _json_controller_error(exc)
     return JsonResponse(
         {
             "qos": [k.get("name") for k in qos],
@@ -984,7 +1089,10 @@ def create_profile_api(request, resource):
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON"}, status=400)
         (user, _, quser, qgroups) = _get_user(request)
-        status, res = services.create_profile(resource, data, quser, qgroups)
+        try:
+            status, res = services.create_profile(resource, data, quser, qgroups)
+        except ControllerUnavailable as exc:
+            return _json_controller_error(exc)
         return JsonResponse(
             {"status": status, "result": res}, status=200 if status else 400
         )
@@ -1000,7 +1108,10 @@ def update_profile_api(request, resource):
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON"}, status=400)
         (user, _, quser, qgroups) = _get_user(request)
-        status, res = services.update_profile(resource, data, quser, qgroups)
+        try:
+            status, res = services.update_profile(resource, data, quser, qgroups)
+        except ControllerUnavailable as exc:
+            return _json_controller_error(exc)
         return JsonResponse(
             {"status": status, "result": res}, status=200 if status else 400
         )
@@ -1011,7 +1122,10 @@ def delete_profile_api(request, resource, pname):
     if not request.user.is_authenticated:
         return JsonResponse({"error": "Unauthorized"}, status=401)
     (user, _, quser, qgroups) = _get_user(request)
-    status, res = services.delete_profile(resource, pname, quser, qgroups)
+    try:
+        status, res = services.delete_profile(resource, pname, quser, qgroups)
+    except ControllerUnavailable as exc:
+        return _json_controller_error(exc)
     return JsonResponse(
         {"status": status, "result": res}, status=200 if status else 400
     )
@@ -1032,7 +1146,10 @@ def update_session_api(request, session_id):
         if "image" in data and ":" not in data["image"]:
             data["image"] = data["image"] + ":latest"
 
-        status, res = services.update_session(session_id, data, quser, qgroups, apply)
+        try:
+            status, res = services.update_session(session_id, data, quser, qgroups, apply)
+        except ControllerUnavailable as exc:
+            return _json_controller_error(exc)
         return JsonResponse({"status": status, "result": res}, status=200 if status else 400)
     return JsonResponse({"error": "Method not allowed"}, status=405)
 
@@ -1041,5 +1158,8 @@ def apply_session_changes_api(request, session_id):
     if not request.user.is_authenticated:
         return JsonResponse({"error": "Unauthorized"}, status=401)
     (user, _, quser, qgroups) = _get_user(request)
-    status, res = services.apply_session_changes(session_id, quser, qgroups)
+    try:
+        status, res = services.apply_session_changes(session_id, quser, qgroups)
+    except ControllerUnavailable as exc:
+        return _json_controller_error(exc)
     return JsonResponse({"status": status, "result": res}, status=200 if status else 400)

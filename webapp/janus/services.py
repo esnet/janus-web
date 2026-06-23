@@ -1,13 +1,38 @@
 # Session management API call to Janus Controller
 
+import functools
+import logging
 import httpx
 import shlex
 from django.conf import settings
 from .utils import convert_size
 from .constants import Constants
 
+logger = logging.getLogger(__name__)
 
 base_url = settings.JANUS_CONTROLLER_URL + "api/janus/controller/"
+
+
+class ControllerUnavailable(Exception):
+    """Raised when the Janus controller cannot be reached."""
+    pass
+
+
+def controller_request(func):
+    """Decorator that catches httpx connection/timeout errors and raises
+    ControllerUnavailable so views can display a user-friendly message."""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError) as exc:
+            url = settings.JANUS_CONTROLLER_URL
+            logger.error("Controller unreachable at %s: %s", url, exc)
+            raise ControllerUnavailable(
+                f"The Janus controller at {url} is not reachable. "
+                f"Please verify the controller is running and accessible."
+            ) from exc
+    return wrapper
 
 
 def get_node_types():
@@ -21,6 +46,7 @@ def get_node_types():
     return ntypes
 
 
+@controller_request
 def add_node(data, user=None, groups=None):
     params = get_params(user, groups)
     try:
@@ -43,6 +69,7 @@ def add_node(data, user=None, groups=None):
         return False, res.json()
 
 
+@controller_request
 def remove_node(nname, user=None, groups=None):
     try:
         res = httpx.delete(
@@ -62,6 +89,7 @@ def remove_node(nname, user=None, groups=None):
             return False, {"error": res.text or f"HTTP {res.status_code}"}
 
 
+@controller_request
 def get_auth_jwt():
     try:
         res = httpx.get(
@@ -80,6 +108,7 @@ def get_auth_jwt():
     return status, data
 
 
+@controller_request
 def create_exec(nid, cid, cmd, start=True, attach=True, tty=False):
     data = {
         "node": nid,
@@ -107,6 +136,7 @@ def create_exec(nid, cid, cmd, start=True, attach=True, tty=False):
     return status, data
 
 
+@controller_request
 def get_session_info(user=None, groups=None, session_id=None):
     """
     Get session info from Janus Controller
@@ -184,6 +214,7 @@ def get_session_info(user=None, groups=None, session_id=None):
     return status, data
 
 
+@controller_request
 def create_session(data, user=None, groups=None):
     """
     Create session on Janus Controller
@@ -210,6 +241,7 @@ def create_session(data, user=None, groups=None):
         return False, res.json()
 
 
+@controller_request
 def start_session(session_id, user=None, groups=None):
     """
     Start session on Janus Controller
@@ -235,6 +267,7 @@ def start_session(session_id, user=None, groups=None):
             return False, {"error": res.text or f"HTTP {res.status_code}"}
 
 
+@controller_request
 def stop_session(session_id, user=None, groups=None):
     """
     Stop session on Janus Controller
@@ -260,6 +293,7 @@ def stop_session(session_id, user=None, groups=None):
             return False, {"error": res.text or f"HTTP {res.status_code}"}
 
 
+@controller_request
 def delete_session(session_id, user=None, groups=None):
     """
     Delete session on Janus Controller
@@ -285,6 +319,7 @@ def delete_session(session_id, user=None, groups=None):
             return False, {"error": res.text or f"HTTP {res.status_code}"}
 
 
+@controller_request
 def get_profiles(
     user=None, groups=None, verbose=False, resource="host", pname=None, refresh=False
 ):
@@ -344,6 +379,7 @@ def get_profiles(
     return (status, profiles)
 
 
+@controller_request
 def create_profile(resource, data, user=None, groups=None):
     """
     Create profile on Janus Controller
@@ -369,6 +405,7 @@ def create_profile(resource, data, user=None, groups=None):
         return False, res.json()
 
 
+@controller_request
 def update_profile(resource, data, user=None, groups=None):
     """
     Update profile on Janus Controller
@@ -412,6 +449,7 @@ def update_profile(resource, data, user=None, groups=None):
             return False, {"error": res.text or f"HTTP {res.status_code}"}
 
 
+@controller_request
 def delete_profile(resource, pname, user=None, groups=None):
     """Delete profile from Janus Controller"""
     try:
@@ -455,6 +493,7 @@ def process_nodes(nodes):
     return nodes_list
 
 
+@controller_request
 def get_nodes(user=None, groups=None, verbose=False, nname=None, refresh=False):
     """
     Get nodes list from Janus Controller
@@ -483,6 +522,7 @@ def get_nodes(user=None, groups=None, verbose=False, nname=None, refresh=False):
     return (status, nodes)
 
 
+@controller_request
 def get_images(user=None, groups=None, iname=None):
     """
     Get nodes list from Janus Controller
@@ -511,6 +551,7 @@ def get_images(user=None, groups=None, iname=None):
     return (status, images)
 
 
+@controller_request
 def get_qos():
     """
     Get QoS list from Janus Controller
@@ -534,6 +575,7 @@ def get_qos():
     return (status, qos)
 
 
+@controller_request
 def get_log(sid, nname, timestamps=0):
     """
     Get container logs from Janus Controller
@@ -568,6 +610,7 @@ def get_params(user=None, groups=None, refresh=False, timestamps=0):
         params["timestamps"] = timestamps
     return params
 
+@controller_request
 def update_session(session_id, data, user=None, groups=None, apply=False):
     """
     Update session on Janus Controller
@@ -593,6 +636,7 @@ def update_session(session_id, data, user=None, groups=None, apply=False):
         return False, res.json()
 
 
+@controller_request
 def apply_session_changes(session_id, user=None, groups=None):
     """
     Apply changes to session on Janus Controller

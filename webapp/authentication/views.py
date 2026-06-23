@@ -5,7 +5,8 @@ from django.shortcuts import HttpResponseRedirect, render
 from django.urls import reverse
 from django.contrib.auth.models import User, Group
 from django.http import JsonResponse
-from janus.services import get_nodes, get_profiles, get_images, get_session_info
+from janus.services import get_nodes, get_profiles, get_images, get_session_info, ControllerUnavailable
+from janus.views import _render_controller_error, _json_controller_error
 from janus.constants import Constants
 from .services import set_access, set_access_bulk
 
@@ -81,7 +82,10 @@ def image_access_control(request):
         quser = None
         qgroups = None
 
-        status, images = get_images(quser, qgroups)
+        try:
+            status, images = get_images(quser, qgroups)
+        except ControllerUnavailable as exc:
+            return _render_controller_error(request, exc)
         users = User.objects.filter(is_active=True).values_list("username", flat=True)
         groups = Group.objects.all().values_list("name", flat=True)
         data = {"errors": list()}
@@ -101,7 +105,10 @@ def image_access_control(request):
             data["groups"] = selected_groups
 
             if not len(data["errors"]):
-                status, res = set_access("images", data, remove)
+                try:
+                    status, res = set_access("images", data, remove)
+                except ControllerUnavailable as exc:
+                    return _render_controller_error(request, exc)
                 if status:
                     return HttpResponseRedirect(reverse("auth_images"))
                 else:
@@ -130,7 +137,10 @@ def node_access_control(request):
         quser = None
         qgroups = None
 
-        status, nodes = get_nodes(quser, qgroups, verbose=True)
+        try:
+            status, nodes = get_nodes(quser, qgroups, verbose=True)
+        except ControllerUnavailable as exc:
+            return _render_controller_error(request, exc)
         users = User.objects.filter(is_active=True).values_list("username", flat=True)
         groups = Group.objects.all().values_list("name", flat=True)
 
@@ -150,7 +160,10 @@ def node_access_control(request):
             data["groups"] = selected_groups
 
             if not len(data["errors"]):
-                status, res = set_access("nodes", data, remove)
+                try:
+                    status, res = set_access("nodes", data, remove)
+                except ControllerUnavailable as exc:
+                    return _render_controller_error(request, exc)
                 if status:
                     return HttpResponseRedirect(reverse("auth_nodes"))
                 else:
@@ -179,7 +192,10 @@ def profile_access_control(request):
         quser = None
         qgroups = None
 
-        status, profiles = get_profiles(quser, qgroups, verbose=True)
+        try:
+            status, profiles = get_profiles(quser, qgroups, verbose=True)
+        except ControllerUnavailable as exc:
+            return _render_controller_error(request, exc)
         users = User.objects.filter(is_active=True).values_list("username", flat=True)
         groups = Group.objects.all().values_list("name", flat=True)
         data = {"errors": list()}
@@ -199,7 +215,10 @@ def profile_access_control(request):
             data["groups"] = selected_groups
 
             if not len(data["errors"]):
-                status, res = set_access("profiles", data, remove)
+                try:
+                    status, res = set_access("profiles", data, remove)
+                except ControllerUnavailable as exc:
+                    return _render_controller_error(request, exc)
                 if status:
                     return HttpResponseRedirect(reverse("auth_profiles"))
                 else:
@@ -228,7 +247,10 @@ def sessions_access_control(request):
         quser = None
         qgroups = None
 
-        status, sessions = get_session_info(quser, qgroups)
+        try:
+            status, sessions = get_session_info(quser, qgroups)
+        except ControllerUnavailable as exc:
+            return _render_controller_error(request, exc)
         users = User.objects.filter(is_active=True).values_list("username", flat=True)
         groups = Group.objects.all().values_list("name", flat=True)
         data = {"errors": list()}
@@ -248,7 +270,10 @@ def sessions_access_control(request):
             data["groups"] = selected_groups
 
             if not len(data["errors"]):
-                status, res = set_access("active", data, remove)
+                try:
+                    status, res = set_access("active", data, remove)
+                except ControllerUnavailable as exc:
+                    return _render_controller_error(request, exc)
                 if status:
                     return HttpResponseRedirect(reverse("auth_sessions"))
                 else:
@@ -277,10 +302,13 @@ def get_access_info_api(request):
     groups = list(Group.objects.all().values_list("name", flat=True))
 
     quser, qgroups = None, None
-    _, nodes = get_nodes(quser, qgroups, verbose=True)
-    _, profiles = get_profiles(quser, qgroups, verbose=True)
-    _, images = get_images(quser, qgroups)
-    _, sessions = get_session_info(quser, qgroups)
+    try:
+        _, nodes = get_nodes(quser, qgroups, verbose=True)
+        _, profiles = get_profiles(quser, qgroups, verbose=True)
+        _, images = get_images(quser, qgroups)
+        _, sessions = get_session_info(quser, qgroups)
+    except ControllerUnavailable as exc:
+        return _json_controller_error(exc)
 
     return JsonResponse(
         {
@@ -316,7 +344,10 @@ def update_access_api(request):
         elif resource == "active":
             data["session_id"] = data.get("identifier")
 
-        status, res = set_access(resource, data, remove)
+        try:
+            status, res = set_access(resource, data, remove)
+        except ControllerUnavailable as exc:
+            return _json_controller_error(exc)
         return JsonResponse(
             {"success": status, "result": res}, status=200 if status else 400
         )
@@ -348,7 +379,10 @@ def update_access_bulk_api(request):
         resource = data.get("resource")
         remove = data.get("remove", False)
         
-        status, res = set_access_bulk(resource, data, remove)
+        try:
+            status, res = set_access_bulk(resource, data, remove)
+        except ControllerUnavailable as exc:
+            return _json_controller_error(exc)
         return JsonResponse(
             {"success": status, "result": res}, status=200 if status else 400
         )
