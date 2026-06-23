@@ -11,6 +11,14 @@
           <span class="text-dark">Janus</span> Services
         </h5>
         <div class="d-flex align-items-center">
+          <!-- Search Bar -->
+          <div class="input-group input-group-sm mr-3" style="width: 250px">
+            <div class="input-group-prepend">
+              <span class="input-group-text bg-light border-right-0"><i class="fas fa-search text-muted"></i></span>
+            </div>
+            <input v-model="searchQuery" type="text" class="form-control border-left-0 bg-light" 
+                   placeholder="Search services..." aria-label="Search">
+          </div>
           <button
             class="btn btn-sm btn-outline-secondary mr-2"
             @click="store.fetchServices()"
@@ -49,7 +57,7 @@
         </div>
 
         <!-- Empty state -->
-        <div v-else-if="store.services.length === 0" class="text-center py-5 text-muted">
+        <div v-else-if="filteredServices.length === 0" class="text-center py-5 text-muted">
           <i class="fas fa-cogs fa-3x mb-3 d-block"></i>
           No services configured yet.
           <div class="mt-2">
@@ -75,7 +83,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="service in store.services" :key="service.id">
+              <tr v-for="service in paginatedServices" :key="service.id">
                 <td class="pl-4 align-middle text-muted small">{{ service.id }}</td>
                 <td class="align-middle">
                   <strong>{{ service.display_name || '(unnamed)' }}</strong>
@@ -124,6 +132,11 @@
             </tbody>
           </table>
         </div>
+        <PaginationControl 
+            v-model:currentPage="currentPage" 
+            v-model:pageSize="pageSize"
+            :totalItems="filteredServices.length" 
+        />
       </div>
     </div>
 
@@ -150,11 +163,36 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useGlobusServiceStore } from '../../stores/globusServiceStore';
+import PaginationControl from '../PaginationControl.vue';
 
 const store = useGlobusServiceStore();
 const pendingDelete = ref(null);
+
+const searchQuery = ref('');
+const currentPage = ref(1);
+const pageSize = ref(20);
+
+const filteredServices = computed(() => {
+  if (!searchQuery.value) return store.services;
+  const q = searchQuery.value.toLowerCase();
+  return store.services.filter(s =>
+    (s.display_name && s.display_name.toLowerCase().includes(q)) ||
+    s.id.toString().includes(q) ||
+    (s.node_name && s.node_name.toLowerCase().includes(q)) ||
+    (s.globus_endpoint_id && s.globus_endpoint_id.toLowerCase().includes(q))
+  );
+});
+
+const paginatedServices = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  return filteredServices.value.slice(start, start + pageSize.value);
+});
+
+watch(searchQuery, () => {
+  currentPage.value = 1;
+});
 
 onMounted(() => {
   store.fetchServices();

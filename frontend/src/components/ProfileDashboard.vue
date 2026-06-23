@@ -159,8 +159,8 @@
         </div>
         <PaginationControl 
             v-model:currentPage="currentPage" 
+            v-model:pageSize="pageSize"
             :totalItems="filteredProfiles.length" 
-            :pageSize="pageSize" 
         />
       </div>
     </div>
@@ -203,7 +203,7 @@ const isNew = ref(false);
 
 const searchQuery = ref('');
 const currentPage = ref(1);
-const pageSize = 10;
+const pageSize = ref(20);
 
 const currentProfiles = computed(() => {
   switch (activeTab.value) {
@@ -222,8 +222,8 @@ const filteredProfiles = computed(() => {
 });
 
 const paginatedProfiles = computed(() => {
-    const start = (currentPage.value - 1) * pageSize;
-    return filteredProfiles.value.slice(start, start + pageSize);
+    const start = (currentPage.value - 1) * pageSize.value;
+    return filteredProfiles.value.slice(start, start + pageSize.value);
 });
 
 // Reset page when tab or search query changes
