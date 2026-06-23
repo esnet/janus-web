@@ -126,8 +126,8 @@
         </div>
         <PaginationControl 
             v-model:currentPage="currentPage" 
+            v-model:pageSize="pageSize"
             :totalItems="filteredItems.length" 
-            :pageSize="pageSize" 
         />
       </div>
     </div>
@@ -207,7 +207,7 @@ const saving = ref(false);
 
 const searchQuery = ref('');
 const currentPage = ref(1);
-const pageSize = 10;
+const pageSize = ref(20);
 
 const selectedIdentifiers = ref([]);
 const selectedUsers = ref([]);
@@ -249,8 +249,8 @@ const filteredItems = computed(() => {
 });
 
 const paginatedItems = computed(() => {
-  const start = (currentPage.value - 1) * pageSize;
-  return filteredItems.value.slice(start, start + pageSize);
+  const start = (currentPage.value - 1) * pageSize.value;
+  return filteredItems.value.slice(start, start + pageSize.value);
 });
 
 const isAllSelected = computed(() => {

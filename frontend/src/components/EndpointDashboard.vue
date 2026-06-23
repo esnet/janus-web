@@ -64,8 +64,8 @@
         </div>
         <PaginationControl 
             v-model:currentPage="currentPage" 
+            v-model:pageSize="pageSize"
             :totalItems="filteredNodes.length" 
-            :pageSize="pageSize" 
         />
       </div>
     </div>
@@ -84,7 +84,7 @@ const addingNode = ref(false);
 
 const searchQuery = ref('');
 const currentPage = ref(1);
-const pageSize = 10;
+const pageSize = ref(20);
 
 const filteredNodes = computed(() => {
   if (!searchQuery.value) return store.nodes;
@@ -93,8 +93,8 @@ const filteredNodes = computed(() => {
 });
 
 const paginatedNodes = computed(() => {
-  const start = (currentPage.value - 1) * pageSize;
-  return filteredNodes.value.slice(start, start + pageSize);
+  const start = (currentPage.value - 1) * pageSize.value;
+  return filteredNodes.value.slice(start, start + pageSize.value);
 });
 
 // Reset page when search query changes

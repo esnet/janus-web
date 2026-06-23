@@ -42,7 +42,7 @@
                 <th class="border-top-0 py-3" style="width: 150px">Created By</th>
                 <th class="border-top-0 py-3">Endpoints</th>
                 <th class="border-top-0 py-3">Container Image</th>
-                <th class="border-top-0 py-3" style="width: 180px">Container Profile</th>
+                <th class="border-top-0 py-3" style="min-width: 260px">Container Profile</th>
                 <th class="border-top-0 py-3 text-center" style="width: 120px">State</th>
                 <th class="border-top-0 text-right pr-4 py-3" style="width: 120px">Action</th>
               </tr>
@@ -62,8 +62,8 @@
         </div>
         <PaginationControl 
             v-model:currentPage="currentPage" 
+            v-model:pageSize="pageSize"
             :totalItems="filteredSessions.length" 
-            :pageSize="pageSize" 
         />
       </div>
     </div>
@@ -82,7 +82,7 @@ const creatingSession = ref(false);
 
 const searchQuery = ref('');
 const currentPage = ref(1);
-const pageSize = 10;
+const pageSize = ref(20);
 
 const filteredSessions = computed(() => {
   if (!searchQuery.value) return store.sessions;
@@ -96,8 +96,8 @@ const filteredSessions = computed(() => {
 });
 
 const paginatedSessions = computed(() => {
-  const start = (currentPage.value - 1) * pageSize;
-  return filteredSessions.value.slice(start, start + pageSize);
+  const start = (currentPage.value - 1) * pageSize.value;
+  return filteredSessions.value.slice(start, start + pageSize.value);
 });
 
 // Reset page when search query changes
