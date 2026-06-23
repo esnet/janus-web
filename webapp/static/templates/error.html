@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Error - Janus Web{% endblock title %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+  <div class="col-md-8 col-lg-6">
+    <div class="card border-danger shadow-sm">
+      <div class="card-header bg-danger text-white d-flex align-items-center">
+        <i class="fas fa-exclamation-triangle mr-2"></i>
+        <strong>{{ error_title|default:"Error" }}</strong>
+      </div>
+      <div class="card-body">
+        <p class="mb-3">{{ error_message }}</p>
+        {% if error_detail %}
+        <div class="alert alert-secondary small mb-3">
+          <strong>Details:</strong> {{ error_detail }}
+        </div>
+        {% endif %}
+        <a href="{% url 'home' %}" class="btn btn-outline-primary">
+          <i class="fas fa-home mr-1"></i> Return Home
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

@@ -1,9 +1,19 @@
 <template>
-  <div class="d-flex justify-content-between align-items-center p-3 bg-light border-top" v-if="totalPages > 1">
-    <div class="small text-muted">
-      Showing <b>{{ startItem }}</b> to <b>{{ endItem }}</b> of <b>{{ totalItems }}</b> entries
+  <div class="d-flex justify-content-between align-items-center p-3 bg-light border-top">
+    <div class="d-flex align-items-center">
+      <div class="small text-muted mr-3">
+        Show
+        <select class="custom-select custom-select-sm d-inline-block mx-1" style="width: auto"
+                :value="pageSize" @change="onPageSizeChange($event.target.value)">
+          <option v-for="opt in pageSizeOptions" :key="opt" :value="opt">{{ opt }}</option>
+        </select>
+        per page
+      </div>
+      <div class="small text-muted" v-if="totalItems > 0">
+        Showing <b>{{ startItem }}</b> to <b>{{ endItem }}</b> of <b>{{ totalItems }}</b> entries
+      </div>
     </div>
-    <nav aria-label="Page navigation">
+    <nav aria-label="Page navigation" v-if="totalPages > 1">
       <ul class="pagination pagination-sm mb-0 shadow-sm">
         <li class="page-item" :class="{ disabled: currentPage === 1 }">
           <a class="page-link" href="#" @click.prevent="setPage(1)" aria-label="First">
@@ -38,13 +48,15 @@
 <script setup>
 import { computed } from 'vue';
 
+const pageSizeOptions = [10, 20, 50, 100];
+
 const props = defineProps({
   currentPage: { type: Number, required: true },
   totalItems: { type: Number, required: true },
-  pageSize: { type: Number, default: 10 }
+  pageSize: { type: Number, default: 20 }
 });
 
-const emit = defineEmits(['update:currentPage']);
+const emit = defineEmits(['update:currentPage', 'update:pageSize']);
 
 const totalPages = computed(() => Math.ceil(props.totalItems / props.pageSize));
 const startItem = computed(() => ((props.currentPage - 1) * props.pageSize) + 1);
@@ -70,6 +82,12 @@ const setPage = (page) => {
   if (page >= 1 && page <= totalPages.value) {
     emit('update:currentPage', page);
   }
+};
+
+const onPageSizeChange = (value) => {
+  const newSize = Number(value);
+  emit('update:pageSize', newSize);
+  emit('update:currentPage', 1);
 };
 </script>
 
