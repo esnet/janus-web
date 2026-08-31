@@ -1059,6 +1059,25 @@ def create_gateway_via_api(service: GlobusService, config: dict) -> Tuple[bool, 
         if config.get("users_deny"):
             gateway_data["users_deny"] = config["users_deny"]
 
+        # identity_mappings: expression mapping that strips @domain from Globus username
+        # to produce a local POSIX username (e.g. kvasu@es.net → kvasu).
+        # Only added when the user opts in via enable_identity_mapping=True.
+        if config.get("enable_identity_mapping"):
+            match_expr  = config.get("identity_mapping_match",  r"(.+)@.*")
+            output_expr = config.get("identity_mapping_output", "{0}")
+            gateway_data["identity_mappings"] = [
+                {
+                    "DATA_TYPE": "expression_identity_mapping#1.0.0",
+                    "mappings": [
+                        {
+                            "source": "{username}",
+                            "match":  match_expr,
+                            "output": output_expr,
+                        }
+                    ],
+                }
+            ]
+
         # restrict_paths: inline path restrictions dict
         # Expected shape: {"none": [...], "read": [...], "read_write": [...]}
         # DATA_TYPE is added by create_storage_gateway() if missing.

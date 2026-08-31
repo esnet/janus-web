@@ -91,6 +91,64 @@
           </div>
         </div>
 
+        <!-- Identity Mapping (POSIX only, opt-in) -->
+        <div v-if="form.connector === 'posix'" class="card border-light bg-light p-3 mb-3">
+          <div class="d-flex align-items-center mb-2">
+            <div class="custom-control custom-switch mr-3">
+              <input
+                type="checkbox"
+                class="custom-control-input"
+                id="enableIdentityMapping"
+                v-model="form.enable_identity_mapping"
+                :disabled="store.loading"
+              />
+              <label class="custom-control-label font-weight-bold small text-uppercase text-muted" for="enableIdentityMapping">
+                <i class="fas fa-user-tag mr-1"></i> Expression Identity Mapping
+              </label>
+            </div>
+          </div>
+          <p class="text-muted small mb-2">
+            Maps a Globus identity username to a local POSIX username using a regex.
+            The default strips the <code>@domain</code> suffix so that
+            <code>kvasu@es.net</code> and <code>kvasu@globusid.org</code> both map to
+            local user <code>kvasu</code>.
+            Enable this so Globus can read/write files as the correct local user.
+          </p>
+          <div v-if="form.enable_identity_mapping" class="form-row">
+            <div class="form-group col-md-6">
+              <label class="small font-weight-bold">
+                Match Pattern <span class="text-muted">(regex on Globus username)</span>
+              </label>
+              <input
+                v-model="form.identity_mapping_match"
+                type="text"
+                class="form-control form-control-sm font-monospace"
+                placeholder="(.+)@.*"
+                :disabled="store.loading"
+              />
+              <small class="form-text text-muted">
+                Regex applied to the full Globus identity username (e.g. <code>kvasu@es.net</code>).
+              </small>
+            </div>
+            <div class="form-group col-md-6">
+              <label class="small font-weight-bold">
+                Output <span class="text-muted">(local POSIX username)</span>
+              </label>
+              <input
+                v-model="form.identity_mapping_output"
+                type="text"
+                class="form-control form-control-sm font-monospace"
+                placeholder="{0}"
+                :disabled="store.loading"
+              />
+              <small class="form-text text-muted">
+                <code>{0}</code> = first capture group. With the default pattern,
+                <code>kvasu@es.net</code> → <code>kvasu</code>.
+              </small>
+            </div>
+          </div>
+        </div>
+
         <!-- Path Restrictions -->
         <div class="card border-light bg-light p-3 mb-3">
           <div class="font-weight-bold small text-uppercase text-muted mb-2">
@@ -200,6 +258,10 @@ const form = reactive({
   restrict_rw: '',    // read-write paths (comma-separated)
   restrict_ro: '',    // read-only paths (comma-separated)
   restrict_none: '',  // denied paths (comma-separated)
+  // Identity mapping (POSIX, opt-in)
+  enable_identity_mapping: false,
+  identity_mapping_match:  '(.+)@.*',
+  identity_mapping_output: '{0}',
 });
 
 const errors = reactive({
@@ -251,6 +313,13 @@ async function submit() {
     ? form.users_deny.split(',').map(u => u.trim()).filter(Boolean)
     : [];
   if (deny.length) config.users_deny = deny;
+
+  // Expression identity mapping (POSIX, opt-in)
+  if (form.connector === 'posix' && form.enable_identity_mapping) {
+    config.enable_identity_mapping  = true;
+    config.identity_mapping_match   = form.identity_mapping_match.trim()  || '(.+)@.*';
+    config.identity_mapping_output  = form.identity_mapping_output.trim() || '{0}';
+  }
 
   // Path restrictions — only include if at least one field is filled
   const rw = splitPaths(form.restrict_rw);
