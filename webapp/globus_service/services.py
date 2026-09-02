@@ -358,7 +358,7 @@ def _exec_in_container(node_name: str, container_id: str, cmd: str, timeout: flo
         "container": container_id,
         "Cmd": shlex.split(cmd),
         "attach": True,
-        "tty": False,
+        "tty": True,
         "start": False,
     }
     try:
@@ -758,7 +758,7 @@ def fetch_deployment_key(service: GlobusService, deployment_key_path: str = "/wo
     success, output = _exec_in_container(service.node_name, service.container_id, cmd)
 
     if success and output.strip():
-        key_str = output.strip()
+        key_str = output.strip().replace('\x00', '')
         # Store the deployment key in config_data for later use
         existing = service.get_config_data()
         existing["deployment_key"] = key_str
