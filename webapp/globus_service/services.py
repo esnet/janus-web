@@ -326,6 +326,47 @@ def _transition(service: GlobusService, new_status: str, error_msg: str = "") ->
 
 
 # ---------------------------------------------------------------------------
+# Janus Controller node host lookup
+# ---------------------------------------------------------------------------
+
+def get_node_host(node_name: str) -> str:
+    """
+    Return the hostname/IP to use for reaching services on node_name.
+
+    Queries the Janus Controller for the node record and parses the hostname
+    from the 'url' field (e.g. 'tcp://bnl-dtnaas:9001' → 'bnl-dtnaas').
+
+    Falls back to '127.0.0.1' when:
+      - The controller is unreachable
+      - The node is an edge-agent (no 'url' field)
+      - The 'url' field is empty or unparseable
+    This preserves correct behaviour for same-host deployments.
+    """
+    try:
+        res = httpx.get(
+            _ctrl_base + f"nodes/{node_name}",
+            auth=settings.JANUS_CONTROLLER_AUTH,
+            verify=settings.CTRL_SSL_VERIFY,
+            timeout=10.0,
+        )
+        if res.status_code == 200:
+            from urllib.parse import urlparse
+            url = res.json().get("url", "") or ""
+            if url:
+                parsed = urlparse(url)
+                if parsed.hostname:
+                    logger.debug(
+                        "get_node_host: node=%s url=%s → host=%s",
+                        node_name, url, parsed.hostname,
+                    )
+                    return parsed.hostname
+    except Exception as exc:
+        logger.warning("get_node_host: could not fetch node %s: %s", node_name, exc)
+    logger.debug("get_node_host: falling back to 127.0.0.1 for node=%s", node_name)
+    return "127.0.0.1"
+
+
+# ---------------------------------------------------------------------------
 # Janus Controller exec proxy
 # ---------------------------------------------------------------------------
 

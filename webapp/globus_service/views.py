@@ -381,12 +381,15 @@ def setup_node_api(request, service_id):
     success, result = services.launch_node_container(service, node_name, node_setup_args)
 
     if success:
-        # The node container uses host networking, so the GCS Manager is reachable
-        # at 127.0.0.1 from the Django server. Store this as gcs_local_address so
-        # service account REST API calls work in local/NAT environments where the
-        # public domain (uuid.data.globus.org) is not yet reachable.
-        # Use 127.0.0.1 explicitly (not "localhost") to avoid IPv6 (::1) resolution.
-        local_config = {"gcs_local_address": "127.0.0.1"}
+        # Resolve the node's actual host/IP so the GCS Manager is reachable
+        # when janus-web and the GCS node container run on different hosts.
+        # Falls back to 127.0.0.1 for same-host deployments (edge agents, etc.).
+        node_host = services.get_node_host(node_name)
+        logger.info(
+            "GlobusService id=%s: using node_host=%s for GCS Manager discovery",
+            service.pk, node_host,
+        )
+        local_config = {"gcs_local_address": node_host}
 
         # Discover the GCS Manager's actual hostname from its TLS cert CN.
         # The GCS Manager's Apache vhost is configured for this hostname
@@ -398,7 +401,7 @@ def setup_node_api(request, service_id):
         manager_hostname = None
         for attempt in range(12):  # 12 × 5s = 60s max
             time.sleep(5)
-            manager_hostname = gcs_mod.get_gcs_manager_hostname(local_ip="127.0.0.1", port=443)
+            manager_hostname = gcs_mod.get_gcs_manager_hostname(local_ip=node_host, port=443)
             if manager_hostname:
                 break
             logger.debug(
