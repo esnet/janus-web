@@ -331,10 +331,16 @@ def _transition(service: GlobusService, new_status: str, error_msg: str = "") ->
 
 def get_node_host(node_name: str) -> str:
     """
-    Return the hostname/IP to use for reaching services on node_name.
+    Return the IP address to use for reaching services on node_name.
 
     Queries the Janus Controller for the node record and parses the hostname
-    from the 'url' field (e.g. 'tcp://bnl-dtnaas:9001' → 'bnl-dtnaas').
+    from the 'url' field (e.g. 'tcp://bnl-dtnaas:9001' → 'bnl-dtnaas'), then
+    resolves that hostname to an IP via socket.gethostbyname().
+
+    Returning an IP (rather than a hostname) is required because the janus-web
+    Docker container may not have DNS resolution for node hostnames, which would
+    cause 'Network is unreachable' (Errno 101) when HostOverrideAdapter tries to
+    TCP-connect to the hostname.
 
     Falls back to '127.0.0.1' when:
       - The controller is unreachable
@@ -342,6 +348,7 @@ def get_node_host(node_name: str) -> str:
       - The 'url' field is empty or unparseable
     This preserves correct behaviour for same-host deployments.
     """
+    import socket
     try:
         res = httpx.get(
             _ctrl_base + f"nodes/{node_name}",
@@ -355,11 +362,25 @@ def get_node_host(node_name: str) -> str:
             if url:
                 parsed = urlparse(url)
                 if parsed.hostname:
-                    logger.debug(
-                        "get_node_host: node=%s url=%s → host=%s",
-                        node_name, url, parsed.hostname,
-                    )
-                    return parsed.hostname
+                    hostname = parsed.hostname
+                    # Resolve to IP so the janus-web container can TCP-connect
+                    # even if the node hostname is not in the container's DNS.
+                    try:
+                        ip = socket.gethostbyname(hostname)
+                        logger.debug(
+                            "get_node_host: node=%s url=%s → host=%s → ip=%s",
+                            node_name, url, hostname, ip,
+                        )
+                        return ip
+                    except OSError:
+                        # DNS resolution failed from this host — return the
+                        # hostname as-is; it may still be routable via /etc/hosts
+                        # or container DNS on the target environment.
+                        logger.debug(
+                            "get_node_host: node=%s could not resolve %s, returning hostname",
+                            node_name, hostname,
+                        )
+                        return hostname
     except Exception as exc:
         logger.warning("get_node_host: could not fetch node %s: %s", node_name, exc)
     logger.debug("get_node_host: falling back to 127.0.0.1 for node=%s", node_name)
