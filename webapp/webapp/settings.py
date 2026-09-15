@@ -22,15 +22,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-# For development puroposes only, will replace with environment variable
-key = "REMOVED_SECRET_KEY"
-SECRET_KEY = os.getenv("JANUS_WEB_SECRET_KEY", key)
+# Must be set via the JANUS_WEB_SECRET_KEY environment variable — no default.
+SECRET_KEY = os.environ["JANUS_WEB_SECRET_KEY"]
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", False)
 VITE_DEV_MODE = (
     False if os.getenv("VITE_DEV_MODE", "True").lower() == "false" else True
 )  # Set to False (or env VITE_DEV_MODE=False) to use built production assets (npm run build)
+# VITE_DEV_MODE=False
 
 ALLOWED_HOSTS = ["*"]
 
@@ -239,26 +239,19 @@ CTRL_SSL_VERIFY = (
 JANUS_CONTROLLER_URL = "{}://{}:{}/".format(CTRL_HTTP_PROTOCOL, CTRL_HOST, CTRL_PORT)
 JANUS_CONTROLLER_WS_URL = "{}://{}:{}".format(CTRL_WS_PROTOCOL, CTRL_HOST, CTRL_PORT)
 
-JANUS_USER = os.getenv("JANUS_USER", "admin")
-JANUS_PASSWORD = os.getenv("JANUS_PASSWORD", "admin")
+JANUS_USER = os.environ["JANUS_USER"]
+JANUS_PASSWORD = os.environ["JANUS_PASSWORD"]
 JANUS_CONTROLLER_AUTH = (JANUS_USER, JANUS_PASSWORD)
 
 # Globus Native App (Thick Client) — registered at https://developers.globus.org
 # App type: Thick Client (public client, no secret, supports PKCE + OOB flow)
 # Redirect: https://auth.globus.org/v2/web/auth-code
-GLOBUS_CLIENT_ID = os.getenv("GLOBUS_CLIENT_ID", "REMOVED_CLIENT_ID")
+GLOBUS_CLIENT_ID = os.getenv("GLOBUS_CLIENT_ID", "")
 
 # Globus Confidential App (Service Account) — for programmatic GCS management
 # Used by the service account flow (ClientCredentialsAuthorizer) to create
 # storage gateways and collections without user interaction.
-GLOBUS_SERVICE_CLIENT_ID = os.getenv(
-    "GLOBUS_SERVICE_CLIENT_ID", "REMOVED_CLIENT_ID"
-)
-GLOBUS_SERVICE_CLIENT_SECRET = os.getenv(
-    "GLOBUS_SERVICE_CLIENT_SECRET", ""
-)
+GLOBUS_SERVICE_CLIENT_ID = os.getenv("GLOBUS_SERVICE_CLIENT_ID", "")
+GLOBUS_SERVICE_CLIENT_SECRET = os.getenv("GLOBUS_SERVICE_CLIENT_SECRET", "")
 # The Globus identity principal for the service account (used as --owner in endpoint setup)
-GLOBUS_SERVICE_IDENTITY = os.getenv(
-    "GLOBUS_SERVICE_IDENTITY",
-    "REMOVED_CLIENT_ID@clients.auth.globus.org",
-)
+GLOBUS_SERVICE_IDENTITY = os.getenv("GLOBUS_SERVICE_IDENTITY", "")
