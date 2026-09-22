@@ -22,12 +22,15 @@ export const useGlobusServiceStore = defineStore('globusService', {
     hasActiveService: (state) => state.currentService !== null,
     currentServiceId: (state) => state.currentService?.id ?? null,
     canProceedToStep: (state) => (step) => {
+      // Step 4 (GCS Login) is a frontend-only gate — no dedicated DB status.
+      // It is reachable once node_configured is set (same as step 3 completion).
       switch (step) {
         case 1: return !!state.currentService;
         case 2: return state.isAuthenticated;
         case 3: return state.currentService?.status === 'endpoint_configured';
         case 4: return state.currentService?.status === 'node_configured';
-        case 5: return state.currentService?.status === 'gateway_configured';
+        case 5: return state.currentService?.status === 'node_configured';  // GCS Login is frontend-only
+        case 6: return state.currentService?.status === 'gateway_configured';
         default: return true;
       }
     },
@@ -194,6 +197,7 @@ export const useGlobusServiceStore = defineStore('globusService', {
         this.appendOutput('stdout', res.data.output || '');
         this.currentService = res.data.service;
         if (res.data.success) {
+          // Advance to step 4 (GCS Login) — the frontend-only gate before Gateway
           this.currentStep = 4;
         }
         return { success: res.data.success, output: res.data.output };
@@ -209,17 +213,23 @@ export const useGlobusServiceStore = defineStore('globusService', {
     async createGateway(config) {
       if (!this.currentService) return { success: false, error: 'No active service' };
       this.loading = true;
-      this.clearOutput();
+      this.error = null;
       try {
         const res = await api.createGlobusGateway(this.currentService.id, config);
-        this.appendOutput('stdout', res.data.output || '');
         this.currentService = res.data.service;
         if (res.data.success) {
-          this.currentStep = 5;
+          // Step 6 = Collections (Gateway is step 5, GCS Login is step 4)
+          this.currentStep = 6;
+          this.appendOutput('info', `Gateway created: ${res.data.gateway_id}`);
+        } else {
+          const msg = res.data.error || 'Storage gateway creation failed';
+          this.error = msg;
+          this.appendOutput('error', msg);
         }
-        return { success: res.data.success, output: res.data.output };
+        return { success: res.data.success, gateway_id: res.data.gateway_id };
       } catch (err) {
         const msg = err.response?.data?.error || 'Storage gateway creation failed';
+        this.error = msg;
         this.appendOutput('error', msg);
         return { success: false, error: msg };
       } finally {
@@ -230,14 +240,21 @@ export const useGlobusServiceStore = defineStore('globusService', {
     async createCollection(config) {
       if (!this.currentService) return { success: false, error: 'No active service' };
       this.loading = true;
-      this.clearOutput();
+      this.error = null;
       try {
         const res = await api.createGlobusCollection(this.currentService.id, config);
-        this.appendOutput('stdout', res.data.output || '');
         this.currentService = res.data.service;
-        return { success: res.data.success, output: res.data.output };
+        if (res.data.success) {
+          this.appendOutput('info', `Collection created: ${res.data.collection_id}`);
+        } else {
+          const msg = res.data.error || 'Collection creation failed';
+          this.error = msg;
+          this.appendOutput('error', msg);
+        }
+        return { success: res.data.success, collection_id: res.data.collection_id };
       } catch (err) {
         const msg = err.response?.data?.error || 'Collection creation failed';
+        this.error = msg;
         this.appendOutput('error', msg);
         return { success: false, error: msg };
       } finally {
@@ -348,14 +365,17 @@ export const useGlobusServiceStore = defineStore('globusService', {
     // Internal helpers
     // -----------------------------------------------------------------------
     _stepFromStatus(status) {
+      // Step 4 is GCS Login (frontend-only gate, no dedicated DB status).
+      // node_configured → step 4 so the user is prompted to run gcs login
+      // before proceeding to Gateway (step 5).
       const map = {
         pending: 1,
         auth_complete: 2,
         endpoint_configured: 3,
-        node_configured: 4,
+        node_configured: 4,   // land on GCS Login step
         gateway_configured: 5,
-        collections_configured: 5,
-        complete: 5,
+        collections_configured: 6,
+        complete: 6,
         error: 2,
       };
       return map[status] ?? 1;
