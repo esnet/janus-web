@@ -52,12 +52,14 @@ def vite_asset(path):
 
     file_path = asset_data.get('file')
     css_files = asset_data.get('css', [])
-    
+
+    static_url = '/' + settings.STATIC_URL.lstrip('/')
+
     html = ""
     if file_path:
-        html += f'<script type="module" src="{settings.STATIC_URL}dist/{file_path}"></script>'
+        html += f'<script type="module" src="{static_url}dist/{file_path}"></script>'
     
     for css_file in css_files:
-        html += f'<link rel="stylesheet" href="{settings.STATIC_URL}dist/{css_file}">'
+        html += f'<link rel="stylesheet" href="{static_url}dist/{css_file}">'
         
     return mark_safe(html)

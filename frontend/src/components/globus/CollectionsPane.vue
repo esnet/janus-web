@@ -5,8 +5,7 @@
         <i class="fas fa-folder-open mr-2 text-warning"></i>Collections
       </h5>
       <p class="text-muted small mb-4">
-        Create a mapped or guest collection on your storage gateway.
-        Runs <code>globus-connect-server collection create</code> inside the container.
+        Create a mapped or guest collection on your storage gateway via the Globus REST API.
         You can create multiple collections (e.g. one read-only, one read-write).
       </p>
 
@@ -23,8 +22,8 @@
           <i class="fas fa-folder text-warning mr-2"></i>
           <div>
             <strong class="small">{{ col.display_name }}</strong>
-            <span class="badge ml-2" :class="col.read_write ? 'badge-warning' : 'badge-secondary'">
-              {{ col.read_write ? 'read-write' : 'read-only' }}
+            <span class="badge ml-2" :class="col.collection_type === 'guest' ? 'badge-info' : 'badge-secondary'">
+              {{ col.collection_type || 'mapped' }}
             </span>
             <div class="text-muted" style="font-size: 0.75rem;">
               <span v-if="col.id">ID: <code>{{ col.id }}</code> &mdash; </span>
@@ -35,7 +34,25 @@
       </div>
 
       <form @submit.prevent="submit">
+        <!-- Collection type selector -->
         <div class="form-row">
+          <div class="form-group col-md-4">
+            <label class="font-weight-bold small text-uppercase text-muted">
+              Collection Type
+            </label>
+            <select v-model="form.collection_type" class="form-control" :disabled="store.loading">
+              <option value="mapped">Mapped</option>
+              <option value="guest">Guest</option>
+            </select>
+            <small class="form-text text-muted">
+              <span v-if="form.collection_type === 'mapped'">
+                Mapped: directly backed by a storage gateway.
+              </span>
+              <span v-else>
+                Guest: shared sub-path of a mapped collection.
+              </span>
+            </small>
+          </div>
           <div class="form-group col-md-8">
             <label class="font-weight-bold small text-uppercase text-muted">
               Collection Display Name <span class="text-danger">*</span>
@@ -50,18 +67,10 @@
             />
             <div v-if="errors.display_name" class="invalid-feedback">{{ errors.display_name }}</div>
           </div>
-          <div class="form-group col-md-4">
-            <label class="font-weight-bold small text-uppercase text-muted">
-              Collection Type
-            </label>
-            <select v-model="form.collection_type" class="form-control" :disabled="store.loading">
-              <option value="mapped">Mapped</option>
-              <option value="guest">Guest</option>
-            </select>
-          </div>
         </div>
 
-        <div class="form-row">
+        <!-- Mapped collection fields -->
+        <div v-if="form.collection_type === 'mapped'" class="form-row">
           <div class="form-group col-md-8">
             <label class="font-weight-bold small text-uppercase text-muted">
               Storage Gateway ID <span class="text-danger">*</span>
@@ -92,6 +101,75 @@
               :disabled="store.loading"
             />
             <div v-if="errors.base_path" class="invalid-feedback">{{ errors.base_path }}</div>
+          </div>
+        </div>
+
+        <!-- Guest collection fields -->
+        <div v-if="form.collection_type === 'guest'" class="form-row">
+          <div class="form-group col-md-8">
+            <label class="font-weight-bold small text-uppercase text-muted">
+              Mapped Collection ID <span class="text-danger">*</span>
+            </label>
+            <input
+              v-model="form.mapped_collection_id"
+              type="text"
+              class="form-control"
+              :class="{ 'is-invalid': errors.mapped_collection_id }"
+              placeholder="UUID of the parent mapped collection"
+              :disabled="store.loading"
+            />
+            <div v-if="errors.mapped_collection_id" class="invalid-feedback">{{ errors.mapped_collection_id }}</div>
+            <small class="form-text text-muted">
+              The mapped collection this guest collection will share a sub-path of.
+            </small>
+          </div>
+          <div class="form-group col-md-4">
+            <label class="font-weight-bold small text-uppercase text-muted">
+              Base Path <span class="text-danger">*</span>
+            </label>
+            <input
+              v-model="form.base_path"
+              type="text"
+              class="form-control"
+              :class="{ 'is-invalid': errors.base_path }"
+              placeholder="e.g. /data/ESnet/"
+              :disabled="store.loading"
+            />
+            <div v-if="errors.base_path" class="invalid-feedback">{{ errors.base_path }}</div>
+          </div>
+        </div>
+
+        <!-- Guest: local username for UserCredential -->
+        <div v-if="form.collection_type === 'guest'" class="form-row">
+          <div class="form-group col-md-4">
+            <label class="font-weight-bold small text-uppercase text-muted">
+              Local Username
+            </label>
+            <input
+              v-model="form.local_username"
+              type="text"
+              class="form-control"
+              placeholder="e.g. globus"
+              :disabled="store.loading"
+            />
+            <small class="form-text text-muted">
+              Local POSIX user mapped to the service account identity.
+            </small>
+          </div>
+          <div class="form-group col-md-8">
+            <label class="font-weight-bold small text-uppercase text-muted">
+              Storage Gateway ID (for UserCredential)
+            </label>
+            <input
+              v-model="form.storage_gateway_id"
+              type="text"
+              class="form-control"
+              placeholder="UUID of the storage gateway"
+              :disabled="store.loading"
+            />
+            <small v-if="autoGatewayId" class="form-text text-success">
+              <i class="fas fa-check-circle mr-1"></i>Auto-filled from previous step.
+            </small>
           </div>
         </div>
 
@@ -128,43 +206,103 @@
           </div>
         </div>
 
-        <!-- Sharing restrictions -->
-        <div class="form-group">
-          <label class="font-weight-bold small text-uppercase text-muted">
-            Sharing Restrictions File (optional)
-          </label>
-          <div class="input-group">
-            <div class="input-group-prepend">
-              <span class="input-group-text small">file:</span>
-            </div>
-            <input
-              v-model="form.sharing_restrict_paths_file"
-              type="text"
-              class="form-control"
-              placeholder="e.g. /work/sharing-restrictions.json"
-              :disabled="store.loading"
-            />
-          </div>
-          <small class="form-text text-muted">
-            Read-only example: <code>{"DATA_TYPE":"path_restrictions#1.0.0","read":["/"]}</code><br/>
-            Read-write example: <code>{"DATA_TYPE":"path_restrictions#1.0.0","read_write":["/data/ESnet/write-testing/"]}</code>
-          </small>
-        </div>
-
-        <!-- Anonymous writes -->
+        <!-- Public visibility toggle -->
         <div class="form-group">
           <div class="custom-control custom-switch">
             <input
-              id="anon-writes"
-              v-model="form.enable_anonymous_writes"
               type="checkbox"
               class="custom-control-input"
+              id="collectionPublic"
+              v-model="form.public"
               :disabled="store.loading"
             />
-            <label class="custom-control-label" for="anon-writes">
-              Enable anonymous writes
-              <small class="text-muted ml-1">(adds <code>--enable-anonymous-writes</code>)</small>
+            <label class="custom-control-label font-weight-bold small text-uppercase text-muted" for="collectionPublic">
+              Public collection
             </label>
+          </div>
+          <small class="form-text text-muted">
+            When enabled, the collection is visible to other Globus users. Required by GCS.
+          </small>
+        </div>
+
+        <!-- Gap 4: Allow guest collections + disable anonymous writes (mapped only) -->
+        <div v-if="form.collection_type === 'mapped'" class="form-group">
+          <div class="custom-control custom-switch mb-2">
+            <input
+              type="checkbox"
+              class="custom-control-input"
+              id="allowGuestCollections"
+              v-model="form.allow_guest_collections"
+              :disabled="store.loading"
+            />
+            <label class="custom-control-label font-weight-bold small text-uppercase text-muted" for="allowGuestCollections">
+              Allow Guest Collections
+            </label>
+          </div>
+          <small class="form-text text-muted mb-2 d-block">
+            Permit guest collections to be created from this mapped collection.
+          </small>
+          <div class="custom-control custom-switch">
+            <input
+              type="checkbox"
+              class="custom-control-input"
+              id="disableAnonWrites"
+              v-model="form.disable_anonymous_writes"
+              :disabled="store.loading"
+            />
+            <label class="custom-control-label font-weight-bold small text-uppercase text-muted" for="disableAnonWrites">
+              Disable Anonymous Writes
+            </label>
+          </div>
+          <small class="form-text text-muted">
+            When checked, anonymous (unauthenticated) write access is blocked.
+            Uncheck to allow anonymous writes (<code>disable_anonymous_writes: false</code>).
+          </small>
+        </div>
+
+        <!-- Gap 3: Sharing Path Restrictions (mapped only) -->
+        <div v-if="form.collection_type === 'mapped'" class="card border-light bg-light p-3 mb-3">
+          <div class="font-weight-bold small text-uppercase text-muted mb-2">
+            <i class="fas fa-folder-open mr-1"></i> Sharing Path Restrictions (optional)
+          </div>
+          <p class="text-muted small mb-2">
+            Restrict which paths guest collections may share from this mapped collection.
+            Leave all fields blank to allow sharing of all paths.
+          </p>
+          <div class="form-row">
+            <div class="form-group col-md-4">
+              <label class="small font-weight-bold">Read-Write Paths</label>
+              <input
+                v-model="form.sharing_rw"
+                type="text"
+                class="form-control form-control-sm"
+                placeholder="e.g. /work/data, /scratch"
+                :disabled="store.loading"
+              />
+              <small class="form-text text-muted">Comma-separated paths with full access.</small>
+            </div>
+            <div class="form-group col-md-4">
+              <label class="small font-weight-bold">Read-Only Paths</label>
+              <input
+                v-model="form.sharing_ro"
+                type="text"
+                class="form-control form-control-sm"
+                placeholder="e.g. /data/shared"
+                :disabled="store.loading"
+              />
+              <small class="form-text text-muted">Comma-separated paths with read-only access.</small>
+            </div>
+            <div class="form-group col-md-4">
+              <label class="small font-weight-bold">Denied Paths</label>
+              <input
+                v-model="form.sharing_none"
+                type="text"
+                class="form-control form-control-sm"
+                placeholder="e.g. / (deny root)"
+                :disabled="store.loading"
+              />
+              <small class="form-text text-muted">Comma-separated paths to block entirely.</small>
+            </div>
           </div>
         </div>
 
@@ -206,15 +344,6 @@
       </form>
     </div>
 
-    <!-- Command output -->
-    <CommandOutputPanel
-      v-if="store.commandOutput.length > 0 || store.loading"
-      :lines="store.commandOutput"
-      :loading="store.loading"
-      height="220px"
-      @clear="store.clearOutput()"
-    />
-
     <!-- Latest collection success -->
     <div v-if="lastCreatedCollection" class="alert alert-success mt-3 d-flex align-items-center">
       <i class="fas fa-check-circle fa-lg mr-3"></i>
@@ -234,7 +363,6 @@
 <script setup>
 import { reactive, ref, computed, onMounted } from 'vue';
 import { useGlobusServiceStore } from '../../stores/globusServiceStore';
-import CommandOutputPanel from './CommandOutputPanel.vue';
 
 const emit = defineEmits(['back', 'finish']);
 const store = useGlobusServiceStore();
@@ -248,19 +376,28 @@ const autoGatewayId = computed(
 
 const form = reactive({
   display_name: '',
-  storage_gateway_id: '',
-  base_path: '/data/ESnet/',
   collection_type: 'mapped',
+  storage_gateway_id: '',
+  mapped_collection_id: '',
+  base_path: '/data/ESnet/',
+  local_username: 'globus',
   description: '',
   organization: '',
   keywords: '',
-  enable_anonymous_writes: false,
-  sharing_restrict_paths_file: '',
+  public: true,
+  // Gap 4
+  allow_guest_collections: false,
+  disable_anonymous_writes: true,
+  // Gap 3
+  sharing_rw: '',
+  sharing_ro: '',
+  sharing_none: '',
 });
 
 const errors = reactive({
   display_name: '',
   storage_gateway_id: '',
+  mapped_collection_id: '',
   base_path: '',
 });
 
@@ -274,14 +411,11 @@ function validate() {
   let valid = true;
   errors.display_name = '';
   errors.storage_gateway_id = '';
+  errors.mapped_collection_id = '';
   errors.base_path = '';
 
   if (!form.display_name.trim()) {
     errors.display_name = 'Collection display name is required.';
-    valid = false;
-  }
-  if (!form.storage_gateway_id.trim()) {
-    errors.storage_gateway_id = 'Storage gateway ID is required.';
     valid = false;
   }
   if (!form.base_path.trim()) {
@@ -289,6 +423,14 @@ function validate() {
     valid = false;
   } else if (!form.base_path.startsWith('/')) {
     errors.base_path = 'Base path must start with /';
+    valid = false;
+  }
+  if (form.collection_type === 'mapped' && !form.storage_gateway_id.trim()) {
+    errors.storage_gateway_id = 'Storage gateway ID is required for mapped collections.';
+    valid = false;
+  }
+  if (form.collection_type === 'guest' && !form.mapped_collection_id.trim()) {
+    errors.mapped_collection_id = 'Mapped collection ID is required for guest collections.';
     valid = false;
   }
   return valid;
@@ -301,24 +443,32 @@ async function submit() {
 
   const config = {
     display_name: form.display_name.trim(),
-    storage_gateway_id: form.storage_gateway_id.trim(),
     base_path: form.base_path.trim(),
     collection_type: form.collection_type,
+    storage_gateway_id: form.storage_gateway_id.trim(),
+    mapped_collection_id: form.mapped_collection_id.trim(),
+    local_username: form.local_username.trim() || 'globus',
     description: form.description.trim(),
     organization: form.organization.trim(),
     keywords: form.keywords.trim(),
-    enable_anonymous_writes: form.enable_anonymous_writes,
-    sharing_restrict_paths_file: form.sharing_restrict_paths_file.trim(),
+    public: form.public,
+    // Gap 4
+    allow_guest_collections: form.allow_guest_collections,
+    disable_anonymous_writes: form.disable_anonymous_writes,
+    // Gap 3
+    sharing_rw:   form.sharing_rw.trim(),
+    sharing_ro:   form.sharing_ro.trim(),
+    sharing_none: form.sharing_none.trim(),
   };
 
   const result = await store.createCollection(config);
   if (result.success) {
-    const collectionId = store.currentService?.config_data?.collection?.id || '';
+    const collectionId = result.collection_id || store.currentService?.config_data?.collection?.id || '';
     const created = {
       id: collectionId,
       display_name: form.display_name,
       base_path: form.base_path,
-      read_write: form.enable_anonymous_writes,
+      collection_type: form.collection_type,
     };
     createdCollections.value.push(created);
     lastCreatedCollection.value = created;
@@ -327,8 +477,15 @@ async function submit() {
     form.base_path = '/';
     form.description = '';
     form.keywords = '';
-    form.enable_anonymous_writes = false;
-    form.sharing_restrict_paths_file = '';
+    form.organization = '';
+    form.mapped_collection_id = '';
+    // Gap 3 reset
+    form.sharing_rw = '';
+    form.sharing_ro = '';
+    form.sharing_none = '';
+    // Gap 4 reset to defaults
+    form.allow_guest_collections = false;
+    form.disable_anonymous_writes = true;
   }
 }
 </script>
