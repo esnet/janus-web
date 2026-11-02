@@ -181,13 +181,24 @@ def exchange_code_for_tokens(client_id: str, redirect_uri: str, code: str, pkce_
     return _parse_token_response(token_response)
 
 
-def refresh_tokens(client_id: str, refresh_token: str) -> dict:
+def refresh_tokens(client_id: str, refresh_token: str, timeout: float = 10.0) -> dict:
     """
     Use a refresh token to obtain a new access token.
 
+    Args:
+        client_id:     Globus application client ID.
+        refresh_token: The refresh token to exchange.
+        timeout:       HTTP timeout in seconds (default 10s). Shorter than the
+                       globus-sdk default (60s) to avoid blocking the ASGI worker
+                       for too long if Globus Auth is slow/unreachable.
+
     Returns the same dict shape as exchange_code_for_tokens.
     """
-    client = _get_native_client(client_id)
+    import globus_sdk
+    from globus_sdk.transport import RequestsTransport
+
+    transport = RequestsTransport(http_timeout=timeout)
+    client = globus_sdk.NativeAppAuthClient(client_id, transport=transport)
     token_response = client.oauth2_refresh_token(refresh_token)
     return _parse_token_response(token_response)
 

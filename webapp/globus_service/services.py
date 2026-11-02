@@ -121,6 +121,25 @@ def has_valid_tokens(user: User) -> bool:
     return get_valid_access_token(user) is not None
 
 
+def has_stored_tokens(user: User) -> bool:
+    """
+    Return True if the user has any stored Globus token record.
+
+    This is a fast DB-only check (no network calls) suitable for status endpoints.
+    The token may be expired, but the frontend can handle that by prompting
+    re-authentication when a subsequent API call returns 401.
+
+    Use has_valid_tokens() when you need to verify the token is actually usable
+    (which may trigger a refresh network call).
+    """
+    try:
+        record = GlobusToken.objects.get(user=user)
+        data = record.get_token_data()
+        return bool(data.get("access_token"))
+    except GlobusToken.DoesNotExist:
+        return False
+
+
 def delete_tokens(user: User) -> None:
     """Remove stored Globus tokens for a user."""
     GlobusToken.objects.filter(user=user).delete()
