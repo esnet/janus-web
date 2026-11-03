@@ -250,13 +250,17 @@ def auth_callback_api(request):
 def auth_status_api(request):
     """
     GET /janus/api/services/globus/auth/status/
-    Returns whether the user has valid Globus tokens.
+    Returns whether the user has stored Globus tokens.
+
+    This is a fast DB-only check (no network calls to Globus Auth).
+    The token may be expired, but the frontend handles that by prompting
+    re-authentication when a subsequent privileged API call fails.
     """
     err = _require_auth(request)
     if err:
         return err
 
-    has_tokens = services.has_valid_tokens(request.user)
+    has_tokens = services.has_stored_tokens(request.user)
     return JsonResponse({"authenticated": has_tokens})
 
 
