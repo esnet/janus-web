@@ -8,6 +8,7 @@ Responsibilities:
   - Build GCS CLI command strings for each wizard step
 """
 
+import base64
 import json
 import logging
 import secrets
@@ -410,6 +411,30 @@ def get_node_host(node_name: str) -> str:
 # Janus Controller exec proxy
 # ---------------------------------------------------------------------------
 
+def _get_controller_jwt() -> str:
+    """
+    Fetch a JWT token from the Janus Controller for WebSocket authentication.
+    
+    The controller's WebSocket endpoint requires a Flask-JWT-Extended token in
+    the message payload. This fetches a fresh token via the /token endpoint
+    (not /auth/jwt which returns a Portainer token).
+    
+    Returns the JWT string, or empty string on failure.
+    """
+    try:
+        res = httpx.post(
+            url=_ctrl_base + "token",
+            auth=settings.JANUS_CONTROLLER_AUTH,
+            verify=settings.CTRL_SSL_VERIFY,
+            timeout=10.0,
+        )
+        if res.status_code == 200:
+            return res.json().get("access_token", "")
+    except Exception as exc:
+        logger.warning("Failed to get controller JWT: %s", exc)
+    return ""
+
+
 def _exec_in_container(node_name: str, container_id: str, cmd: str, timeout: float = 120.0) -> Tuple[bool, str]:
     """
     Execute a command inside a running container via the Janus Controller exec API
@@ -467,7 +492,13 @@ def _exec_in_container(node_name: str, container_id: str, cmd: str, timeout: flo
         logger.error("exec_in_container: create exec failed: %s", exc)
         return False, str(exc)
 
-    # Step 2: Connect to the controller WebSocket and stream output
+    # Step 2: Get a JWT for WebSocket authentication
+    jwt_token = _get_controller_jwt()
+    if not jwt_token:
+        logger.error("exec_in_container: failed to get JWT for WebSocket auth")
+        return False, "Failed to authenticate with controller"
+
+    # Step 3: Connect to the controller WebSocket and stream output
     ws_url = f"{settings.JANUS_CONTROLLER_WS_URL}/ws"
     output_parts = []
     try:
@@ -476,13 +507,14 @@ def _exec_in_container(node_name: str, container_id: str, cmd: str, timeout: flo
             sslopt={"cert_reqs": ssl.CERT_NONE},
             timeout=timeout,
         )
-        # Send exec start message (type 0 = exec stream)
+        # Send exec start message (type 0 = exec stream) with JWT in payload
         start_msg = {
             "type": 0,
             "node": node_name,
             "node_id": node_id,
             "container": container_id,
             "exec_id": exec_id,
+            "jwt": jwt_token,
         }
         ctrl_ws.send(json.dumps(start_msg))
 

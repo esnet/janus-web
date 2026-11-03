@@ -450,13 +450,15 @@ class ServicesExecTest(TestCase):
         self.user = User.objects.create_user(username="execuser", password="pass")
         self.service = svc.create_service(self.user, 1, "localhost", "cid123")
 
+    @patch("globus_service.services._get_controller_jwt", return_value="mock-jwt-token")
     @patch("globus_service.services.ws_lib.create_connection")
     @patch("globus_service.services.httpx.post")
-    def test_exec_in_container_success(self, mock_post, mock_ws_create):
+    def test_exec_in_container_success(self, mock_post, mock_ws_create, mock_jwt):
         """
         _exec_in_container now:
           1. POSTs to /exec → gets {"Id": "exec-id"}
-          2. Opens WebSocket → streams output
+          2. Gets JWT for WebSocket auth
+          3. Opens WebSocket → streams output with JWT in payload
         """
         mock_resp = MagicMock()
         mock_resp.status_code = 200
@@ -483,9 +485,10 @@ class ServicesExecTest(TestCase):
         success, output = svc._exec_in_container("localhost", "cid123", "echo hello")
         self.assertFalse(success)
 
+    @patch("globus_service.services._get_controller_jwt", return_value="mock-jwt-token")
     @patch("globus_service.services.ws_lib.create_connection")
     @patch("globus_service.services.httpx.post")
-    def test_fetch_deployment_key(self, mock_post, mock_ws_create):
+    def test_fetch_deployment_key(self, mock_post, mock_ws_create, mock_jwt):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {"Id": "exec-id-456", "node_id": 11}
@@ -513,9 +516,10 @@ class ServicesExecTest(TestCase):
         self.assertIn("globus-connect-server login", cmd)
         self.assertIn("ep-uuid-123", cmd)
 
+    @patch("globus_service.services._get_controller_jwt", return_value="mock-jwt-token")
     @patch("globus_service.services.ws_lib.create_connection")
     @patch("globus_service.services.httpx.post")
-    def test_run_storage_gateway_create(self, mock_post, mock_ws_create):
+    def test_run_storage_gateway_create(self, mock_post, mock_ws_create, mock_jwt):
         """Legacy CLI-based gateway create still works (kept for backward compat)."""
         self.service.status = GlobusService.Status.NODE_CONFIGURED
         self.service.save()
@@ -542,9 +546,10 @@ class ServicesExecTest(TestCase):
         self.service.refresh_from_db()
         self.assertEqual(self.service.status, GlobusService.Status.GATEWAY_CONFIGURED)
 
+    @patch("globus_service.services._get_controller_jwt", return_value="mock-jwt-token")
     @patch("globus_service.services.ws_lib.create_connection")
     @patch("globus_service.services.httpx.post")
-    def test_run_collection_create(self, mock_post, mock_ws_create):
+    def test_run_collection_create(self, mock_post, mock_ws_create, mock_jwt):
         """Legacy CLI-based collection create still works (kept for backward compat)."""
         self.service.status = GlobusService.Status.GATEWAY_CONFIGURED
         self.service.save()
@@ -752,9 +757,10 @@ class GlobusServiceAPITest(TestCase):
         resp = self.client.get("/janus/services/api/globus/auth/url/")
         self.assertEqual(resp.status_code, 500)
 
+    @patch("globus_service.services._get_controller_jwt", return_value="mock-jwt-token")
     @patch("globus_service.services.ws_lib.create_connection")
     @patch("globus_service.services.httpx.post")
-    def test_exec_command(self, mock_post, mock_ws_create):
+    def test_exec_command(self, mock_post, mock_ws_create, mock_jwt):
         service = svc.create_service(self.user, 1, "n1", "c1")
         mock_resp = MagicMock()
         mock_resp.status_code = 200
