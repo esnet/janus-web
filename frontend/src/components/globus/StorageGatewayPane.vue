@@ -61,17 +61,21 @@
         <div class="form-row">
           <div class="form-group col-md-6">
             <label class="font-weight-bold small text-uppercase text-muted">
-              Allowed Domains
+              Allowed Domains <span class="text-danger">*</span>
             </label>
             <input
               v-model="form.allowed_domains"
               type="text"
               class="form-control"
+              :class="{ 'is-invalid': errors.allowed_domains }"
               placeholder="e.g. es.net, bnl.gov (comma-separated)"
               :disabled="store.loading"
             />
-            <small class="form-text text-muted">
-              Restrict to users from these Globus Auth domains. Leave blank to allow all.
+            <div v-if="errors.allowed_domains" class="invalid-feedback">
+              {{ errors.allowed_domains }}
+            </div>
+            <small v-else class="form-text text-muted">
+              Restrict to users from these Globus Auth domains (required).
             </small>
           </div>
           <div class="form-group col-md-6">
@@ -267,6 +271,7 @@ const form = reactive({
 const errors = reactive({
   display_name: '',
   connector: '',
+  allowed_domains: '',
 });
 
 const gatewayId = computed(
@@ -281,6 +286,7 @@ function validate() {
   let valid = true;
   errors.display_name = '';
   errors.connector = '';
+  errors.allowed_domains = '';
 
   if (!form.display_name.trim()) {
     errors.display_name = 'Display name is required.';
@@ -288,6 +294,10 @@ function validate() {
   }
   if (!form.connector) {
     errors.connector = 'Please select a connector type.';
+    valid = false;
+  }
+  if (!form.allowed_domains.trim()) {
+    errors.allowed_domains = 'Allowed domains is required.';
     valid = false;
   }
   return valid;
