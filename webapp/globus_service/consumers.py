@@ -22,6 +22,31 @@ from .models import GlobusService
 
 logger = logging.getLogger(__name__)
 
+
+def _get_controller_jwt() -> str:
+    """
+    Fetch a JWT token from the Janus Controller for WebSocket authentication.
+    
+    The controller's WebSocket endpoint requires a Flask-JWT-Extended token in
+    the message payload. This fetches a fresh token via the /token endpoint
+    (not /auth/jwt which returns a Portainer token).
+    
+    Returns the JWT string, or empty string on failure.
+    """
+    import httpx
+    try:
+        res = httpx.post(
+            url=settings.JANUS_CONTROLLER_URL + "api/janus/controller/token",
+            auth=settings.JANUS_CONTROLLER_AUTH,
+            verify=settings.CTRL_SSL_VERIFY,
+            timeout=10.0,
+        )
+        if res.status_code == 200:
+            return res.json().get("access_token", "")
+    except Exception as exc:
+        logger.warning("Failed to get controller JWT: %s", exc)
+    return ""
+
 _SENTINEL = object()  # signals the send thread to stop
 
 
@@ -180,6 +205,13 @@ class GCSInteractiveConsumer(JsonWebsocketConsumer):
           - spawn a send thread to forward stdin from _send_queue → ctrl_ws
           - relay stdout from ctrl_ws → browser
         """
+        # Get JWT for WebSocket authentication
+        jwt_token = _get_controller_jwt()
+        if not jwt_token:
+            logger.error("GCSInteractiveConsumer: failed to get JWT for WebSocket auth")
+            self.send_json({"type": "error", "data": "Failed to authenticate with controller"})
+            return
+
         ws_url = f"{settings.JANUS_CONTROLLER_WS_URL}/ws"
         try:
             ctrl_ws = websocket.create_connection(
@@ -188,13 +220,14 @@ class GCSInteractiveConsumer(JsonWebsocketConsumer):
             )
             self._ctrl_ws = ctrl_ws
 
-            # Send the exec start message
+            # Send the exec start message with JWT in payload
             start_msg = {
                 "type": 0,
                 "node": self.service.node_name,
                 "node_id": node_id,
                 "container": self.service.container_id,
                 "exec_id": exec_id,
+                "jwt": jwt_token,
             }
             ctrl_ws.send(json.dumps(start_msg))
 
